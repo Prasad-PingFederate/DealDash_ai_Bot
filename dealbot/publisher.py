@@ -72,7 +72,8 @@ render_message = format_caption
 def send_telegram_deal(deal: Deal, dry_run: bool = True) -> bool:
     caption = format_caption(deal)
     if dry_run:
-        logger.info(f"[DRY RUN] Would post deal '{deal.id}':\n{caption}\n" + "-" * 40)
+        img_info = f" [Image: {deal.image_url}]" if deal.image_url else ""
+        logger.info(f"[DRY RUN] Would post deal '{deal.id}'{img_info}:\n{caption}\n" + "-" * 40)
         return True
 
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
@@ -88,6 +89,7 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True) -> bool:
     }
 
     try:
+        # If image is present, try sendPhoto first
         if deal.image_url:
             endpoint = f"https://api.telegram.org/bot{token}/sendPhoto"
             payload = {
@@ -97,16 +99,22 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True) -> bool:
                 "parse_mode": "HTML",
                 "reply_markup": reply_markup,
             }
-        else:
-            endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
-            payload = {
-                "chat_id": chat_id,
-                "text": caption,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": False,
-                "reply_markup": reply_markup,
-            }
+            resp = requests.post(endpoint, json=payload, timeout=20)
+            if resp.status_code == 200:
+                logger.info(f"Successfully posted deal with photo: {deal.id}")
+                return True
+            else:
+                logger.warning(f"sendPhoto failed ({resp.status_code}: {resp.text}). Falling back to text message...")
 
+        # Fallback or text-only sendMessage
+        endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": caption,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": False,
+            "reply_markup": reply_markup,
+        }
         resp = requests.post(endpoint, json=payload, timeout=20)
         if resp.status_code == 200:
             logger.info(f"Successfully posted deal: {deal.id}")
