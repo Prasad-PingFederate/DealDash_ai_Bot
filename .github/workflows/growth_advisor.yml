@@ -6,11 +6,6 @@ on:
     - cron: '15 4 * * 0'
   workflow_dispatch:
     inputs:
-      notify_telegram:
-        description: 'Send growth briefing to Telegram'
-        required: false
-        default: 'true'
-        type: boolean
       sale_mode:
         description: 'Active Sale Mode (diwali, great_indian_festival, prime_day, flash, or none)'
         required: false
@@ -46,9 +41,6 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HERMES_API_KEY: ${{ secrets.HERMES_API_KEY || secrets.OPENROUTER_API_KEY }}
           HERMES_MODEL: ${{ secrets.HERMES_MODEL || 'nousresearch/hermes-3-llama-3.1-8b' }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           SALE_MODE: ${{ inputs.sale_mode || '' }}
         run: |
           python -m dealbot.growth_advisor

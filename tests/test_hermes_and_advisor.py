@@ -93,7 +93,7 @@ def test_growth_advisor_metrics_and_execution(tmp_path):
     assert "OOS Rate:" in prompt
 
     out_file = tmp_path / "GROWTH_DIGEST.md"
-    report = run_growth_advisor(db_path=str(db_file), output_path=str(out_file), notify_telegram=False)
+    report = run_growth_advisor(db_path=str(db_file), output_path=str(out_file))
     assert out_file.exists()
     assert "Autonomous DealDash AI Growth & Strategy Digest" in report
     assert "Executive Performance Audit" in report

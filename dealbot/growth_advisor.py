@@ -122,7 +122,7 @@ def build_advisor_prompt(metrics: Dict[str, Any], sale_mode: str) -> str:
         f"(Concrete tactical steps the admin should take this week)\n"
     )
 
-def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "reports/GROWTH_DIGEST.md", notify_telegram: bool = False) -> str:
+def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "reports/GROWTH_DIGEST.md") -> str:
     """Run the complete Growth Advisor audit and output a strategic briefing."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     logger.info("Initializing Autonomous AI Growth Advisor...")
@@ -168,32 +168,7 @@ def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "
     out_file.write_text(report, encoding="utf-8")
     logger.info(f"Saved growth report to {out_file.resolve()}")
 
-    if notify_telegram:
-        token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-        admin_chat_id = os.getenv("ADMIN_CHAT_ID", "").strip()
-        if token and admin_chat_id and token != "replace_me":
-            # Send condensed summary privately to admin
-            condensed = (
-                f"🧠 <b>DealDash AI Growth Briefing</b>\n"
-                f"<i>Powered by {provider_name}</i>\n\n"
-                f"📊 <b>Stats:</b> {metrics['total_deals']} deals logged ({metrics['deals_last_24h']} in 24h)\n"
-                f"⚡ <b>Avg Discount:</b> {round(sum(metrics['discounts'])/len(metrics['discounts']), 1) if metrics['discounts'] else 0}% OFF\n"
-                f"🪔 <b>Mode:</b> {sale_mode or 'Standard'}\n\n"
-                f"📄 <i>Full strategic audit committed to reports/GROWTH_DIGEST.md</i>"
-            )
-            try:
-                requests.post(
-                    f"https://api.telegram.org/bot{token}/sendMessage",
-                    json={"chat_id": admin_chat_id, "text": condensed, "parse_mode": "HTML"},
-                    timeout=10
-                )
-                logger.info(f"Delivered briefing notification to admin chat {admin_chat_id}")
-            except Exception as e:
-                logger.warning(f"Failed to deliver Telegram notification: {e}")
-        else:
-            logger.info("ADMIN_CHAT_ID not configured; skipping Telegram notification to protect public deal channel.")
-
     return report
 
 if __name__ == "__main__":
-    run_growth_advisor(notify_telegram=True)
+    run_growth_advisor()
