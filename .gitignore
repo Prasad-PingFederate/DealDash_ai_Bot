@@ -2,5 +2,4 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-data/state.sqlite3
 .venv/
