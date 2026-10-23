@@ -9,8 +9,10 @@ from dealbot.models import Deal
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_HERMES_MODEL = "nousresearch/hermes-3-llama-3.1-8b"
+DEFAULT_HERMES_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 def sanitize_telegram_html(text: str) -> str:
     """
@@ -27,7 +29,7 @@ def sanitize_telegram_html(text: str) -> str:
     text = re.sub(r"^[*-]\s+", "• ", text, flags=re.MULTILINE)
 
     # Protect valid HTML tags by tokenizing
-    tag_pattern = re.compile(r"(</?(?:b|i|s|u|code|pre|a)(?:\s+href=[\"'][^\"']*[\"'])?>)", re.IGNORECASE)
+    tag_pattern = re.compile(r"""(</?(?:b|i|s|u|code|pre|a)(?:\s+href=['"][^'"]*['"])?>)""", re.IGNORECASE)
     tokens = tag_pattern.split(text)
 
     sanitized_parts = []
@@ -48,7 +50,7 @@ def sanitize_telegram_html(text: str) -> str:
             else:
                 open_tags.append(tag_name)
                 if tag_name == "a":
-                    href_match = re.search(r'href=[\"\']([^\"\']*)[\"\']', tag_str, re.IGNORECASE)
+                    href_match = re.search(r"""href=['"]([^'"]*)['"]""", tag_str, re.IGNORECASE)
                     href = href_match.group(1) if href_match else "#"
                     sanitized_parts.append(f'<a href="{html.escape(href, quote=True)}">')
                 else:
@@ -65,45 +67,92 @@ def sanitize_telegram_html(text: str) -> str:
     return "".join(sanitized_parts)
 
 class AICopywriter:
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    """
+    Dual-Provider AI Engine supporting:
+    1. Google Gemini Flash (default, free API)
+    2. Nous Hermes (via OpenRouter or Hugging Face Inference API)
+    3. Seasonal Festival / Sale Mode Boosters (Diwali, Great Indian Festival, Prime Day)
+    """
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        hermes_endpoint: Optional[str] = None,
+    ):
+        self.provider = (provider or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
         self.api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
-        self.model = (model or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)).strip()
-        self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "8"))
+        self.model = (model or os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)).strip()
+
+        # Nous Hermes configuration
+        self.hermes_api_key = (
+            os.getenv("HERMES_API_KEY")
+            or os.getenv("OPENROUTER_API_KEY")
+            or os.getenv("HF_TOKEN", "")
+        ).strip()
+        self.hermes_model = (os.getenv("HERMES_MODEL", DEFAULT_HERMES_MODEL)).strip()
+        self.hermes_endpoint = (
+            hermes_endpoint or os.getenv("HERMES_ENDPOINT", DEFAULT_HERMES_ENDPOINT)
+        ).strip()
+
+        self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "12"))
+        self.sale_mode = os.getenv("SALE_MODE", "").strip().lower()
 
     def is_configured(self) -> bool:
+        if self.provider in ["hermes", "nous-hermes", "openrouter", "hf"]:
+            return bool(self.hermes_api_key and self.hermes_api_key != "replace_me")
         return bool(self.api_key and self.api_key != "replace_me")
 
-    def craft_deal_copy(self, deal: Deal) -> Optional[str]:
+    def _get_sale_mode_directive(self) -> str:
+        if not self.sale_mode:
+            return ""
+
+        if self.sale_mode == "diwali":
+            return (
+                "\nSPECIAL EVENT - DIWALI MEGA SALE:\n"
+                "• Headline must start with '🪔 DIWALI MEGA LOOT:'\n"
+                "• Use festive, high-urgency tone (Diwali gift / festival lights / festive special).\n"
+            )
+        elif self.sale_mode in ["festival", "great_indian_festival", "gif"]:
+            return (
+                "\nSPECIAL EVENT - GREAT INDIAN FESTIVAL:\n"
+                "• Headline must start with '🛍️ GREAT INDIAN FESTIVAL DEAL:'\n"
+                "• Highlight massive festival price drop and limited festive stock.\n"
+            )
+        elif self.sale_mode == "prime_day":
+            return (
+                "\nSPECIAL EVENT - PRIME DAY:\n"
+                "• Headline must start with '👑 PRIME DAY EXCLUSIVE:'\n"
+                "• Emphasize limited-time lightning discount.\n"
+            )
+        elif self.sale_mode == "flash":
+            return (
+                "\nSPECIAL EVENT - LIGHTNING FLASH SALE:\n"
+                "• Headline must start with '⚡ FLASH LOOT DEAL:'\n"
+                "• Emphasize lightning urgency (price may jump in minutes).\n"
+            )
+        return ""
+
+    def generate_text(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
         """
-        Generate high-converting, punchy Telegram deal copy using Gemini Flash.
-        Returns None on any error or if unconfigured, triggering automatic template fallback.
+        Generic text generation supporting Gemini or Nous Hermes.
+        Used for deal copywriting as well as Growth Advisor strategic analysis.
         """
         if not self.is_configured():
             return None
 
-        prompt = (
-            f"You are an expert e-commerce copywriter for an Indian Telegram deal channel.\n"
-            f"Transform this product deal into a viral Telegram post:\n\n"
-            f"Title: {deal.title}\n"
-            f"Retailer: {deal.retailer}\n"
-            f"Deal Price: {deal.current_price or 'Best Deal'}\n"
-            f"MRP: {deal.original_price or 'N/A'}\n"
-            f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n\n"
-            f"Rules:\n"
-            f"1. First line: High-energy headline with emoji (e.g. 🔥 STEAL DEAL: Short Product Name!)\n"
-            f"2. Exactly 2-3 bullet points with emojis highlighting key features and specs.\n"
-            f"3. Price line: 💰 Deal Price: {deal.current_price or 'Best Price'} | ❌ MRP: <s>{deal.original_price or ''}</s> | ⚡ Discount: {deal.discount_percent or ''}% OFF\n"
-            f"4. Output ONLY valid Telegram HTML tags: <b>, <i>, <s>. NEVER use markdown (* or ** or #).\n"
-            f"5. Do NOT include any URLs, buy links, or disclosures (appended automatically).\n"
-            f"6. Keep it concise (under 80 words total).\n"
-        )
+        if self.provider in ["hermes", "nous-hermes", "openrouter", "hf"]:
+            return self._call_hermes(prompt, system_prompt)
+        return self._call_gemini(prompt, system_prompt)
 
-        url = f"{API_BASE}/{self.model}:generateContent?key={self.api_key}"
+    def _call_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+        full_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+        url = f"{GEMINI_API_BASE}/{self.model}:generateContent?key={self.api_key}"
         payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
+            "contents": [{"parts": [{"text": full_text}]}],
             "generationConfig": {
                 "temperature": 0.3,
-                "maxOutputTokens": 600,
+                "maxOutputTokens": 1000,
                 "thinkingConfig": {"thinkingBudget": 0}
             }
         }
@@ -124,19 +173,99 @@ class AICopywriter:
             if not candidates:
                 return None
 
-            raw_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-            if not raw_text:
-                return None
-
-            cleaned = sanitize_telegram_html(raw_text)
-            return cleaned
+            return candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
 
         except requests.Timeout:
-            logger.warning("Gemini API call timed out. Falling back to template caption.")
+            logger.warning("Gemini API call timed out.")
             return None
         except requests.RequestException as e:
-            logger.warning(f"Gemini API request failed: {e}. Falling back to template caption.")
+            logger.warning(f"Gemini API request failed: {e}.")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error in AICopywriter: {e}. Falling back to template caption.")
+            logger.error(f"Unexpected error in Gemini AICopywriter: {e}.")
             return None
+
+    def _call_hermes(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+        headers = {
+            "Authorization": f"Bearer {self.hermes_api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/Prasad-PingFederate/DealDash_ai_Bot",
+            "X-Title": "DealDash AI Bot (Nous Hermes Engine)",
+        }
+
+        sys_msg = system_prompt or "You are Hermes, an autonomous AI assistant."
+        payload = {
+            "model": self.hermes_model,
+            "messages": [
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1000
+        }
+
+        try:
+            resp = requests.post(
+                self.hermes_endpoint,
+                headers=headers,
+                json=payload,
+                timeout=self.timeout
+            )
+            if resp.status_code != 200:
+                logger.warning(f"Nous Hermes API returned status {resp.status_code}: {resp.text[:200]}")
+                return None
+
+            data = resp.json()
+            choices = data.get("choices", [])
+            if not choices:
+                return None
+
+            return choices[0].get("message", {}).get("content", "").strip()
+
+        except requests.Timeout:
+            logger.warning("Nous Hermes API call timed out.")
+            return None
+        except requests.RequestException as e:
+            logger.warning(f"Nous Hermes API request failed: {e}.")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error in Hermes AICopywriter: {e}.")
+            return None
+
+    def craft_deal_copy(self, deal: Deal) -> Optional[str]:
+        """
+        Generate high-converting, punchy Telegram deal copy using Gemini or Nous Hermes.
+        Returns None on any error or if unconfigured, triggering automatic template fallback.
+        """
+        if not self.is_configured():
+            return None
+
+        sale_directive = self._get_sale_mode_directive()
+        system_prompt = (
+            "You are an expert e-commerce copywriter for an Indian Telegram deal channel.\n"
+            "Your goal is to write high-converting, viral Telegram posts for Indian online shoppers."
+        )
+
+        user_prompt = (
+            f"Transform this product deal into a viral Telegram post:\n\n"
+            f"Title: {deal.title}\n"
+            f"Retailer: {deal.retailer}\n"
+            f"Deal Price: {deal.current_price or 'Best Deal'}\n"
+            f"MRP: {deal.original_price or 'N/A'}\n"
+            f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n\n"
+            f"{sale_directive}"
+            f"Rules:\n"
+            f"1. First line: High-energy headline with emoji (e.g. 🔥 STEAL DEAL: Short Product Name!)\n"
+            f"2. Exactly 2-3 bullet points with emojis highlighting key features and specs.\n"
+            f"3. Price line: 💰 Deal Price: {deal.current_price or 'Best Price'} | ❌ MRP: <s>{deal.original_price or ''}</s> | ⚡ Discount: {deal.discount_percent or ''}% OFF\n"
+            f"4. Output ONLY valid Telegram HTML tags: <b>, <i>, <s>. NEVER use markdown (* or ** or #).\n"
+            f"5. Do NOT include any URLs, buy links, or disclosures (appended automatically).\n"
+            f"6. Keep it concise (under 80 words total).\n"
+        )
+
+        raw_text = self.generate_text(prompt=user_prompt, system_prompt=system_prompt)
+        if not raw_text:
+            return None
+
+        cleaned = sanitize_telegram_html(raw_text)
+        return cleaned
