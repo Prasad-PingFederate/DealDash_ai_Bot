@@ -3,7 +3,7 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 import requests
 from dealbot.models import Deal
 from dealbot.ai_copywriter import AICopywriter
@@ -22,26 +22,62 @@ class StateStore:
                 CREATE TABLE IF NOT EXISTS posted_deals (
                     deal_id TEXT PRIMARY KEY,
                     retailer TEXT,
-                    posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    chat_id TEXT,
+                    message_id INTEGER,
+                    caption TEXT,
+                    status TEXT DEFAULT 'active',
+                    posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_checked_at TIMESTAMP
                 )
             """)
+            # Auto-migrate older schemas if missing columns
+            for col in ["chat_id TEXT", "message_id INTEGER", "caption TEXT", "status TEXT DEFAULT 'active'", "last_checked_at TIMESTAMP"]:
+                try:
+                    conn.execute(f"ALTER TABLE posted_deals ADD COLUMN {col}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
     def is_posted(self, deal_id: str) -> bool:
         with sqlite3.connect(self.db_path) as conn:
             cur = conn.execute("SELECT 1 FROM posted_deals WHERE deal_id = ?", (deal_id,))
             return cur.fetchone() is not None
 
-    def mark_posted(self, deal_id: str, retailer: str):
+    def mark_posted(self, deal_id: str, retailer: str, chat_id: Optional[str] = None, message_id: Optional[int] = None, caption: Optional[str] = None):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
-                "INSERT OR IGNORE INTO posted_deals (deal_id, retailer) VALUES (?, ?)",
-                (deal_id, retailer)
+                """
+                INSERT INTO posted_deals (deal_id, retailer, chat_id, message_id, caption, status)
+                VALUES (?, ?, ?, ?, ?, 'active')
+                ON CONFLICT(deal_id) DO UPDATE SET
+                    retailer=excluded.retailer,
+                    chat_id=excluded.chat_id,
+                    message_id=excluded.message_id,
+                    caption=excluded.caption
+                """,
+                (deal_id, retailer, chat_id, message_id, caption)
             )
+
+    def get_recent_active_deals(self, limit: int = 15) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                """
+                SELECT deal_id, retailer, chat_id, message_id, caption
+                FROM posted_deals
+                WHERE status = 'active' AND message_id IS NOT NULL
+                ORDER BY posted_at DESC LIMIT ?
+                """,
+                (limit,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def mark_expired(self, deal_id: str):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("UPDATE posted_deals SET status = 'expired' WHERE deal_id = ?", (deal_id,))
 
 def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
     retailer = html.escape(deal.retailer or "Store")
 
-    # 1. Try AI-generated copy if copywriter is provided and configured
     ai_body = None
     if copywriter and copywriter.is_configured():
         ai_body = copywriter.craft_deal_copy(deal)
@@ -49,7 +85,6 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     if ai_body:
         lines = [ai_body]
     else:
-        # Standard resilient template fallback
         title = html.escape(deal.title or "Deal")
         lines = [f"🔥 <b>{retailer} Deal Alert!</b>", "", f"🏷️ <b>{title}</b>"]
 
@@ -81,18 +116,18 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
 # Alias for backwards compatibility and test suite
 render_message = format_caption
 
-def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> bool:
+def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> Tuple[bool, Optional[int], str]:
     caption = format_caption(deal, copywriter=copywriter)
     if dry_run:
         img_info = f" [Image: {deal.image_url}]" if deal.image_url else ""
         logger.info(f"[DRY RUN] Would post deal '{deal.id}'{img_info}:\n{caption}\n" + "-" * 40)
-        return True
+        return True, 999999, caption
 
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     if not token or token == "replace_me" or not chat_id:
         logger.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in .env")
-        return False
+        return False, None, caption
 
     reply_markup = {
         "inline_keyboard": [[
@@ -113,8 +148,10 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
             }
             resp = requests.post(endpoint, json=payload, timeout=20)
             if resp.status_code == 200:
-                logger.info(f"Successfully posted deal with photo: {deal.id}")
-                return True
+                data = resp.json()
+                msg_id = data.get("result", {}).get("message_id")
+                logger.info(f"Successfully posted deal with photo: {deal.id} (message_id={msg_id})")
+                return True, msg_id, caption
             else:
                 logger.warning(f"sendPhoto failed ({resp.status_code}: {resp.text}). Falling back to text message...")
 
@@ -129,11 +166,13 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         }
         resp = requests.post(endpoint, json=payload, timeout=20)
         if resp.status_code == 200:
-            logger.info(f"Successfully posted deal: {deal.id}")
-            return True
+            data = resp.json()
+            msg_id = data.get("result", {}).get("message_id")
+            logger.info(f"Successfully posted deal: {deal.id} (message_id={msg_id})")
+            return True, msg_id, caption
         else:
             logger.error(f"Telegram API error ({resp.status_code}): {resp.text}")
-            return False
+            return False, None, caption
     except requests.RequestException as e:
         logger.error(f"Telegram request failed: {e}")
-        return False
+        return False, None, caption

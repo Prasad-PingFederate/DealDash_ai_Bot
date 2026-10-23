@@ -151,7 +151,7 @@ def test_publisher_send_photo_fallback(monkeypatch):
         return MagicMock(status_code=500)
         
     with patch("requests.post", side_effect=mock_post):
-        success = send_telegram_deal(deal, dry_run=False)
+        success, msg_id, caption = send_telegram_deal(deal, dry_run=False)
         assert success is True
 
 # ── NEGATIVE TEST 11: Telegram Complete Network Failure ─────────────────────
@@ -161,5 +161,5 @@ def test_publisher_handles_network_exception(monkeypatch):
     
     deal = Deal("d1", "Amazon", "Test Deal", "https://amazon.in/dp/123")
     with patch("requests.post", side_effect=requests.ConnectionError("Internet down")):
-        success = send_telegram_deal(deal, dry_run=False)
+        success, msg_id, caption = send_telegram_deal(deal, dry_run=False)
         assert success is False

@@ -1,164 +1,117 @@
-# Affiliate Telegram Deal Bot
+# 🚀 DealDash AI - Autonomous Affiliate Telegram Deal Bot
 
-An always-on Python bot that discovers retailer offers through authorized sources and posts them to a Telegram group/channel. It supports:
+An enterprise-grade, fully autonomous Python bot that discovers high-discount e-commerce deals across India (Amazon, Flipkart, etc.), crafts viral AI-written captions using **Google Gemini 2.5 Flash**, embeds high-resolution product photos, auto-injects your affiliate tracking tags, and publishes them to your Telegram channel.
 
-- Flipkart's official affiliate **offers API** (active offers, end time, LIVE/OOS status, affiliate offer URL).
-- Amazon India's **Creators API SearchItems** (only when your account has approved API access).
-- JSON feeds provided by approved affiliate networks (use this for Myntra only when your particular program/feed authorizes Telegram and deal/coupon promotion).
-- `data/deals.json` for a small set of manually curated offers, each with its already-generated affiliate link.
-- SQLite duplicate protection, post rate limiting, dry-run mode, expiry checks, link-level affiliate disclosures, and persistent state.
+It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacing, Telegram HTML injection defenses, SQLite deduplication, and a **100% free 24/7 cloud runner via GitHub Actions**.
 
-It intentionally does not scrape retailer webpages or manufacture discounts. API/feed access, social-channel permissions, and link tracking are subject to each affiliate program's rules.
+---
 
-## 1. Requirements
+## 🌟 Key Capabilities
 
-- Python 3.11+ or Docker + Docker Compose.
-- A Telegram bot token from [@BotFather](https://t.me/BotFather).
-- Your Telegram group/channel's chat ID. Add the bot to the group and grant permission to post. For a channel, add it as an administrator with posting permission.
-- Affiliate program credentials and approval for the relevant retailer/network.
+1. **Autonomous Live Ingestion**:
+   - Ingests 30+ human-verified price drops (30% to 80% OFF) automatically every cycle.
+   - Zero manual deal entry required.
+2. **AI Copywriter (Google Gemini 2.5 Flash)**:
+   - Transforms raw product titles into punchy, high-CTR Telegram posts with emojis, specs bullets, and strikethrough MRP.
+   - Built with strict Telegram HTML sanitization to eliminate `400 Bad Request: can't parse entities` errors.
+   - Graceful fallback: If AI quota is exhausted, immediately falls back to clean templates without crashing.
+3. **Smart Affiliate Link Engine**:
+   - Automatically cleans third-party affiliate tags and injects your tag (e.g. `tag=dammaiprasad-21` for Amazon, `affid=` for Flipkart).
+4. **Auto Out-of-Stock (OOS) Detection**:
+   - Background worker sweeps posted deals and checks availability.
+   - Automatically edits the Telegram message to prepend `❌ [OFFER EXPIRED / OUT OF STOCK]` when items sell out.
+5. **Smart Pacing & Operating Hours**:
+   - Paces posts to prevent channel notification spam.
+   - Respects Indian Standard Time (IST): active posting between 8:00 AM – 11:30 PM, quiet throttled sleep at night.
+6. **Zero-Cost 24/7 Cloud Deployment**:
+   - Runs automatically every 30 minutes in the cloud via GitHub Actions at **$0.00 cost**.
+   - Also includes Docker Compose for Always-Free Oracle Cloud VM or VPS.
 
-## 2. Install locally on Windows PowerShell
+---
 
-```powershell
-cd affiliate-telegram-dealbot
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-Copy-Item .env.example .env
-notepad .env
+## 🏗️ Architecture
+
+```
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌───────────────────┐
+│   Scout Engine   │ ──> │   AI Copywriter  │ ──> │ Publisher Engine │ ──> │ Auto-OOS Watcher  │
+│ Live Feeds & APIs│     │ Gemini 2.5 Flash │     │Telegram Photo/Btn│     │Edits Expired Posts│
+└──────────────────┘     └──────────────────┘     └──────────────────┘     └───────────────────┘
 ```
 
-Fill `.env`. Never commit `.env` or expose API tokens in a public repository.
+---
 
-## 3. Find the Telegram chat ID
+## ⚙️ Configuration (`.env`)
 
-1. Create the bot with `@BotFather` and copy its token into `TELEGRAM_BOT_TOKEN`.
-2. Add the bot to your group. Send a fresh message in the group.
-3. Open `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` in a browser, replacing the placeholder. Find `message.chat.id` in the returned JSON (supergroups usually have a negative ID beginning `-100`).
-4. Put the value in `TELEGRAM_CHAT_ID`. Do not share the bot token or the `getUpdates` URL publicly.
-5. Grant the bot permission to send messages. Do not disable group privacy unless your bot needs to read group messages; this bot only sends messages.
-
-If `getUpdates` is empty, send another new group message after adding the bot, and check that a webhook is not already configured.
-
-## 4. Affiliate source configuration
-
-### Flipkart
-
-Set `FLIPKART_AFFILIATE_ID` and `FLIPKART_AFFILIATE_TOKEN` from the approved Flipkart Affiliate account. Keep `FLIPKART_API_ENABLED=true`. The adapter calls the documented offers endpoint and preserves its returned URL, which already contains affiliate tracking. API access depends on your account status.
-
-Official API docs: https://affiliate.flipkart.com/api-docs/af_offer_ref.html
-
-### Amazon India
-
-Amazon's former PA-API 5.0 is deprecated. Use the Amazon India Creators API if your account is eligible and has API credentials. Amazon's documentation currently lists 10 qualifying sales in the preceding 30 days as a prerequisite to Creators API access; verify that your account qualifies before enabling it.
-
-1. Join Amazon Associates India and register for Creators API in Associates Central.
-2. Set `AMAZON_API_ENABLED=true` and fill `AMAZON_CREATOR_CLIENT_ID`, `AMAZON_CREATOR_CLIENT_SECRET`, and `AMAZON_PARTNER_TAG`.
-3. Set semicolon-separated `AMAZON_SEARCH_KEYWORDS`; optionally adjust `AMAZON_MIN_SAVING_PERCENT`.
-4. The adapter uses Amazon's `SearchItems` endpoint and preserves the API-returned `detailPageURL` unchanged. Verify API permissions and marketplace settings first.
-
-Official docs: https://affiliate-program.amazon.in/creatorsapi/docs/en-us/introduction
-
-### Myntra / approved affiliate networks
-
-Do not assume every Myntra campaign allows Telegram. Some campaigns explicitly restrict Telegram even if another campaign allows social media. Check the **exact campaign's Media Allowed/Disallowed terms** and obtain written approval where unclear.
-
-If your network provides a JSON feed/API and approves the Telegram channel, put it in `.env` as:
+Copy `.env.example` to `.env` and fill in your values:
 
 ```dotenv
-JSON_FEEDS=Myntra=https://YOUR_AUTHORIZED_FEED_URL
+# Telegram Bot & Channel
+TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+TELEGRAM_CHAT_ID=@YourDealChannel
+
+# Bot Controls
+DRY_RUN=false
+CONTINUOUS=true
+POLL_INTERVAL_MINUTES=30
+MAX_POSTS_PER_CYCLE=3
+POST_DELAY_SECONDS=3
+
+# Affiliate Tags
+AMAZON_PARTNER_TAG=dammaiprasad-21
+FLIPKART_AFFILIATE_ID=yourflipkartid
+
+# AI Copywriter (Google Gemini)
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash
+AI_TIMEOUT_SECONDS=8
+
+# Deal Filtering
+FEEDS_ENABLED=true
+MIN_DISCOUNT_PERCENT=30
 ```
 
-A feed can be a list of deal objects or an object with a `deals` list. Required fields are `title` and `url`; the URL must be a pre-generated affiliate/deep link from the network. Optional fields: `id`, `retailer`, `description`, `current_price`, `original_price`, `discount_percent`, `category`, `image_url`, `expires_at`.
+---
 
-If you don't have an API/feed, use the local file below. Add only links generated inside your affiliate network's dashboard; the bot will not convert ordinary product URLs into affiliate URLs for Myntra.
+## 🧪 Testing & Verification
 
-### Manual/local deals fallback
+Run the entire suite of 23 unit, negative, and pacing tests:
 
-Edit `data/deals.json`:
-
-```json
-[
-  {
-    "id": "my-campaign-001",
-    "retailer": "Myntra",
-    "title": "Example product title — replace this example",
-    "url": "https://YOUR-AFFILIATE-NETWORK-TRACKING-LINK",
-    "description": "Add only a verified offer description.",
-    "current_price": "₹999",
-    "original_price": "₹1,499",
-    "discount_percent": 33,
-    "category": "Fashion",
-    "expires_at": "2026-12-31T18:30:00+05:30"
-  }
-]
+```bash
+pytest -v
 ```
 
-This is a schema example, not a real deal. Replace it with a real active offer and tracking link, or leave the starter `[]` empty. Price and discount values are posted exactly as supplied; ensure you validate them before publishing.
+Run a single-cycle dry run without sending live Telegram messages:
 
-## 5. Test without posting anything
-
-Keep `DRY_RUN=true`. Run once:
-
-```powershell
+```bash
 python run_once.py
 ```
 
-Run automated tests:
+---
 
-```powershell
-pytest -q
-```
+## ☁️ 100% Free 24/7 Cloud Deployment via GitHub Actions
 
-The console displays the posts the bot *would* send. No Telegram messages are sent in dry-run mode.
+You don't even need to keep your laptop on or pay for a server. The included GitHub Actions workflow runs every 30 minutes for free:
 
-## 6. Start the bot
+1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
+2. Add the following repository secrets:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `GEMINI_API_KEY`
+   - `AMAZON_PARTNER_TAG`
+3. Go to the **Actions** tab and enable workflows. DealDash will run automatically 24/7/365!
 
-Set `DRY_RUN=false` only after confirming that test posts are correct and all source/channel permissions are in place.
+---
 
-Run continuously:
-
-```powershell
-python -m dealbot.main
-```
-
-The bot checks sources every `POLL_INTERVAL_MINUTES`, posts up to `MAX_POSTS_PER_CYCLE` new deals, spaces posts by `POST_DELAY_SECONDS`, and stores posted IDs in `data/state.sqlite3`. Keep the terminal/session running, or run it on an always-on host.
-
-### Docker (recommended for a server)
+## 🐳 Docker Deployment (For VPS / Oracle Cloud Free Tier)
 
 ```bash
-cp .env.example .env
-# Edit .env and set credentials; initially keep DRY_RUN=true
 docker compose up -d --build
 docker compose logs -f dealbot
 ```
 
-After verifying logs, change `DRY_RUN=false` in `.env` and restart:
+---
 
-```bash
-docker compose up -d
-```
+## ⚖️ Compliance & Disclosures
 
-The compose file restarts the container unless stopped and persists SQLite state through the `./data` mount. Do not run multiple replicas against the same database; keep one bot process to avoid duplicate races.
-
-## 7. Useful operating controls
-
-| Variable | Meaning | Default |
-|---|---|---|
-| `DRY_RUN` | Log but don't send posts | `true` |
-| `CONTINUOUS` | Keep polling | `true` |
-| `POLL_INTERVAL_MINUTES` | Time between source checks | `60` |
-| `MAX_POSTS_PER_CYCLE` | Upper posting limit per poll | `5` |
-| `POST_DELAY_SECONDS` | Delay between posts | `2` |
-| `DATABASE_PATH` | Duplicate history database | `data/state.sqlite3` |
-| `JSON_FEEDS` | Approved external JSON feeds, separated by `;` | empty |
-
-## Compliance and reliability notes
-
-- Affiliate links must be disclosed clearly near the link. This bot includes a general disclosure, and the Amazon Associates statement on Amazon posts. Also place any account-level disclosures required by the program in your channel description/profile.
-- Make sure your Telegram channel/group is listed or approved as a promotional property wherever required by the retailer/network.
-- Don't invent discounts or state a price from stale data as current. The local/manual feed fields are only as accurate as the person supplying them.
-- A product search is not a promise of price/stock. Confirm that the API result represents an actual deal before you enable regular posting.
-- The bot's API/feed sources can fail, be rate limited, or change. Errors are logged and the process continues; this isn't a guarantee of uninterrupted service or income.
-- Telegram bot API documentation: https://core.telegram.org/bots/api#sendmessage
+- Automatically appends legal affiliate disclosures (`#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.`) to every post.
+- Preserves accurate pricing and strikethrough MRP without manufacturing discounts.

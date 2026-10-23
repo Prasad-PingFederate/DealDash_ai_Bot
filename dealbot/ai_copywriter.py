@@ -27,7 +27,6 @@ def sanitize_telegram_html(text: str) -> str:
     text = re.sub(r"^[*-]\s+", "• ", text, flags=re.MULTILINE)
 
     # Protect valid HTML tags by tokenizing
-    # Valid tags: <b>, </b>, <i>, </i>, <s>, </s>, <u>, </u>, <code>, </code>, <a href="...">, </a>
     tag_pattern = re.compile(r"(</?(?:b|i|s|u|code|pre|a)(?:\s+href=[\"'][^\"']*[\"'])?>)", re.IGNORECASE)
     tokens = tag_pattern.split(text)
 
@@ -46,10 +45,8 @@ def sanitize_telegram_html(text: str) -> str:
                 if open_tags and open_tags[-1] == tag_name:
                     open_tags.pop()
                     sanitized_parts.append(f"</{tag_name}>")
-                # Drop unbalanced closing tags
             else:
                 open_tags.append(tag_name)
-                # Normalize href if present
                 if tag_name == "a":
                     href_match = re.search(r'href=[\"\']([^\"\']*)[\"\']', tag_str, re.IGNORECASE)
                     href = href_match.group(1) if href_match else "#"
@@ -57,7 +54,6 @@ def sanitize_telegram_html(text: str) -> str:
                 else:
                     sanitized_parts.append(f"<{tag_name}>")
         else:
-            # Escape raw text entities safely
             escaped_text = html.escape(token)
             sanitized_parts.append(escaped_text)
 
@@ -72,7 +68,7 @@ class AICopywriter:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
         self.model = (model or os.getenv("GEMINI_MODEL", DEFAULT_MODEL)).strip()
-        self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "6"))
+        self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "8"))
 
     def is_configured(self) -> bool:
         return bool(self.api_key and self.api_key != "replace_me")
@@ -86,19 +82,18 @@ class AICopywriter:
             return None
 
         prompt = (
-            f"You are an expert e-commerce deal copywriter for a Telegram deal channel in India.\n"
-            f"Transform this product deal into a high-converting, viral Telegram post.\n\n"
-            f"Product Details:\n"
-            f"- Title: {deal.title}\n"
-            f"- Retailer: {deal.retailer}\n"
-            f"- Deal Price: {deal.current_price or 'Best Deal'}\n"
-            f"- MRP: {deal.original_price or 'N/A'}\n"
-            f"- Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n\n"
-            f"Requirements:\n"
-            f"1. Line 1: High-energy headline with emoji (e.g. '🔥 STEAL DEAL: Short Name!')\n"
-            f"2. 2-3 bullet points with emojis highlighting top features/specs.\n"
-            f"3. Price line: Deal price, MRP (with <s>strikethrough</s>), and discount percentage.\n"
-            f"4. ONLY use Telegram HTML tags: <b>, <i>, <s>. NEVER use markdown (* or ** or #).\n"
+            f"You are an expert e-commerce copywriter for an Indian Telegram deal channel.\n"
+            f"Transform this product deal into a viral Telegram post:\n\n"
+            f"Title: {deal.title}\n"
+            f"Retailer: {deal.retailer}\n"
+            f"Deal Price: {deal.current_price or 'Best Deal'}\n"
+            f"MRP: {deal.original_price or 'N/A'}\n"
+            f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n\n"
+            f"Rules:\n"
+            f"1. First line: High-energy headline with emoji (e.g. 🔥 STEAL DEAL: Short Product Name!)\n"
+            f"2. Exactly 2-3 bullet points with emojis highlighting key features and specs.\n"
+            f"3. Price line: 💰 Deal Price: {deal.current_price or 'Best Price'} | ❌ MRP: <s>{deal.original_price or ''}</s> | ⚡ Discount: {deal.discount_percent or ''}% OFF\n"
+            f"4. Output ONLY valid Telegram HTML tags: <b>, <i>, <s>. NEVER use markdown (* or ** or #).\n"
             f"5. Do NOT include any URLs, buy links, or disclosures (appended automatically).\n"
             f"6. Keep it concise (under 80 words total).\n"
         )
@@ -108,7 +103,8 @@ class AICopywriter:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.3,
-                "maxOutputTokens": 250,
+                "maxOutputTokens": 600,
+                "thinkingConfig": {"thinkingBudget": 0}
             }
         }
 
@@ -132,7 +128,6 @@ class AICopywriter:
             if not raw_text:
                 return None
 
-            # Clean and sanitize the HTML for Telegram parse_mode
             cleaned = sanitize_telegram_html(raw_text)
             return cleaned
 
