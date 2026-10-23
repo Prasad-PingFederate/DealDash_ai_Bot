@@ -3,8 +3,10 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
+from typing import Optional
 import requests
 from dealbot.models import Deal
+from dealbot.ai_copywriter import AICopywriter
 
 logger = logging.getLogger(__name__)
 
@@ -36,30 +38,40 @@ class StateStore:
                 (deal_id, retailer)
             )
 
-def format_caption(deal: Deal) -> str:
-    retailer = html.escape(deal.retailer)
-    title = html.escape(deal.title)
-    lines = [f"🔥 <b>{retailer} Deal Alert!</b>", "", f"🏷️ <b>{title}</b>"]
+def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
+    retailer = html.escape(deal.retailer or "Store")
 
-    if deal.description:
-        lines.append(f"<i>{html.escape(deal.description)}</i>")
+    # 1. Try AI-generated copy if copywriter is provided and configured
+    ai_body = None
+    if copywriter and copywriter.is_configured():
+        ai_body = copywriter.craft_deal_copy(deal)
 
-    price_parts = []
-    if deal.current_price:
-        price_parts.append(f"💰 <b>Deal Price:</b> {html.escape(deal.current_price)}")
-    if deal.original_price:
-        price_parts.append(f"❌ <b>MRP:</b> <s>{html.escape(deal.original_price)}</s>")
-    if deal.discount_percent:
-        price_parts.append(f"⚡ <b>Discount:</b> {deal.discount_percent}% OFF")
+    if ai_body:
+        lines = [ai_body]
+    else:
+        # Standard resilient template fallback
+        title = html.escape(deal.title or "Deal")
+        lines = [f"🔥 <b>{retailer} Deal Alert!</b>", "", f"🏷️ <b>{title}</b>"]
 
-    if price_parts:
-        lines.append("")
-        lines.extend(price_parts)
+        if deal.description:
+            lines.append(f"<i>{html.escape(deal.description)}</i>")
+
+        price_parts = []
+        if deal.current_price:
+            price_parts.append(f"💰 <b>Deal Price:</b> {html.escape(deal.current_price)}")
+        if deal.original_price:
+            price_parts.append(f"❌ <b>MRP:</b> <s>{html.escape(deal.original_price)}</s>")
+        if deal.discount_percent:
+            price_parts.append(f"⚡ <b>Discount:</b> {deal.discount_percent}% OFF")
+
+        if price_parts:
+            lines.append("")
+            lines.extend(price_parts)
 
     lines.append("")
-    lines.append(f'🛒 <a href="{html.escape(deal.url)}"><b>Buy Now on {retailer}</b></a>')
+    lines.append(f'🛒 <a href="{html.escape(deal.url or "#")}"><b>Buy Now on {retailer}</b></a>')
     lines.append("")
-    if "amazon" in deal.retailer.lower():
+    if "amazon" in (deal.retailer or "").lower():
         lines.append("<i>#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.</i>")
     else:
         lines.append("<i>#ad Affiliate link - prices & stock may change quickly.</i>")
@@ -69,8 +81,8 @@ def format_caption(deal: Deal) -> str:
 # Alias for backwards compatibility and test suite
 render_message = format_caption
 
-def send_telegram_deal(deal: Deal, dry_run: bool = True) -> bool:
-    caption = format_caption(deal)
+def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> bool:
+    caption = format_caption(deal, copywriter=copywriter)
     if dry_run:
         img_info = f" [Image: {deal.image_url}]" if deal.image_url else ""
         logger.info(f"[DRY RUN] Would post deal '{deal.id}'{img_info}:\n{caption}\n" + "-" * 40)
