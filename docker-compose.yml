@@ -1,0 +1,9 @@
+services:
+  dealbot:
+    build: .
+    container_name: affiliate-telegram-dealbot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
