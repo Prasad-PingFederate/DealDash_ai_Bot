@@ -37,3 +37,33 @@ def test_expand_and_convert_url_amazon(monkeypatch):
     assert url == "https://www.amazon.in/dp/B0BS1QCFHX?tag=testtag-21"
     assert deal_id == "amz-B0BS1QCFHX"
     assert retailer == "Amazon"
+
+def test_retailer_filtering_only_amazon(monkeypatch, tmp_path):
+    from dealbot.sources import collect_all_deals
+    monkeypatch.setenv("FEEDS_ENABLED", "false")
+    monkeypatch.setenv("AMAZON_API_ENABLED", "false")
+    deals_file = tmp_path / "deals.json"
+    deals_file.write_text(
+        '[{"id":"1","title":"Amz Deal","retailer":"Amazon","url":"https://www.amazon.in/dp/X?tag=t-21"},'
+        '{"id":"2","title":"FK Deal","retailer":"Flipkart","url":"https://www.flipkart.com/p?pid=P"}]',
+        encoding="utf-8"
+    )
+    monkeypatch.setenv("LOCAL_DEALS_FILE", str(deals_file))
+    
+    # 1. With ALLOWED_RETAILERS=Amazon
+    monkeypatch.setenv("ALLOWED_RETAILERS", "Amazon")
+    deals = collect_all_deals()
+    assert len(deals) == 1
+    assert deals[0].retailer == "Amazon"
+    
+    # 2. When FLIPKART_AFFILIATE_ID is placeholder, Flipkart is skipped
+    monkeypatch.delenv("ALLOWED_RETAILERS", raising=False)
+    monkeypatch.setenv("FLIPKART_AFFILIATE_ID", "yourflipkartid")
+    deals = collect_all_deals()
+    assert len(deals) == 1
+    assert deals[0].retailer == "Amazon"
+
+    # 3. When valid FLIPKART_AFFILIATE_ID is provided, both are included
+    monkeypatch.setenv("FLIPKART_AFFILIATE_ID", "real_affiliate_id")
+    deals = collect_all_deals()
+    assert len(deals) == 2

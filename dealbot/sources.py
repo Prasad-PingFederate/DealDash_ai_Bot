@@ -291,4 +291,16 @@ def collect_all_deals() -> List[Deal]:
             seen_ids.add(d.id)
             deals.append(d)
 
+    # Filter by allowed retailers:
+    # 1. Respect explicit ALLOWED_RETAILERS if set (e.g. ALLOWED_RETAILERS=Amazon)
+    # 2. If not specified, automatically skip Flipkart if FLIPKART_AFFILIATE_ID is missing or placeholder
+    allowed_raw = os.getenv("ALLOWED_RETAILERS", "").strip()
+    if allowed_raw:
+        allowed = {r.strip().lower() for r in allowed_raw.split(",") if r.strip()}
+        deals = [d for d in deals if d.retailer.lower() in allowed]
+    else:
+        fk_id = os.getenv("FLIPKART_AFFILIATE_ID", "").strip().lower()
+        if not fk_id or fk_id in ["yourflipkartid", "none", "false"]:
+            deals = [d for d in deals if d.retailer.lower() != "flipkart"]
+
     return deals

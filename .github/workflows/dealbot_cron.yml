@@ -40,6 +40,7 @@ jobs:
           MAX_POSTS_PER_CYCLE: '3'
           FEEDS_ENABLED: 'true'
           MIN_DISCOUNT_PERCENT: '30'
+          ALLOWED_RETAILERS: 'Amazon'
         run: |
           python run_once.py
 
