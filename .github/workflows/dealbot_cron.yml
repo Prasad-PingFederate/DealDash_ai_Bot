@@ -2,15 +2,25 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # Peak Hours: Every 30 minutes
-    # - Lunch Peak: 12:30 PM - 2:30 PM IST (07:00 - 08:30 UTC)
-    # - Evening Prime Peak: 07:30 PM - 10:30 PM IST (14:00 - 17:00 UTC)
-    - cron: '*/30 7-8,14-17 * * *'
+    # Anti-Congestion Optimization:
+    # Scheduled at :15 and :45 past the hour to completely bypass GitHub Actions peak queue delays
+    # (standard :00 and :30 jobs suffer 15-45 min delays on shared public runners).
+    #
+    # Note: GitHub Actions runs strictly in UTC (UTC +5:30 = IST).
+    #
+    # 1. Peak Hours (Every 30 minutes, 12 runs/day):
+    # - Lunch Peak:   12:45 PM - 02:15 PM IST (07:15, 07:45, 08:15, 08:45 UTC)
+    # - Evening Peak: 07:45 PM - 11:15 PM IST (14:15, 14:45, 15:15, 15:45, 16:15, 16:45, 17:15, 17:45 UTC)
+    - cron: '15,45 7-8,14-17 * * *'
 
-    # Normal Hours: Every 1 hour
-    # - Morning: 08:30 AM - 11:30 AM IST (03:00 - 06:00 UTC)
-    # - Afternoon: 03:30 PM - 06:30 PM IST (10:00 - 13:00 UTC)
-    - cron: '0 3-6,10-13 * * *'
+    # 2. Normal Hours (Every 1 hour, 8 runs/day):
+    # - Morning:   08:45 AM - 11:45 AM IST (03:15, 04:15, 05:15, 06:15 UTC)
+    # - Afternoon: 03:45 PM - 06:45 PM IST (10:15, 11:15, 12:15, 13:15 UTC)
+    - cron: '15 3-6,10-13 * * *'
+
+    # 3. Night Hours:
+    # - Paused from 11:16 PM to 08:44 AM IST to save CI quota and avoid nighttime alerts.
+    # Total daily runs: 20 runs/day (~1,000 mins/mo out of 2,000 free GitHub Actions minutes).
 
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
