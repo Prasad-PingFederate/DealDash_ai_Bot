@@ -39,9 +39,13 @@ def get_deal_metrics(db_path: str) -> Dict[str, Any]:
     day_ago = (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
     week_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
 
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT deal_id, retailer, caption, status, posted_at FROM posted_deals ORDER BY posted_at DESC").fetchall()
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT deal_id, retailer, caption, status, posted_at FROM posted_deals ORDER BY posted_at DESC").fetchall()
+    except Exception as e:
+        logger.warning(f"Could not query posted_deals table from {db_path}: {e}")
+        return metrics
 
     metrics["total_deals"] = len(rows)
     for r in rows:

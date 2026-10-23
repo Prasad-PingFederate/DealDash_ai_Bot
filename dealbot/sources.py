@@ -20,8 +20,10 @@ _AMAZON_TOKEN_CACHE = {"token": None, "expires_at": 0.0}
 def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
-def clean_title(title: str) -> str:
+def clean_title(title: Optional[str]) -> str:
     """Clean promotional noise, coupons, and trailing price/retailer tags from titles."""
+    if not title or not isinstance(title, str):
+        return "Special Deal"
     t = title.strip()
     # Strip [Apply X% Coupon] or similar tags at start
     t = re.sub(r"^\[.*?(?:coupon|offer|flat).*?\]\s*", "", t, flags=re.IGNORECASE)
@@ -29,14 +31,23 @@ def clean_title(title: str) -> str:
     t = re.sub(r"\s*(?:Rs\.?|₹)\s*[\d,]+(?:\s*-\s*[A-Za-z]+)?$", "", t, flags=re.IGNORECASE)
     # Strip trailing retailer like ' - Amazon' or ' - Flipkart'
     t = re.sub(r"\s*-\s*(Amazon|Flipkart|Myntra|Ajio)$", "", t, flags=re.IGNORECASE)
-    return t.strip()
+    return t.strip() or "Special Deal"
 
-def expand_and_convert_url(raw_url: str) -> tuple[str, str, str]:
+def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
     """Extract ASIN or PID and automatically inject user affiliate tracking parameters."""
     amazon_tag = os.getenv("AMAZON_PARTNER_TAG", "").strip()
     flipkart_id = os.getenv("FLIPKART_AFFILIATE_ID", "").strip()
 
+    if not raw_url or not isinstance(raw_url, str):
+        return "", "deal-invalid", "Online Store"
+
     url = raw_url.strip()
+    if not url:
+        return "", "deal-empty", "Online Store"
+
+    if not url.lower().startswith(("http://", "https://")):
+        url = "https://" + url
+
     if any(short in url for short in ["amzn.to", "amzn.in", "fkrt.it", "bit.ly"]):
         try:
             resp = requests.head(url, allow_redirects=True, timeout=10, headers={"User-Agent": USER_AGENT})

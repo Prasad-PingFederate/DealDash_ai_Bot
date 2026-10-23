@@ -135,9 +135,13 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         ]]
     }
 
+    # Guard against Telegram length limits (4096 char limit for text)
+    if len(caption) > 4000:
+        caption = caption[:3950] + "\n..."
+
     try:
-        # If image is present, try sendPhoto first
-        if deal.image_url:
+        # If image is present and caption fits in Telegram's 1024 char limit for photos, try sendPhoto
+        if deal.image_url and len(caption) <= 1024:
             endpoint = f"https://api.telegram.org/bot{token}/sendPhoto"
             payload = {
                 "chat_id": chat_id,
