@@ -2,8 +2,16 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # Runs automatically every 30 minutes (24/7/365 completely free on GitHub Actions)
-    - cron: '*/30 * * * *'
+    # Peak Hours: Every 30 minutes
+    # - Lunch Peak: 12:30 PM - 2:30 PM IST (07:00 - 08:30 UTC)
+    # - Evening Prime Peak: 07:30 PM - 10:30 PM IST (14:00 - 17:00 UTC)
+    - cron: '*/30 7-8,14-17 * * *'
+
+    # Normal Hours: Every 1 hour
+    # - Morning: 08:30 AM - 11:30 AM IST (03:00 - 06:00 UTC)
+    # - Afternoon: 03:30 PM - 06:30 PM IST (10:00 - 13:00 UTC)
+    - cron: '0 3-6,10-13 * * *'
+
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 permissions:
