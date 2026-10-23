@@ -170,9 +170,9 @@ def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "
 
     if notify_telegram:
         token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-        chat_id = os.getenv("ADMIN_CHAT_ID") or os.getenv("TELEGRAM_CHAT_ID", "").strip()
-        if token and chat_id and token != "replace_me":
-            # Send condensed summary to Telegram
+        admin_chat_id = os.getenv("ADMIN_CHAT_ID", "").strip()
+        if token and admin_chat_id and token != "replace_me":
+            # Send condensed summary privately to admin
             condensed = (
                 f"🧠 <b>DealDash AI Growth Briefing</b>\n"
                 f"<i>Powered by {provider_name}</i>\n\n"
@@ -184,12 +184,14 @@ def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "
             try:
                 requests.post(
                     f"https://api.telegram.org/bot{token}/sendMessage",
-                    json={"chat_id": chat_id, "text": condensed, "parse_mode": "HTML"},
+                    json={"chat_id": admin_chat_id, "text": condensed, "parse_mode": "HTML"},
                     timeout=10
                 )
-                logger.info(f"Delivered briefing notification to Telegram chat {chat_id}")
+                logger.info(f"Delivered briefing notification to admin chat {admin_chat_id}")
             except Exception as e:
                 logger.warning(f"Failed to deliver Telegram notification: {e}")
+        else:
+            logger.info("ADMIN_CHAT_ID not configured; skipping Telegram notification to protect public deal channel.")
 
     return report
 
