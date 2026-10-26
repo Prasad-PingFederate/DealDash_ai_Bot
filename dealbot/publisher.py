@@ -200,6 +200,9 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
             price_parts.append(f"❌ <b>MRP:</b> <s>{html.escape(deal.original_price)}</s>")
         if deal.discount_percent:
             price_parts.append(f"⚡ <b>Discount:</b> {deal.discount_percent}% OFF")
+        savings = deal.savings_rupees()
+        if savings and savings >= 100:
+            price_parts.append(f"✅ <b>You save:</b> ₹{savings:,}")
 
         if price_parts:
             lines.append("")

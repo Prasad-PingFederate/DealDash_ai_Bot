@@ -1,6 +1,23 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
+
+def parse_rupees(value: Optional[str]) -> Optional[int]:
+    """Pull a rupee amount out of strings like '₹1,499' or 'Rs. 799'."""
+    if value is None:
+        return None
+    match = re.search(r"\d[\d,]*(?:\.\d+)?", str(value))
+    if not match:
+        return None
+    try:
+        amount = float(match.group(0).replace(",", ""))
+    except ValueError:
+        return None
+    if amount <= 0 or amount > 500_000:
+        return None
+    return int(round(amount))
+
 
 @dataclass
 class Deal:
@@ -15,6 +32,13 @@ class Deal:
     category: Optional[str] = None
     image_url: Optional[str] = None
     expires_at: Optional[str] = None
+
+    def savings_rupees(self) -> Optional[int]:
+        price = parse_rupees(self.current_price)
+        mrp = parse_rupees(self.original_price)
+        if price is None or mrp is None or mrp <= price:
+            return None
+        return mrp - price
 
     def is_expired(self) -> bool:
         if not self.expires_at:

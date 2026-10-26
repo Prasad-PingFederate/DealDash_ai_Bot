@@ -82,6 +82,45 @@ def test_agent_llm_garbage_falls_back(monkeypatch):
     assert plan.source == "heuristic"
 
 
+def test_big_saving_on_a_known_brand_beats_a_padded_cheap_deal(monkeypatch):
+    monkeypatch.setattr("dealbot.agent.current_slot", lambda now=None: "night")
+    junk = _deal(
+        "cable",
+        "Generic USB Cable 3 Pack",
+        90,
+        price="₹99",
+        mrp="₹999",
+    )
+    flagship = _deal(
+        "tv",
+        "Samsung 43 inch Smart TV",
+        35,
+        category="electronics",
+        price="₹22,999",
+        mrp="₹35,999",
+    )
+    plan = DealAgent(copywriter=None).plan([junk, flagship], [], max_posts=1)
+    assert [item.deal.id for item in plan.posts] == ["tv"]
+    assert junk.id not in {item.deal.id for item in plan.posts}
+    assert any(item.deal.id == "cable" and item.score < plan.posts[0].score for item in plan.skips)
+
+
+def test_nothing_posts_when_every_deal_is_junk(monkeypatch):
+    monkeypatch.setattr("dealbot.agent.current_slot", lambda now=None: "night")
+    junk = _deal("cable", "Generic USB Cable 3 Pack", 90, price="₹99", mrp="₹999")
+    nameless = _deal("x", "Deal", 0, price=None, mrp=None, image=None)
+    plan = DealAgent(copywriter=None).plan([junk, nameless], [], max_posts=2)
+    assert plan.posts == []
+
+
+def test_feed_keeps_a_smaller_percent_when_the_saving_is_large():
+    from dealbot.sources import worth_posting_discount
+
+    assert worth_posting_discount(25, "45000", "32000", min_discount=30)
+    assert not worth_posting_discount(25, "1000", "750", min_discount=30)
+    assert worth_posting_discount(40, "1000", "600", min_discount=30)
+
+
 def test_low_score_deal_is_skipped_when_a_better_one_exists(monkeypatch):
     monkeypatch.setattr("dealbot.agent.current_slot", lambda now=None: "night")
     weak = _deal("weak", "Deal", 0, price=None, mrp=None, image=None)

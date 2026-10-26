@@ -46,8 +46,8 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
          ▼                         │
 ┌──────────────────────────────────┴┐
 │ Deal editor agent                 │
-│ score → LLM or heuristic slate    │
-│ drop duplicates → critic on copy  │
+│ score brands and rupee savings   │
+│ drop junk and duplicates         │
 └───────────────────────────────────┘
 ```
 

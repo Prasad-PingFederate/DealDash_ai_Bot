@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from dealbot.models import Deal
+from dealbot.models import Deal, parse_rupees
 from dealbot.pacing import get_current_ist_time
 
 logger = logging.getLogger("dealbot.agent")
@@ -50,6 +50,28 @@ SLOT_BOOSTS = {
     "evening": {"electronics": 10, "fashion": 8, "beauty": 4},
     "night": {},
 }
+
+# Names Indian deal audiences already trust. A known brand gets shared;
+# a no-name 90% off cable usually does not.
+KNOWN_BRANDS = (
+    "apple", "samsung", "oneplus", "xiaomi", "redmi", "realme", "oppo", "vivo", "iqoo",
+    "nothing", "google", "pixel", "motorola", "nokia",
+    "boat", "noise", "fire-boltt", "fireboltt", "boult", "ptron", "sony", "jbl", "bose",
+    "sennheiser", "marshall", "ultimate ears",
+    "logitech", "hp", "dell", "lenovo", "asus", "acer", "msi", "lg", "canon", "nikon",
+    "philips", "prestige", "pigeon", "bajaj", "havells", "orient", "atomberg", "crompton",
+    "usha", "preethi", "butterfly", "wonderchef", "borosil", "milton", "cello",
+    "nike", "adidas", "puma", "skechers", "woodland", "bata", "crocs",
+    "allen solly", "levis", "levi's", "van heusen", "peter england", "fastrack", "titan",
+    "casio", "fossil", "amazfit", "garmin", "fossil",
+    "mamaearth", "minimalist", "nivea", "lakme", "maybelline", "loreal", "l'oreal",
+    "kindle", "echo dot", "fire tv", "alexa", "lifelong", "agaro",
+)
+
+JUNK_TITLE = re.compile(
+    r"\b(coupon|voucher|redeem code|refurbished|renewed|pre-?owned|replica|lookalike|duplicate)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -124,43 +146,99 @@ def titles_too_similar(a: str, b: str, threshold: float = 0.55) -> bool:
     return overlap >= threshold
 
 
+def _has_known_brand(title: str) -> bool:
+    blob = (title or "").lower()
+    return any(brand in blob for brand in KNOWN_BRANDS)
+
+
 def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str] = None) -> ScoredDeal:
+    """Rank a deal by how likely a subscriber is to forward it.
+
+    Rupees saved and a known brand beat a huge percent on a very cheap no-name item.
+    """
     slot = slot or current_slot()
     category = classify_category(deal)
     reasons: List[str] = []
-    score = 18
+    score = 8
 
-    discount = int(deal.discount_percent or 0)
+    price = parse_rupees(deal.current_price)
+    mrp = parse_rupees(deal.original_price)
+    stated = int(deal.discount_percent or 0)
+    savings = deal.savings_rupees()
+    discount = stated
+    if price and mrp and mrp > price:
+        implied = int(round((mrp - price) / mrp * 100))
+        if stated and abs(implied - stated) >= 35:
+            reasons.append(f"listed {stated}% but prices say {implied}%")
+            score -= 10
+            discount = implied
+        elif not stated:
+            discount = implied
+
     if discount:
-        score += int(min(discount, 75) * 0.65)
+        score += int(min(discount, 70) * 0.45)
         reasons.append(f"{discount}% off")
     else:
+        score -= 10
         reasons.append("no discount figure")
-        score -= 8
 
-    if deal.current_price and deal.original_price:
-        score += 10
-        reasons.append("price and MRP shown")
-    elif deal.current_price:
-        score += 4
+    if savings is not None:
+        if savings >= 4000:
+            score += 26
+            reasons.append(f"saves ₹{savings}")
+        elif savings >= 1500:
+            score += 18
+            reasons.append(f"saves ₹{savings}")
+        elif savings >= 600:
+            score += 10
+            reasons.append(f"saves ₹{savings}")
+        elif savings >= 250:
+            score += 4
+            reasons.append(f"saves ₹{savings}")
+        else:
+            score -= 12
+            reasons.append(f"only ₹{savings} off, not worth a post")
+    elif price:
+        score += 2
         reasons.append("deal price only")
     else:
-        score -= 6
+        score -= 12
         reasons.append("missing price")
 
-    if deal.image_url:
-        score += 6
-        reasons.append("has photo")
+    if price is not None and price < 300 and discount >= 55:
+        score -= 22
+        reasons.append("cheap item with a padded percent")
+    elif price is not None and price < 500 and discount >= 80:
+        score -= 16
+        reasons.append("MRP looks inflated")
+    elif price is not None and 299 <= price <= 25000:
+        score += 4
+        reasons.append("easy price to buy")
 
     title = (deal.title or "").strip()
     if len(title) < 8 or title.lower() in {"special deal", "deal"}:
-        score -= 12
+        score -= 14
         reasons.append("weak title")
     elif len(title) > 140:
         score -= 4
         reasons.append("title too long")
     else:
-        score += 4
+        score += 3
+
+    if _has_known_brand(title):
+        score += 14
+        reasons.append("known brand")
+    else:
+        score -= 4
+        reasons.append("no-name")
+
+    if JUNK_TITLE.search(title):
+        score -= 18
+        reasons.append("coupon, used, or lookalike")
+
+    if deal.image_url:
+        score += 5
+        reasons.append("has photo")
 
     if recent_categories:
         if recent_categories[0] == category:
@@ -198,7 +276,7 @@ def _extract_json(text: str) -> Dict[str, Any]:
 class DealAgent:
     def __init__(self, copywriter=None, min_score: Optional[int] = None):
         self.copywriter = copywriter
-        self.min_score = min_score if min_score is not None else int(os.getenv("AGENT_MIN_SCORE", "32"))
+        self.min_score = min_score if min_score is not None else int(os.getenv("AGENT_MIN_SCORE", "40"))
         self.use_llm = os.getenv("AGENT_LLM", "true").lower() != "false"
 
     def plan(self, deals: Sequence[Deal], recent_categories: Sequence[str], max_posts: int) -> AgentPlan:
@@ -212,7 +290,8 @@ class DealAgent:
             item.action = "skip"
             item.reason = f"below score floor {self.min_score}; {item.reason}"
 
-        shortlist = (qualified or scored)[:12]
+        # Post nothing rather than the best piece of junk when the floor is missed.
+        shortlist = qualified[:12]
         chosen: List[ScoredDeal] = []
         source = "heuristic"
 
@@ -305,8 +384,10 @@ class DealAgent:
             "Choose which deals to publish this cycle.\n"
             f"Time slot: {slot} IST. Post at most {max_posts} deals.\n"
             f"Categories already on the channel, newest first: {list(recent_categories)[:6] or 'none'}.\n"
-            "Prefer a real discount, a clear price, and a mix of categories. "
-            "Do not pick two near-duplicate products. Skip weak or repetitive deals.\n"
+            "Prefer deals a subscriber would forward: a known brand, a real rupee saving "
+            "(₹1,500 or more is strong), and a price someone can buy without thinking too hard. "
+            "Skip no-name items under ₹300 even if the percent looks huge, skip coupon-only "
+            "or refurbished listings, and do not pick two near-duplicate products.\n"
             "Reply with JSON only, no markdown:\n"
             '{"posts":[{"id":"<id from the list>","why":"short reason"}]}\n\n'
             f"CANDIDATES:\n{json.dumps(cards, ensure_ascii=False)}"

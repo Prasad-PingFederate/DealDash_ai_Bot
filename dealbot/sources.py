@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 import xml.etree.ElementTree as ET
 import requests
-from dealbot.models import Deal
+from dealbot.models import Deal, parse_rupees
 
 logger = logging.getLogger(__name__)
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -82,6 +82,18 @@ def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
 
     return url, f"deal-{abs(hash(url))}", "Online Store"
 
+def worth_posting_discount(discount_percent: int, original_price: str, deal_price: str, min_discount: int) -> bool:
+    """Keep a high percent, or a smaller percent that still saves real money."""
+    if discount_percent >= min_discount:
+        return True
+    price = parse_rupees(deal_price)
+    mrp = parse_rupees(original_price)
+    if price is None or mrp is None or mrp <= price or discount_percent < 20:
+        return False
+    min_savings = int(os.getenv("MIN_SAVINGS_RUPEES", "1500"))
+    return (mrp - price) >= min_savings
+
+
 def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:
     """Fetch live deals from real-time aggregator feeds and inject affiliate tags."""
     feed_url = os.getenv("DEALS_FEED_URL", "https://www.indiafreestuff.in/feed")
@@ -115,7 +127,7 @@ def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:
             except ValueError:
                 disc_per = 0
 
-            if disc_per < min_discount:
+            if not worth_posting_discount(disc_per, org_price, disc_price, min_discount):
                 continue
 
             aff_url, deal_id, retailer = expand_and_convert_url(raw_url)
