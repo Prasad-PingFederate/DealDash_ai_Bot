@@ -2,7 +2,7 @@
 
 An enterprise-grade, fully autonomous Python bot that discovers high-discount e-commerce deals across India (Amazon, Flipkart, etc.), crafts viral AI-written captions using **Google Gemini 2.5 Flash**, embeds high-resolution product photos, auto-injects your affiliate tracking tags, and publishes them to your Telegram channel.
 
-It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacing, Telegram HTML injection defenses, SQLite deduplication, and a **100% free 24/7 cloud runner via GitHub Actions**.
+It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacing, Telegram HTML injection defenses, SQLite deduplication, and a **GitHub Actions runner that keeps posting through the day**.
 
 ---
 
@@ -29,9 +29,10 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
    - Near-duplicate titles are dropped so the channel does not get two posts of the same headphones.
    - A critic throws away AI captions that hide the real price and uses the template instead.
    - The reason for every post and skip is stored in SQLite and, if `ADMIN_CHAT_ID` is set, sent only to you.
-7. **Zero-Cost 24/7 Cloud Deployment**:
-   - Runs on GitHub Actions hourly from 09:37 to 22:37 IST. GitHub can still start a run late or skip one. A scheduled run that starts outside 08:40–23:20 IST does not post. A manual run always posts.
-   - Also includes Docker Compose for Always-Free Oracle Cloud VM or VPS.
+7. **Daytime cloud runner**:
+   - GitHub Actions starts a job at 09:37, 12:37, 15:37, 18:37, and 21:37 IST. Each job stays up and posts about once an hour for up to five hours, and stops after 23:20 IST.
+   - GitHub can still fail to create a start. A job that is already running keeps posting, and the next start covers what is left. A manual run posts once immediately, then continues on the same hourly loop if the window is open.
+   - Also includes Docker Compose for an always-on VM. That loop is separate and is not what the Actions job uses.
 
 ---
 
@@ -44,11 +45,11 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
 └──────────────────┘     └──────────────────┘     └──────────────────┘     └───────────────────┘
          │                         ▲
          ▼                         │
-┌──────────────────────────────────┴┐
+┌────────────────────────────────┘
 │ Deal editor agent                 │
 │ price first, coupon only if known │
 │ check stock, then post            │
-└───────────────────────────────────┘
+└─────────────────────────────────┘
 ```
 
 ---
@@ -106,9 +107,9 @@ python run_once.py
 
 ---
 
-## ☁️ 100% Free 24/7 Cloud Deployment via GitHub Actions
+## ☁️ Daytime runner on GitHub Actions
 
-You don't even need to keep your laptop on or pay for a server. The included GitHub Actions workflow runs hourly through the day for free:
+You don't even need to keep your laptop on. The Actions workflow posts through the day. GitHub's own scheduler is not guaranteed, so each start stays on the runner instead of depending on a fresh tick every hour.
 
 1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
 2. Add the following repository secrets:
@@ -117,7 +118,7 @@ You don't even need to keep your laptop on or pay for a server. The included Git
    - `GEMINI_API_KEY`
    - `AMAZON_PARTNER_TAG`
    - `ADMIN_CHAT_ID` (optional — private agent briefing, not the public channel)
-3. Go to the **Actions** tab and enable workflows. DealDash will run automatically 24/7/365!
+3. Go to the **Actions** tab and enable workflows. A job posts once an hour from the morning start until 23:20 IST. It does not run overnight.
 
 ---
 
