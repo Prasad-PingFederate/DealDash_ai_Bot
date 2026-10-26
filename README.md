@@ -30,7 +30,7 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
    - A critic throws away AI captions that hide the real price and uses the template instead.
    - The reason for every post and skip is stored in SQLite and, if `ADMIN_CHAT_ID` is set, sent only to you.
 7. **Zero-Cost 24/7 Cloud Deployment**:
-   - Runs on GitHub Actions during 08:40–23:20 IST. The schedule asks for an hourly run. GitHub often starts late or skips a tick, and a late runner will not post after quiet hours.
+   - Runs on GitHub Actions hourly from 09:37 to 22:37 IST. GitHub can still start a run late or skip one. A scheduled run that starts outside 08:40–23:20 IST does not post. A manual run always posts.
    - Also includes Docker Compose for Always-Free Oracle Cloud VM or VPS.
 
 ---

@@ -2,17 +2,17 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # GitHub drops most :15/:45 ticks and starts the ones it keeps 1–5 hours late.
-    # Minute 7 is off the congested :00/:15/:30/:45 pile. Hours 3–17 UTC are
-    # 08:30–23:00 IST. A late runner is stopped by the IST window check below,
-    # so a 17:00 UTC job that starts at 01:00 IST does not post overnight.
-    - cron: '7 3-17 * * *'
+    # Minute 7 avoids the crowded :00/:15/:30/:45 slots GitHub often drops.
+    # 04:07–17:07 UTC is 09:37–22:37 IST, inside the posting window.
+    # Hour 03:07 UTC is 08:37 IST and was always rejected by that window.
+    - cron: '7 4-17 * * *'
 
   workflow_dispatch:
 
-# One poster at a time. A delayed run must finish its state push before the next starts.
+# Dealbot and the weekly advisor both push main. One at a time, and do not
+# cancel a run that has already posted to Telegram.
 concurrency:
-  group: dealbot-live
+  group: dealdash-git
   cancel-in-progress: false
 
 permissions:
@@ -21,6 +21,7 @@ permissions:
 jobs:
   run-dealbot:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check IST posting window
         id: window
@@ -30,10 +31,13 @@ jobs:
           now=$((10#$hour * 60 + 10#$minute))
           start=$((8 * 60 + 40))
           end=$((23 * 60 + 20))
-          echo "IST now is ${hour}:${minute}"
-          if [ "$now" -lt "$start" ] || [ "$now" -gt "$end" ]; then
+          echo "IST now is ${hour}:${minute} (event: ${{ github.event_name }})"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "open=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: posting window is not applied."
+          elif [ "$now" -lt "$start" ] || [ "$now" -gt "$end" ]; then
             echo "open=false" >> "$GITHUB_OUTPUT"
-            echo "Outside 08:40–23:20 IST. Skipping so a late GitHub runner does not post at night."
+            echo "Outside 08:40–23:20 IST. Skipping so a late runner does not post at night."
           else
             echo "open=true" >> "$GITHUB_OUTPUT"
           fi
@@ -42,7 +46,8 @@ jobs:
         if: steps.window.outputs.open == 'true'
         uses: actions/checkout@v4
         with:
-          fetch-depth: 20
+          fetch-depth: 1
+          ref: main
 
       - name: Set up Python
         if: steps.window.outputs.open == 'true'
@@ -77,15 +82,25 @@ jobs:
           AGENT_MODE: 'true'
           AGENT_LLM: 'true'
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
-        run: |
-          python run_once.py
+        run: python run_once.py
 
       - name: Commit and persist state.sqlite3
         if: steps.window.outputs.open == 'true'
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase --autostash origin main
-          git add -f data/state.sqlite3 || true
-          git diff --staged --quiet || git commit -m "chore(bot): persist posted deal state [skip ci]"
-          git push origin HEAD:main
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp data/state.sqlite3 "$RUNNER_TEMP/state.sqlite3"
+          persist() {
+            git fetch origin main
+            git checkout -f -B main origin/main
+            cp "$RUNNER_TEMP/state.sqlite3" data/state.sqlite3
+            git add -f data/state.sqlite3
+            if git diff --staged --quiet; then
+              echo "State unchanged."
+              return 0
+            fi
+            git commit -m "chore(bot): persist posted deal state [skip ci]"
+            git push origin HEAD:main
+          }
+          persist || persist
