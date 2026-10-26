@@ -52,6 +52,18 @@ def test_hermes_craft_deal_copy(monkeypatch):
         assert called_payload["reasoning"]["effort"] == "none"
 
 
+def test_deals_agent_openrouter_secret_name(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.delenv("HERMES_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("DEALS_AGENT_OPENROUTER", "deals-agent-key")
+
+    copywriter = AICopywriter()
+    assert copywriter.is_configured() is True
+    assert copywriter.hermes_api_key == "deals-agent-key"
+
+
 def test_unsafe_backup_models_are_rewritten(monkeypatch):
     monkeypatch.setenv("HERMES_API_KEY", "test-hermes-token")
     for unsafe in ("google/gemma-4-31b-it:free", "openrouter/free", "nousresearch/hermes-3-llama-3.1-8b"):

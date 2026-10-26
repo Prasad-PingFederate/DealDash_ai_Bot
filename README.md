@@ -121,7 +121,7 @@ You don't even need to keep your laptop on. The Actions workflow posts through t
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
    - `GEMINI_API_KEY`
-   - `HERMES_API_KEY` (OpenRouter key — used only when Gemini is empty or out of quota)
+   - `HERMES_API_KEY` or `DEALS_AGENT_OPENROUTER` (OpenRouter key — used only when Gemini is empty or out of quota)
    - `AMAZON_PARTNER_TAG`
    - `ADMIN_CHAT_ID` (optional — private agent briefing, not the public channel)
 3. Go to the **Actions** tab and enable workflows. A job posts once an hour from the morning start until 23:20 IST. It does not run overnight.

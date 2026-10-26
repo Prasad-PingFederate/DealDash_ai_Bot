@@ -136,6 +136,7 @@ class AICopywriter:
         self.hermes_api_key = (
             os.getenv("HERMES_API_KEY")
             or os.getenv("OPENROUTER_API_KEY")
+            or os.getenv("DEALS_AGENT_OPENROUTER")
             or os.getenv("HF_TOKEN", "")
         ).strip()
         self.hermes_model = resolve_backup_model(os.getenv("HERMES_MODEL", DEFAULT_HERMES_MODEL))
