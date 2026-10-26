@@ -84,9 +84,9 @@ def run_once() -> int:
             logger.info("Recorded %s Telegram engagement update(s).", caught)
     copywriter = AICopywriter()
     if copywriter.is_configured():
-        logger.info(f"AI Copywriter initialized using model '{copywriter.model}'.")
+        logger.info("AI Copywriter ready: %s.", copywriter.describe())
     else:
-        logger.info("AI Copywriter not configured (GEMINI_API_KEY empty). Using standard template.")
+        logger.info("AI Copywriter not configured. Using the caption template.")
 
     deals = collect_all_deals()
     logger.info(f"Fetched {len(deals)} active deals from sources.")

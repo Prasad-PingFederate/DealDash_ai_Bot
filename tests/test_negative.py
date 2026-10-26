@@ -239,6 +239,7 @@ def test_growth_advisor_corrupted_database(tmp_path):
 def test_hermes_unauthorized_and_malformed_json(monkeypatch):
     monkeypatch.setenv("AI_PROVIDER", "hermes")
     monkeypatch.setenv("HERMES_API_KEY", "invalid_hermes_key")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
 
     cw = AICopywriter()
     deal = Deal("d1", "Amazon", "Echo Dot", "https://amazon.in/dp/B01")

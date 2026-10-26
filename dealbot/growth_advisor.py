@@ -141,6 +141,10 @@ def run_growth_advisor(db_path: str = "data/state.sqlite3", output_path: str = "
     )
 
     ai_analysis = copywriter.generate_text(prompt=prompt, system_prompt=system_prompt)
+    if copywriter.last_engine == "gemma":
+        provider_name = f"Gemma backup ({copywriter.hermes_model})"
+    elif copywriter.last_engine == "gemini":
+        provider_name = f"Gemini ({copywriter.model})"
     if not ai_analysis:
         logger.warning("AI generation failed or not configured. Generating standard quantitative digest.")
         ai_analysis = (

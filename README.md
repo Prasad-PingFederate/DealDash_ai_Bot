@@ -11,10 +11,12 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
 1. **Autonomous Live Ingestion**:
    - Ingests 30+ human-verified price drops (30% to 80% OFF) automatically every cycle.
    - Zero manual deal entry required.
-2. **AI Copywriter (Google Gemini 2.5 Flash)**:
-   - Transforms raw product titles into punchy, high-CTR Telegram posts with emojis, specs bullets, and strikethrough MRP.
-   - Built with strict Telegram HTML sanitization to eliminate `400 Bad Request: can't parse entities` errors.
-   - Graceful fallback: If AI quota is exhausted, immediately falls back to clean templates without crashing.
+2. **AI Copywriter (Gemini, with a free Gemma backup)**:
+   - Transforms raw product titles into punchy Telegram posts.
+   - Gemini 2.5 Flash writes the caption and the deal pick.
+   - If the Gemini key is empty or the quota is dead, the same job switches to the free OpenRouter model `google/gemma-4-26b-a4b-it:free`. The endpoint stays `https://openrouter.ai/api/v1/chat/completions`.
+   - The free 31B Gemma route is not used. It is often still queued when the bot stops waiting at 12 seconds, and the post then falls back to the template. `openrouter/free` is not used either, because that id changes model on every call.
+   - If both models fail, the bot posts the clean template and does not crash.
 3. **Smart Affiliate Link Engine**:
    - Automatically cleans third-party affiliate tags and injects your tag (e.g. `tag=dammaiprasad-21` for Amazon, `affid=` for Flipkart).
 4. **Auto Out-of-Stock (OOS) Detection**:
@@ -74,10 +76,13 @@ POST_DELAY_SECONDS=3
 AMAZON_PARTNER_TAG=dammaiprasad-21
 FLIPKART_AFFILIATE_ID=yourflipkartid
 
-# AI Copywriter (Google Gemini)
+# AI Copywriter
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
-AI_TIMEOUT_SECONDS=8
+AI_TIMEOUT_SECONDS=12
+# Backup only. Leave AI_PROVIDER unset or gemini.
+HERMES_API_KEY=your_openrouter_key
+HERMES_MODEL=google/gemma-4-26b-a4b-it:free
 
 # Deal Filtering
 FEEDS_ENABLED=true
@@ -116,6 +121,7 @@ You don't even need to keep your laptop on. The Actions workflow posts through t
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
    - `GEMINI_API_KEY`
+   - `HERMES_API_KEY` (OpenRouter key — used only when Gemini is empty or out of quota)
    - `AMAZON_PARTNER_TAG`
    - `ADMIN_CHAT_ID` (optional — private agent briefing, not the public channel)
 3. Go to the **Actions** tab and enable workflows. A job posts once an hour from the morning start until 23:20 IST. It does not run overnight.

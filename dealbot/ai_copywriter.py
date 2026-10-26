@@ -10,9 +10,59 @@ from dealbot.models import Deal
 logger = logging.getLogger(__name__)
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-DEFAULT_HERMES_MODEL = "nousresearch/hermes-3-llama-3.1-8b"
+# Free Gemma 4 26B A4B on OpenRouter. Near-31B quality, but only ~4B parameters
+# run per token, so a short JSON pick or one-sentence caption returns inside
+# the 12s limit. The free 31B route is often queued past that limit, and
+# openrouter/free swaps models every call, which makes the JSON pick unreliable.
+GEMMA_BACKUP_MODEL = "google/gemma-4-26b-a4b-it:free"
+DEFAULT_HERMES_MODEL = GEMMA_BACKUP_MODEL
+UNSAFE_BACKUP_MODELS = {
+    "openrouter/free",
+    "google/gemma-4-31b-it:free",
+    "nousresearch/hermes-3-llama-3.1-8b",
+}
 DEFAULT_HERMES_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+HERMES_PROVIDERS = {"hermes", "nous-hermes", "openrouter", "hf", "gemma"}
+_PLACEHOLDER_KEYS = {"", "replace_me"}
+
+
+def _usable_key(value: Optional[str]) -> bool:
+    return bool(value) and value.strip().lower() not in _PLACEHOLDER_KEYS
+
+
+def resolve_backup_model(raw: Optional[str]) -> str:
+    """Pin the OpenRouter backup to the free 26B Gemma route."""
+    model = (raw or "").strip()
+    if model.lower() in UNSAFE_BACKUP_MODELS or not model:
+        if model and model != GEMMA_BACKUP_MODEL:
+            logger.warning(
+                "HERMES_MODEL %s is ignored. Use %s. The free 31B route is often "
+                "queued past the 12s timeout, and openrouter/free changes model on every call.",
+                model,
+                GEMMA_BACKUP_MODEL,
+            )
+        return GEMMA_BACKUP_MODEL
+    return model
+
+
+def gemini_quota_failure(status: int, body: str) -> bool:
+    """True when Gemini will not answer until the key or quota is fixed."""
+    if status in (401, 403, 429):
+        return True
+    blob = (body or "").lower()
+    markers = (
+        "quota",
+        "resource_exhausted",
+        "resource has been exhausted",
+        "billing",
+        "api key not valid",
+        "api_key_invalid",
+        "permission_denied",
+        "permission denied",
+        "exceeded your current quota",
+    )
+    return any(marker in blob for marker in markers)
 
 def sanitize_telegram_html(text: str) -> str:
     """
@@ -68,10 +118,9 @@ def sanitize_telegram_html(text: str) -> str:
 
 class AICopywriter:
     """
-    Dual-Provider AI Engine supporting:
-    1. Google Gemini Flash (default, free API)
-    2. Nous Hermes (via OpenRouter or Hugging Face Inference API)
-    3. Seasonal Festival / Sale Mode Boosters (Diwali, Great Indian Festival, Prime Day)
+    Gemini first. If that key is empty or the quota is dead, the same call
+    continues on the free Gemma model through OpenRouter. A template is used
+    only when both are unavailable.
     """
     def __init__(
         self,
@@ -84,24 +133,42 @@ class AICopywriter:
         self.api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
         self.model = (model or os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)).strip()
 
-        # Nous Hermes configuration
         self.hermes_api_key = (
             os.getenv("HERMES_API_KEY")
             or os.getenv("OPENROUTER_API_KEY")
             or os.getenv("HF_TOKEN", "")
         ).strip()
-        self.hermes_model = (os.getenv("HERMES_MODEL", DEFAULT_HERMES_MODEL)).strip()
+        self.hermes_model = resolve_backup_model(os.getenv("HERMES_MODEL", DEFAULT_HERMES_MODEL))
         self.hermes_endpoint = (
             hermes_endpoint or os.getenv("HERMES_ENDPOINT", DEFAULT_HERMES_ENDPOINT)
         ).strip()
 
         self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "12"))
         self.sale_mode = os.getenv("SALE_MODE", "").strip().lower()
+        self.last_engine = None
+        self._gemini_quota_dead = False
+
+    def _gemini_ready(self) -> bool:
+        return _usable_key(self.api_key)
+
+    def _hermes_ready(self) -> bool:
+        return _usable_key(self.hermes_api_key)
+
+    def _uses_hermes_only(self) -> bool:
+        return self.provider in HERMES_PROVIDERS
 
     def is_configured(self) -> bool:
-        if self.provider in ["hermes", "nous-hermes", "openrouter", "hf"]:
-            return bool(self.hermes_api_key and self.hermes_api_key != "replace_me")
-        return bool(self.api_key and self.api_key != "replace_me")
+        if self._uses_hermes_only():
+            return self._hermes_ready() or self._gemini_ready()
+        return self._gemini_ready() or self._hermes_ready()
+
+    def describe(self) -> str:
+        parts = []
+        if self._gemini_ready():
+            parts.append(f"Gemini {self.model}")
+        if self._hermes_ready():
+            parts.append(f"Gemma backup {self.hermes_model}")
+        return " + ".join(parts) or "unconfigured"
 
     def _get_sale_mode_directive(self) -> str:
         if not self.sale_mode:
@@ -134,16 +201,35 @@ class AICopywriter:
         return ""
 
     def generate_text(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
-        """
-        Generic text generation supporting Gemini or Nous Hermes.
-        Used for deal copywriting as well as Growth Advisor strategic analysis.
-        """
+        """Gemini first. Gemma on OpenRouter only after the Gemini key or quota fails."""
         if not self.is_configured():
             return None
 
-        if self.provider in ["hermes", "nous-hermes", "openrouter", "hf"]:
-            return self._call_hermes(prompt, system_prompt)
-        return self._call_gemini(prompt, system_prompt)
+        self.last_engine = None
+        self._gemini_quota_dead = False
+        if self._gemini_ready():
+            text = self._call_gemini(prompt, system_prompt)
+            if text:
+                self.last_engine = "gemini"
+                return text
+            # A timeout or 5xx is not a dead quota. Keep the free daily cap
+            # unless Gemini itself was turned off or this run is Hermes-only.
+            if not self._gemini_quota_dead and not self._uses_hermes_only():
+                return None
+            if self._gemini_quota_dead and self._hermes_ready():
+                logger.warning(
+                    "Gemini key is empty or out of quota. Using Gemma backup %s.",
+                    self.hermes_model,
+                )
+        elif self._hermes_ready():
+            logger.warning("Gemini key is empty. Using Gemma backup %s.", self.hermes_model)
+
+        if self._hermes_ready():
+            text = self._call_hermes(prompt, system_prompt)
+            if text:
+                self.last_engine = "gemma"
+            return text
+        return None
 
     def _call_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
         full_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
@@ -165,7 +251,12 @@ class AICopywriter:
                 timeout=self.timeout
             )
             if resp.status_code != 200:
-                logger.warning(f"Gemini API returned status {resp.status_code}: {resp.text[:200]}")
+                body = resp.text[:500]
+                if gemini_quota_failure(resp.status_code, body):
+                    self._gemini_quota_dead = True
+                    logger.warning("Gemini quota or key failure (%s): %s", resp.status_code, body[:200])
+                else:
+                    logger.warning(f"Gemini API returned status {resp.status_code}: {body[:200]}")
                 return None
 
             data = resp.json()
@@ -193,7 +284,7 @@ class AICopywriter:
             "X-Title": "DealDash AI Bot (Nous Hermes Engine)",
         }
 
-        sys_msg = system_prompt or "You are Hermes, an autonomous AI assistant."
+        sys_msg = system_prompt or "You are a concise deals editor. Reply with only what was asked."
         payload = {
             "model": self.hermes_model,
             "messages": [
@@ -201,8 +292,11 @@ class AICopywriter:
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.3,
-            "max_tokens": 1000
+            "max_tokens": 1000,
         }
+        # Thinking tokens eat the 12s budget before the JSON pick is written.
+        if "gemma" in self.hermes_model.lower():
+            payload["reasoning"] = {"effort": "none", "exclude": True}
 
         try:
             resp = requests.post(
