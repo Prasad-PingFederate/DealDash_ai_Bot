@@ -83,15 +83,14 @@ def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
     return url, f"deal-{abs(hash(url))}", "Online Store"
 
 def worth_posting_discount(discount_percent: int, original_price: str, deal_price: str, min_discount: int) -> bool:
-    """Keep a high percent, or a smaller percent that still saves real money."""
+    """Keep the usual percent, and also a smaller percent at any price. No rupee minimum."""
     if discount_percent >= min_discount:
         return True
     price = parse_rupees(deal_price)
     mrp = parse_rupees(original_price)
-    if price is None or mrp is None or mrp <= price or discount_percent < 20:
+    if price is None or mrp is None or mrp <= price:
         return False
-    min_savings = int(os.getenv("MIN_SAVINGS_RUPEES", "1500"))
-    return (mrp - price) >= min_savings
+    return discount_percent >= 15
 
 
 def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:

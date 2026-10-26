@@ -152,10 +152,7 @@ def _has_known_brand(title: str) -> bool:
 
 
 def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str] = None) -> ScoredDeal:
-    """Rank a deal by how likely a subscriber is to forward it.
-
-    Rupees saved and a known brand beat a huge percent on a very cheap no-name item.
-    """
+    """Rank a deal for the channel. A bigger saving still ranks higher, but a low price is not a reason to drop it."""
     slot = slot or current_slot()
     category = classify_category(deal)
     reasons: List[str] = []
@@ -196,8 +193,8 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score += 4
             reasons.append(f"saves ₹{savings}")
         else:
-            score -= 12
-            reasons.append(f"only ₹{savings} off, not worth a post")
+            score += 6
+            reasons.append(f"saves ₹{savings}")
     elif price:
         score += 2
         reasons.append("deal price only")
@@ -205,15 +202,9 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         score -= 12
         reasons.append("missing price")
 
-    if price is not None and price < 300 and discount >= 55:
-        score -= 22
-        reasons.append("cheap item with a padded percent")
-    elif price is not None and price < 500 and discount >= 80:
-        score -= 16
-        reasons.append("MRP looks inflated")
-    elif price is not None and 299 <= price <= 25000:
+    if price is not None and price <= 25000:
         score += 4
-        reasons.append("easy price to buy")
+        reasons.append("has a buyable price")
 
     title = (deal.title or "").strip()
     if len(title) < 8 or title.lower() in {"special deal", "deal"}:
@@ -384,10 +375,9 @@ class DealAgent:
             "Choose which deals to publish this cycle.\n"
             f"Time slot: {slot} IST. Post at most {max_posts} deals.\n"
             f"Categories already on the channel, newest first: {list(recent_categories)[:6] or 'none'}.\n"
-            "Prefer deals a subscriber would forward: a known brand, a real rupee saving "
-            "(₹1,500 or more is strong), and a price someone can buy without thinking too hard. "
-            "Skip no-name items under ₹300 even if the percent looks huge, skip coupon-only "
-            "or refurbished listings, and do not pick two near-duplicate products.\n"
+            "Include low-priced deals. A product under ₹99 is still worth posting. "
+            "Do not skip a deal because the price or the rupee saving is small. "
+            "Skip coupon-only or refurbished listings, and do not pick two near-duplicate products.\n"
             "Reply with JSON only, no markdown:\n"
             '{"posts":[{"id":"<id from the list>","why":"short reason"}]}\n\n'
             f"CANDIDATES:\n{json.dumps(cards, ensure_ascii=False)}"

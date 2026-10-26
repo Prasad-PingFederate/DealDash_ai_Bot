@@ -105,19 +105,26 @@ def test_big_saving_on_a_known_brand_beats_a_padded_cheap_deal(monkeypatch):
     assert any(item.deal.id == "cable" and item.score < plan.posts[0].score for item in plan.skips)
 
 
-def test_nothing_posts_when_every_deal_is_junk(monkeypatch):
+def test_cheap_product_is_posted(monkeypatch):
     monkeypatch.setattr("dealbot.agent.current_slot", lambda now=None: "night")
-    junk = _deal("cable", "Generic USB Cable 3 Pack", 90, price="₹99", mrp="₹999")
+    cheap = _deal("clip", "Generic Cable Clip", 60, price="₹49", mrp="₹149")
+    plan = DealAgent(copywriter=None).plan([cheap], [], max_posts=1)
+    assert [item.deal.id for item in plan.posts] == ["clip"]
+
+
+def test_nothing_posts_when_there_is_no_real_deal(monkeypatch):
+    monkeypatch.setattr("dealbot.agent.current_slot", lambda now=None: "night")
     nameless = _deal("x", "Deal", 0, price=None, mrp=None, image=None)
-    plan = DealAgent(copywriter=None).plan([junk, nameless], [], max_posts=2)
+    plan = DealAgent(copywriter=None).plan([nameless], [], max_posts=2)
     assert plan.posts == []
 
 
-def test_feed_keeps_a_smaller_percent_when_the_saving_is_large():
+def test_feed_keeps_a_small_price():
     from dealbot.sources import worth_posting_discount
 
-    assert worth_posting_discount(25, "45000", "32000", min_discount=30)
-    assert not worth_posting_discount(25, "1000", "750", min_discount=30)
+    assert worth_posting_discount(25, "149", "49", min_discount=30)
+    assert worth_posting_discount(25, "1000", "750", min_discount=30)
+    assert not worth_posting_discount(10, "1000", "900", min_discount=30)
     assert worth_posting_discount(40, "1000", "600", min_discount=30)
 
 
