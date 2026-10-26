@@ -179,7 +179,10 @@ def test_live_cycle_skips_a_dead_page_and_posts_the_spare(tmp_path, monkeypatch)
     dead = _deal("dead", url="https://www.amazon.in/dp/DEADPAGE01", title="Dead Speaker")
     live = _deal("live", url="https://www.amazon.in/dp/LIVEPAGE01", title="Live Speaker")
     monkeypatch.setattr("dealbot.main.collect_all_deals", lambda: [dead, live])
-    monkeypatch.setattr("dealbot.main.check_deal_is_active", lambda url, timeout=8: "DEAD" not in url)
+    monkeypatch.setattr(
+        "dealbot.main.inspect_stock",
+        lambda url, timeout=8: "out_of_stock" if "DEAD" in url else "in_stock",
+    )
     posted = []
     monkeypatch.setattr(
         "dealbot.main.send_telegram_deal",
@@ -199,7 +202,7 @@ def test_dry_run_does_not_open_product_pages(tmp_path, monkeypatch):
     def explode(url, timeout=8):
         raise AssertionError("stock check should not run in dry run")
 
-    monkeypatch.setattr("dealbot.main.check_deal_is_active", explode)
+    monkeypatch.setattr("dealbot.main.inspect_stock", explode)
     from dealbot.main import run_once
 
     assert run_once() == 1
@@ -211,7 +214,7 @@ def test_stock_check_can_be_turned_off(tmp_path, monkeypatch):
     monkeypatch.setenv("CHECK_STOCK_BEFORE_POST", "false")
     monkeypatch.setattr("dealbot.main.collect_all_deals", lambda: [_deal("only")])
     monkeypatch.setattr(
-        "dealbot.main.check_deal_is_active",
+        "dealbot.main.inspect_stock",
         lambda url, timeout=8: (_ for _ in ()).throw(AssertionError("check disabled")),
     )
     monkeypatch.setattr(
@@ -246,3 +249,40 @@ def test_failed_send_and_already_posted_do_not_count(tmp_path, monkeypatch):
         lambda deal, dry_run=True, copywriter=None: (_ for _ in ()).throw(AssertionError("already posted")),
     )
     assert run_once() == 0
+
+
+def test_price_memory_only_claims_a_drop_we_saw(tmp_path):
+    from dealbot.publisher import StateStore, price_note_for
+
+    store = StateStore(str(tmp_path / "prices.sqlite3"))
+    assert store.note_price("amz-1", 999) == (None, None)
+    assert price_note_for(None, None, 999) is None
+
+    previous, lowest = store.note_price("amz-1", 999)
+    assert previous == 999 and price_note_for(previous, lowest, 999) is None
+
+    previous, lowest = store.note_price("amz-1", 700)
+    assert price_note_for(previous, lowest, 700).startswith("Lowest price we have seen")
+
+    store.note_price("amz-1", 800)
+    previous, lowest = store.note_price("amz-1", 750)
+    note = price_note_for(previous, lowest, 750)
+    assert note == "Lower than the last price we saw (₹800)."
+    assert "90 days" not in note
+
+    deal = _deal("amz-1", current_price="₹750", price_note=note, checked=True)
+    caption = format_caption(deal)
+    assert "Lower than the last price we saw" in caption
+    assert "Checked just now" in caption
+
+
+def test_block_page_is_unknown_and_not_called_out_of_stock():
+    from dealbot.expiry_checker import inspect_stock
+
+    captcha = _page(200, "<html>Sorry, we just need to make sure you're not a robot</html>")
+    with patch("requests.get", return_value=captcha):
+        assert inspect_stock("https://amazon.in/dp/X") == "unknown"
+        assert check_deal_is_active("https://amazon.in/dp/X") is True
+    bare = _page(200, "<html><title>Amazon.in</title></html>")
+    with patch("requests.get", return_value=bare):
+        assert inspect_stock("https://amazon.in/dp/X") == "unknown"

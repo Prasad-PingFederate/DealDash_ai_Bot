@@ -3,12 +3,12 @@ import os
 import time
 from pathlib import Path
 from dotenv import load_dotenv
-from dealbot.publisher import StateStore, send_admin_note, send_telegram_deal
+from dealbot.publisher import StateStore, price_note_for, send_admin_note, send_telegram_deal
 from dealbot.sources import collect_all_deals
 from dealbot.ai_copywriter import AICopywriter
 from dealbot.agent import DealAgent, classify_category
-from dealbot.models import Deal
-from dealbot.expiry_checker import check_deal_is_active, mark_telegram_deal_expired
+from dealbot.models import Deal, parse_rupees
+from dealbot.expiry_checker import check_deal_is_active, inspect_stock, mark_telegram_deal_expired
 from dealbot.pacing import get_recommended_sleep_seconds
 
 def setup_logging():
@@ -81,6 +81,12 @@ def run_once() -> int:
 
     deals = collect_all_deals()
     logger.info(f"Fetched {len(deals)} active deals from sources.")
+    for deal in deals:
+        seen = parse_rupees(deal.current_price)
+        if seen is None:
+            continue
+        previous, lowest_before = store.note_price(deal.id, seen)
+        deal.price_note = price_note_for(previous, lowest_before, seen)
     fresh = [deal for deal in deals if deal.is_valid() and not store.is_posted(deal.id)]
 
     plan = None
@@ -100,9 +106,16 @@ def run_once() -> int:
     for deal in queue:
         if posted_count >= max_posts:
             break
-        if check_stock and not check_deal_is_active(deal.url):
-            logger.info(f"Skipping {deal.id} before post: page is out of stock or gone.")
-            continue
+        if check_stock:
+            status = inspect_stock(deal.url)
+            if status == "out_of_stock":
+                logger.info(f"Skipping {deal.id} before post: page is out of stock or gone.")
+                store.record_event(deal.id, "skipped_oos")
+                continue
+            if status == "in_stock":
+                deal.checked = True
+            else:
+                store.record_event(deal.id, "stock_unknown")
 
         success, msg_id, caption = send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
         if success:
@@ -121,6 +134,9 @@ def run_once() -> int:
                     agent_reason=picked.reason if picked else None,
                 )
                 time.sleep(post_delay)
+                store.record_event(deal.id, "posted", "checked" if deal.checked else "unverified")
+        elif not dry_run:
+            store.record_event(deal.id, "send_failed")
 
     if plan is not None:
         decision_rows = [

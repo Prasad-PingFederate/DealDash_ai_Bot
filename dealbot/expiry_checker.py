@@ -14,30 +14,40 @@ OOS_INDICATORS = [
     re.compile(r"this item cannot be shipped", re.IGNORECASE),
 ]
 
-def check_deal_is_active(url: str, timeout: int = 8) -> bool:
-    """
-    Check if an e-commerce product URL is still active and in stock.
-    Returns False if 404/410, or if page contains out-of-stock indicators.
-    """
+def inspect_stock(url: str, timeout: int = 8) -> str:
+    """Return in_stock, out_of_stock, or unknown. Unknown means we could not tell."""
     if not url:
-        return False
+        return "out_of_stock"
     try:
         resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout, allow_redirects=True)
         if resp.status_code in [404, 410]:
-            return False
+            return "out_of_stock"
         if resp.status_code != 200:
-            return True  # Avoid false positive on temporary server glitches
+            return "unknown"
 
         text = resp.text[:80000]
+        blocked = re.search(
+            r"not a robot|validateCaptcha|Enter the characters you see|api-services-support@amazon",
+            text,
+            re.IGNORECASE,
+        )
+        if blocked:
+            return "unknown"
         out_of_stock = any(pattern.search(text) for pattern in OOS_INDICATORS)
-        # Related products often say "out of stock" on a page that is still buyable.
         buyable = re.search(r"add to cart|buy now|(?<!back )in stock", text, re.IGNORECASE)
         if out_of_stock and not buyable:
-            return False
-        return True
+            return "out_of_stock"
+        if buyable:
+            return "in_stock"
+        return "unknown"
     except requests.RequestException as e:
         logger.warning(f"Availability check failed for {url}: {e}")
-        return True  # If network blip, assume active to avoid false expiry
+        return "unknown"
+
+
+def check_deal_is_active(url: str, timeout: int = 8) -> bool:
+    """False only when the page is clearly gone or out of stock. A block page stays active."""
+    return inspect_stock(url, timeout=timeout) != "out_of_stock"
 
 def mark_telegram_deal_expired(token: str, chat_id: str, message_id: int, original_caption: str, is_photo: bool = True) -> bool:
     """

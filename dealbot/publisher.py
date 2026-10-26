@@ -42,6 +42,23 @@ class StateStore:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS price_seen (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    product_id TEXT NOT NULL,
+                    price INTEGER NOT NULL,
+                    seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS cycle_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    deal_id TEXT,
+                    outcome TEXT,
+                    detail TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             # Auto-migrate older schemas if missing columns
             for col in [
                 "chat_id TEXT",
@@ -164,6 +181,67 @@ class StateStore:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("UPDATE posted_deals SET status = 'expired' WHERE deal_id = ?", (deal_id,))
 
+    def note_price(self, product_id: str, price: int) -> Tuple[Optional[int], Optional[int]]:
+        """Remember a price. Returns the previous price and the lowest price before this one."""
+        with sqlite3.connect(self.db_path) as conn:
+            latest = conn.execute(
+                "SELECT price FROM price_seen WHERE product_id = ? ORDER BY id DESC LIMIT 1",
+                (product_id,),
+            ).fetchone()
+            previous = int(latest[0]) if latest else None
+            lowest_row = conn.execute(
+                "SELECT MIN(price) FROM price_seen WHERE product_id = ?",
+                (product_id,),
+            ).fetchone()
+            lowest_before = int(lowest_row[0]) if lowest_row and lowest_row[0] is not None else None
+            if previous != price:
+                conn.execute(
+                    "INSERT INTO price_seen (product_id, price) VALUES (?, ?)",
+                    (product_id, price),
+                )
+            stale = conn.execute(
+                "SELECT id FROM price_seen WHERE product_id = ? ORDER BY id DESC",
+                (product_id,),
+            ).fetchall()
+            for row in stale[30:]:
+                conn.execute("DELETE FROM price_seen WHERE id = ?", (row[0],))
+            return previous, lowest_before
+
+    def record_event(self, deal_id: str, outcome: str, detail: str = "") -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO cycle_events (deal_id, outcome, detail) VALUES (?, ?, ?)",
+                (deal_id, outcome, detail[:200]),
+            )
+            conn.execute(
+                """
+                DELETE FROM cycle_events
+                WHERE id < (
+                    SELECT MIN(id) FROM (
+                        SELECT id FROM cycle_events ORDER BY id DESC LIMIT 400
+                    )
+                )
+                """
+            )
+
+    def recent_events(self, limit: int = 20) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                "SELECT deal_id, outcome, detail FROM cycle_events ORDER BY id DESC LIMIT ?",
+                (limit,),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def price_note_for(previous: Optional[int], lowest_before: Optional[int], price: Optional[int]) -> Optional[str]:
+    """Only claim a drop we have actually seen. Never say lowest in 90 days."""
+    if previous is None or price is None or price >= previous:
+        return None
+    if lowest_before is None or price <= lowest_before:
+        return f"Lowest price we have seen. Last time it was ₹{previous:,}."
+    return f"Lower than the last price we saw (₹{previous:,})."
+
 def _ai_copy_keeps_price(ai_body: str, deal: Deal) -> bool:
     """Reject model copy that dropped the real deal price."""
     if not deal.current_price:
@@ -252,6 +330,10 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     bank = (deal.bank_offer or "").strip()
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
         lines.append(f"Bank offer: {html.escape(bank[:90])}")
+    if deal.price_note:
+        lines.append(html.escape(deal.price_note))
+    if deal.checked:
+        lines.append("Checked just now")
 
     tagline = _ai_tagline(ai_body, deal)
     if tagline:

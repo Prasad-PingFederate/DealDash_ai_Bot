@@ -34,6 +34,8 @@ class Deal:
     expires_at: Optional[str] = None
     coupon_code: Optional[str] = None
     bank_offer: Optional[str] = None
+    price_note: Optional[str] = None
+    checked: bool = False
 
     def savings_rupees(self) -> Optional[int]:
         price = parse_rupees(self.current_price)
