@@ -46,8 +46,8 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
          ▼                         │
 ┌──────────────────────────────────┴┐
 │ Deal editor agent                 │
-│ score brands and rupee savings   │
-│ drop junk and duplicates         │
+│ price first, coupon only if known │
+│ check stock, then post            │
 └───────────────────────────────────┘
 ```
 

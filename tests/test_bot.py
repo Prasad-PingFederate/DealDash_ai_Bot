@@ -67,3 +67,76 @@ def test_retailer_filtering_only_amazon(monkeypatch, tmp_path):
     monkeypatch.setenv("FLIPKART_AFFILIATE_ID", "real_affiliate_id")
     deals = collect_all_deals()
     assert len(deals) == 2
+
+
+def test_premium_caption_puts_price_first_and_keeps_a_cheap_loot():
+    deal = Deal(
+        "clip",
+        "Amazon",
+        "Generic Cable Clip",
+        "https://www.amazon.in/dp/B000000001?tag=test-21",
+        current_price="₹49",
+        original_price="₹149",
+        discount_percent=67,
+        coupon_code="CLIP49",
+        bank_offer="SBI card extra ₹10",
+    )
+    message = render_message(deal)
+    assert message.startswith("🔥 <b>LOOT</b>")
+    assert message.index("₹49") < message.index("Generic Cable Clip")
+    assert "Coupon <b>CLIP49</b>" in message
+    assert "SBI card extra ₹10" in message
+    assert "Forward this" in message
+    assert "Deal Price:" not in message
+
+
+def test_caption_hides_a_fake_percent_and_does_not_invent_a_coupon():
+    deal = Deal(
+        "tv",
+        "Amazon",
+        "Samsung 43 inch Smart TV",
+        "https://www.amazon.in/dp/B000000002?tag=test-21",
+        current_price="₹22,999",
+        original_price="₹35,999",
+        discount_percent=90,
+        coupon_code="not a real code",
+    )
+    message = render_message(deal)
+    assert "36% OFF" in message
+    assert "90% OFF" not in message
+    assert "Coupon" not in message
+
+
+def test_rss_feed_keeps_a_product_link_and_ifs_coupon():
+    from dealbot.sources import parse_offer_feed
+
+    atom = """<?xml version="1.0"?>
+    <feed xmlns="http://www.w3.org/2005/Atom">
+      <entry>
+        <title>boAt Stone speaker at ₹999 (MRP ₹2,999) 67% off</title>
+        <content>Grab it https://www.amazon.in/dp/B0BS1QCFHX before it ends</content>
+      </entry>
+      <entry>
+        <title>Just a discussion</title>
+        <content>No product link here</content>
+      </entry>
+    </feed>
+    """
+    deals = parse_offer_feed(atom.encode(), min_discount=30)
+    assert len(deals) == 1
+    assert deals[0].id == "amz-B0BS1QCFHX"
+    assert deals[0].current_price == "₹999"
+
+    ifs = """<deals><all_deals>
+      <title>Noise Buds</title>
+      <product_url>https://www.amazon.in/dp/B0AAAAAAA1</product_url>
+      <org_price>1999</org_price>
+      <discount_price>49</discount_price>
+      <discount_per>70</discount_per>
+      <asin>B0AAAAAAA1</asin>
+      <expire>0</expire>
+      <coupon_code>NOISE49</coupon_code>
+    </all_deals></deals>"""
+    parsed = parse_offer_feed(ifs.encode(), min_discount=30)
+    assert parsed[0].current_price == "₹49"
+    assert parsed[0].coupon_code == "NOISE49"

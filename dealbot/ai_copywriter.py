@@ -247,20 +247,17 @@ class AICopywriter:
         )
 
         user_prompt = (
-            f"Transform this product deal into a viral Telegram post:\n\n"
+            f"Write ONE sentence for an Indian Telegram deal post.\n"
             f"Title: {deal.title}\n"
             f"Retailer: {deal.retailer}\n"
-            f"Deal Price: {deal.current_price or 'Best Deal'}\n"
+            f"Deal Price: {deal.current_price or 'the deal price'}\n"
             f"MRP: {deal.original_price or 'N/A'}\n"
-            f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n\n"
+            f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n"
             f"{sale_directive}"
             f"Rules:\n"
-            f"1. First line: High-energy headline with emoji (e.g. 🔥 STEAL DEAL: Short Product Name!)\n"
-            f"2. Exactly 2-3 bullet points with emojis highlighting key features and specs.\n"
-            f"3. Price line: 💰 Deal Price: {deal.current_price or 'Best Price'} | ❌ MRP: <s>{deal.original_price or ''}</s> | ⚡ Discount: {deal.discount_percent or ''}% OFF\n"
-            f"4. Output ONLY valid Telegram HTML tags: <b>, <i>, <s>. NEVER use markdown (* or ** or #).\n"
-            f"5. Do NOT include any URLs, buy links, or disclosures (appended automatically).\n"
-            f"6. Keep it concise (under 80 words total).\n"
+            f"1. One sentence only, under 140 characters, include the deal price digits.\n"
+            f"2. No URL, no hashtag, no buy button.\n"
+            f"3. Plain text or <b>/<i> only.\n"
         )
 
         raw_text = self.generate_text(prompt=user_prompt, system_prompt=system_prompt)

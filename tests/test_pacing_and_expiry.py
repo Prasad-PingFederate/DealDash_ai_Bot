@@ -28,6 +28,14 @@ def test_expiry_checker_detects_in_stock():
     with patch("requests.get", return_value=mock_resp):
         assert check_deal_is_active("https://amazon.in/dp/B01") is True
 
+
+def test_expiry_checker_ignores_related_out_of_stock_text():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = "<html><body>Add to Cart. Similar item currently unavailable.</body></html>"
+    with patch("requests.get", return_value=mock_resp):
+        assert check_deal_is_active("https://amazon.in/dp/B01") is True
+
 def test_mark_telegram_deal_expired():
     mock_resp = MagicMock(status_code=200)
     with patch("requests.post", return_value=mock_resp):

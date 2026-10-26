@@ -28,10 +28,12 @@ def check_deal_is_active(url: str, timeout: int = 8) -> bool:
         if resp.status_code != 200:
             return True  # Avoid false positive on temporary server glitches
 
-        text = resp.text[:40000]  # Check first 40KB where buy box and stock status reside
-        for pattern in OOS_INDICATORS:
-            if pattern.search(text):
-                return False
+        text = resp.text[:80000]
+        out_of_stock = any(pattern.search(text) for pattern in OOS_INDICATORS)
+        # Related products often say "out of stock" on a page that is still buyable.
+        buyable = re.search(r"add to cart|buy now|(?<!back )in stock", text, re.IGNORECASE)
+        if out_of_stock and not buyable:
+            return False
         return True
     except requests.RequestException as e:
         logger.warning(f"Availability check failed for {url}: {e}")

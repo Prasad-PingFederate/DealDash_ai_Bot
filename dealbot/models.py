@@ -32,6 +32,8 @@ class Deal:
     category: Optional[str] = None
     image_url: Optional[str] = None
     expires_at: Optional[str] = None
+    coupon_code: Optional[str] = None
+    bank_offer: Optional[str] = None
 
     def savings_rupees(self) -> Optional[int]:
         price = parse_rupees(self.current_price)

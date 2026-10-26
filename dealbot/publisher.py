@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Any
 import requests
-from dealbot.models import Deal
+from dealbot.models import Deal, parse_rupees
 from dealbot.ai_copywriter import AICopywriter
 
 logger = logging.getLogger(__name__)
@@ -174,42 +174,93 @@ def _ai_copy_keeps_price(ai_body: str, deal: Deal) -> bool:
     return digits in re.sub(r"\D", "", ai_body or "")
 
 
+def offer_percent(deal: Deal) -> Optional[int]:
+    """Percent to print. Trust the prices when the feed's percent is far off."""
+    stated = int(deal.discount_percent or 0)
+    price = parse_rupees(deal.current_price)
+    mrp = parse_rupees(deal.original_price)
+    implied = None
+    if price and mrp and mrp > price:
+        implied = int(round((mrp - price) / mrp * 100))
+    if stated and implied is not None and abs(stated - implied) >= 35:
+        return implied
+    if stated:
+        return stated
+    return implied
+
+
+def deal_badge(deal: Deal) -> str:
+    """LOOT for a steep drop, including a product under ₹99. Otherwise DEAL."""
+    percent = offer_percent(deal) or 0
+    price = parse_rupees(deal.current_price)
+    if percent >= 50 or (price is not None and price < 100 and percent >= 20):
+        return "LOOT"
+    return "DEAL"
+
+
+def _coupon_code(deal: Deal) -> Optional[str]:
+    raw = (deal.coupon_code or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{2,24}", raw):
+        return raw
+    return None
+
+
+def _ai_tagline(ai_body: Optional[str], deal: Deal) -> Optional[str]:
+    """One short line under the price. Never replaces the price block."""
+    if not ai_body or not _ai_copy_keeps_price(ai_body, deal):
+        return None
+    text = re.sub(r"<[^>]+>", " ", ai_body)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) < 8:
+        return None
+    return html.escape(text[:160])
+
+
 def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
     retailer = html.escape(deal.retailer or "Store")
+    badge = deal_badge(deal)
+    mark = "🔥" if badge == "LOOT" else "⚡"
 
     ai_body = None
     if copywriter and copywriter.is_configured():
         ai_body = copywriter.craft_deal_copy(deal)
         if ai_body and not _ai_copy_keeps_price(ai_body, deal):
-            logger.info("Agent critic rejected AI copy that dropped the deal price. Using the template.")
+            logger.info("Agent critic rejected AI copy that dropped the deal price.")
             ai_body = None
 
-    if ai_body:
-        lines = [ai_body]
-    else:
-        title = html.escape(deal.title or "Deal")
-        lines = [f"🔥 <b>{retailer} Deal Alert!</b>", "", f"🏷️ <b>{title}</b>"]
+    lines = [f"{mark} <b>{badge}</b> · {retailer}"]
+    percent = offer_percent(deal)
+    price_bits = []
+    if deal.current_price:
+        price_bits.append(f"<b>{html.escape(deal.current_price)}</b>")
+    if percent:
+        price_bits.append(f"<b>{percent}% OFF</b>")
+    if price_bits:
+        lines.append(" · ".join(price_bits))
 
-        if deal.description:
-            lines.append(f"<i>{html.escape(deal.description)}</i>")
+    lines.append("")
+    lines.append(f"<b>{html.escape(deal.title or 'Deal')}</b>")
 
-        price_parts = []
-        if deal.current_price:
-            price_parts.append(f"💰 <b>Deal Price:</b> {html.escape(deal.current_price)}")
-        if deal.original_price:
-            price_parts.append(f"❌ <b>MRP:</b> <s>{html.escape(deal.original_price)}</s>")
-        if deal.discount_percent:
-            price_parts.append(f"⚡ <b>Discount:</b> {deal.discount_percent}% OFF")
-        savings = deal.savings_rupees()
-        if savings and savings >= 100:
-            price_parts.append(f"✅ <b>You save:</b> ₹{savings:,}")
+    if deal.original_price:
+        lines.append(f"MRP <s>{html.escape(deal.original_price)}</s>")
+    savings = deal.savings_rupees()
+    if savings and savings >= 1:
+        lines.append(f"You save ₹{savings:,}")
+    coupon = _coupon_code(deal)
+    if coupon:
+        lines.append(f"Coupon <b>{html.escape(coupon)}</b>")
+    bank = (deal.bank_offer or "").strip()
+    if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
+        lines.append(f"Bank offer: {html.escape(bank[:90])}")
 
-        if price_parts:
-            lines.append("")
-            lines.extend(price_parts)
+    tagline = _ai_tagline(ai_body, deal)
+    if tagline:
+        lines.append("")
+        lines.append(f"<i>{tagline}</i>")
 
     lines.append("")
     lines.append(f'🛒 <a href="{html.escape(deal.url or "#")}"><b>Buy Now on {retailer}</b></a>')
+    lines.append("🔁 Forward this if it is still live")
     lines.append("")
     if "amazon" in (deal.retailer or "").lower():
         lines.append("<i>#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.</i>")

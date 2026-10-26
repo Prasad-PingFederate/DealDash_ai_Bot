@@ -86,17 +86,23 @@ def run_once() -> int:
     plan = None
     if agent_mode:
         agent = DealAgent(copywriter=copywriter)
-        plan = agent.plan(fresh, _recent_categories(store), max_posts=max_posts)
+        # Two spare picks so an out-of-stock link does not leave the cycle empty.
+        spare = 0 if dry_run else 2
+        plan = agent.plan(fresh, _recent_categories(store), max_posts=max_posts + spare)
         queue = [item.deal for item in plan.posts]
         reasons = {item.deal.id: item for item in plan.posts}
     else:
-        queue = fresh[:max_posts]
+        queue = fresh[: max_posts if dry_run else max_posts + 2]
         reasons = {}
 
+    check_stock = (not dry_run) and os.getenv("CHECK_STOCK_BEFORE_POST", "true").lower() != "false"
     posted_count = 0
     for deal in queue:
         if posted_count >= max_posts:
             break
+        if check_stock and not check_deal_is_active(deal.url):
+            logger.info(f"Skipping {deal.id} before post: page is out of stock or gone.")
+            continue
 
         success, msg_id, caption = send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
         if success:

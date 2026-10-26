@@ -93,66 +93,195 @@ def worth_posting_discount(discount_percent: int, original_price: str, deal_pric
     return discount_percent >= 15
 
 
-def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:
-    """Fetch live deals from real-time aggregator feeds and inject affiliate tags."""
-    feed_url = os.getenv("DEALS_FEED_URL", "https://www.indiafreestuff.in/feed")
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "application/xml"
-    }
-    deals: List[Deal] = []
+DEFAULT_EXTRA_FEED = "https://www.reddit.com/r/IndiaDeals/.rss"
+PRODUCT_URL = re.compile(
+    r"https?://(?:www\.|dl\.)?(?:amazon\.in|amzn\.to|amzn\.in|flipkart\.com)/[^\s<\"']+",
+    re.IGNORECASE,
+)
+
+
+def _first_text(item: ET.Element, *names: str) -> str:
+    wanted = {name.lower() for name in names}
+    for child in list(item):
+        key = child.tag.split("}")[-1].lower()
+        if key in wanted and child.text and child.text.strip():
+            return child.text.strip()
+    return ""
+
+
+def _clean_code(value: str) -> Optional[str]:
+    raw = (value or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{2,24}", raw):
+        return raw
+    return None
+
+
+def _amazon_image(asin: str) -> Optional[str]:
+    if asin and re.fullmatch(r"[A-Z0-9]{10}", asin.upper()):
+        return f"https://m.media-amazon.com/images/P/{asin.upper()}.jpg"
+    return None
+
+
+def _prices_from_text(text: str) -> tuple:
+    percent = None
+    match = re.search(r"(\d{1,2})\s*%", text or "")
+    if match:
+        percent = int(match.group(1))
+    amounts = []
+    for raw in re.findall(r"(?:₹|Rs\.?)\s*[\d,]+(?:\.\d+)?", text or "", flags=re.IGNORECASE):
+        amount = parse_rupees(raw)
+        if amount:
+            amounts.append(amount)
+    current = amounts[0] if amounts else None
+    original = None
+    if len(amounts) > 1 and amounts[1] > (current or 0):
+        original = amounts[1]
+    return current, original, percent
+
+
+def _deal_from_fields(
+    title: str,
+    raw_url: str,
+    org_price: str,
+    disc_price: str,
+    disc_per: int,
+    asin: str,
+    min_discount: int,
+    coupon: str = "",
+    bank: str = "",
+    image_url: str = "",
+) -> Optional[Deal]:
+    if not title or not raw_url:
+        return None
+    if not worth_posting_discount(disc_per, org_price, disc_price, min_discount):
+        return None
+    aff_url, deal_id, retailer = expand_and_convert_url(raw_url)
+    image = image_url if image_url.lower().startswith("https://") else None
+    if not image and retailer == "Amazon":
+        image = _amazon_image(asin)
+    deal = Deal(
+        id=deal_id,
+        retailer=retailer,
+        title=clean_title(title),
+        url=aff_url,
+        current_price=f"₹{disc_price}" if disc_price else None,
+        original_price=f"₹{org_price}" if org_price else None,
+        discount_percent=disc_per if disc_per > 0 else None,
+        image_url=image,
+        coupon_code=_clean_code(coupon),
+        bank_offer=bank[:90] if bank else None,
+    )
+    return deal if deal.is_valid() else None
+
+
+def parse_offer_feed(content: bytes, min_discount: int = 25) -> List[Deal]:
+    """Read an IndiaFreeStuff-style XML feed or a normal RSS/Atom feed."""
     try:
-        r = requests.get(feed_url, headers=headers, timeout=12)
-        if r.status_code != 200:
-            logger.warning(f"Live deals feed returned status {r.status_code}")
-            return []
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        logger.warning(f"Feed XML could not be parsed: {exc}")
+        return []
 
-        root = ET.fromstring(r.content)
-        items = root.findall(".//all_deals")
+    deals: List[Deal] = []
+    items = root.findall(".//all_deals")
+    if items:
         for item in items:
-            raw_title = item.findtext("title") or ""
-            raw_url = item.findtext("product_url") or ""
-            org_price = item.findtext("org_price") or ""
-            disc_price = item.findtext("discount_price") or ""
-            disc_per_str = item.findtext("discount_per") or "0"
-            asin = (item.findtext("asin") or "").strip()
-            is_expired = (item.findtext("expire") or "0") == "1"
-
-            if not raw_title or not raw_url or is_expired:
+            if (_first_text(item, "expire") or "0") == "1":
                 continue
-
             try:
-                disc_per = int(float(disc_per_str))
+                disc_per = int(float(_first_text(item, "discount_per") or "0"))
             except ValueError:
                 disc_per = 0
-
-            if not worth_posting_discount(disc_per, org_price, disc_price, min_discount):
-                continue
-
-            aff_url, deal_id, retailer = expand_and_convert_url(raw_url)
-            title = clean_title(raw_title)
-
-            # High-resolution product image
-            image_url = None
-            if retailer == "Amazon" and asin:
-                image_url = f"https://images-na.ssl-images-amazon.com/images/P/{asin}.01._SCLZZZZZZZ_SX500_.jpg"
-
-            deal = Deal(
-                id=deal_id,
-                retailer=retailer,
-                title=title,
-                url=aff_url,
-                current_price=f"₹{disc_price}" if disc_price else None,
-                original_price=f"₹{org_price}" if org_price else None,
-                discount_percent=disc_per if disc_per > 0 else None,
-                image_url=image_url
+            deal = _deal_from_fields(
+                title=_first_text(item, "title"),
+                raw_url=_first_text(item, "product_url", "url", "link"),
+                org_price=_first_text(item, "org_price"),
+                disc_price=_first_text(item, "discount_price"),
+                disc_per=disc_per,
+                asin=_first_text(item, "asin"),
+                min_discount=min_discount,
+                coupon=_first_text(item, "coupon", "coupon_code", "offer_code", "promo_code"),
+                bank=_first_text(item, "bank_offer", "bank", "card_offer"),
+                image_url=_first_text(item, "image", "image_url", "img", "product_image"),
             )
-            if deal.is_valid():
+            if deal:
                 deals.append(deal)
-        logger.info(f"Ingested {len(deals)} valid deals from live aggregator feed.")
-    except Exception as e:
-        logger.error(f"Error fetching live deals feed: {e}")
+        return deals
 
+    for item in list(root.iter()):
+        kind = item.tag.split("}")[-1].lower()
+        if kind not in {"item", "entry"}:
+            continue
+        title = _first_text(item, "title")
+        blob_parts = [title, _first_text(item, "description", "summary", "content")]
+        links = []
+        for node in item.iter():
+            href = node.attrib.get("href") or ""
+            if href:
+                links.append(href)
+            if node.text:
+                blob_parts.append(node.text)
+        blob = " ".join(blob_parts)
+        product_url = ""
+        for found in PRODUCT_URL.findall(blob):
+            if "reddit.com" in found:
+                continue
+            product_url = found.rstrip(").,]")
+            break
+        if not product_url:
+            for href in links:
+                if PRODUCT_URL.search(href) and "reddit.com" not in href:
+                    product_url = href
+                    break
+        if not product_url or not title:
+            continue
+        current, original, percent = _prices_from_text(blob)
+        deal = _deal_from_fields(
+            title=title,
+            raw_url=product_url,
+            org_price=str(original or ""),
+            disc_price=str(current or ""),
+            disc_per=percent or 0,
+            asin="",
+            min_discount=min_discount,
+        )
+        if deal:
+            deals.append(deal)
+    return deals
+
+
+def _download_feed(feed_url: str, min_discount: int) -> List[Deal]:
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/xml, application/rss+xml, application/atom+xml"}
+    try:
+        response = requests.get(feed_url, headers=headers, timeout=12)
+        if response.status_code != 200:
+            logger.warning(f"Feed {feed_url} returned status {response.status_code}")
+            return []
+        deals = parse_offer_feed(response.content, min_discount=min_discount)
+        logger.info(f"Ingested {len(deals)} valid deals from {feed_url}")
+        return deals
+    except Exception as exc:
+        logger.error(f"Error fetching feed {feed_url}: {exc}")
+        return []
+
+
+def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:
+    """Fetch live deals from the primary aggregator feed and inject affiliate tags."""
+    feed_url = os.getenv("DEALS_FEED_URL", "https://www.indiafreestuff.in/feed")
+    return _download_feed(feed_url, min_discount)
+
+
+def fetch_extra_feeds(min_discount: int = 25) -> List[Deal]:
+    """Second source. Defaults to r/IndiaDeals. Set EXTRA_FEED_URLS=off to disable."""
+    raw = os.getenv("EXTRA_FEED_URLS", DEFAULT_EXTRA_FEED).strip()
+    if raw.lower() in {"", "none", "false", "off", "0"}:
+        return []
+    primary = os.getenv("DEALS_FEED_URL", "https://www.indiafreestuff.in/feed").strip()
+    deals: List[Deal] = []
+    for url in [part.strip() for part in raw.split(",") if part.strip()]:
+        if url == primary:
+            continue
+        deals.extend(_download_feed(url, min_discount))
     return deals
 
 def get_amazon_creators_token(client_id: str, client_secret: str) -> Optional[str]:
@@ -278,6 +407,8 @@ def load_local_deals(filepath: Union[str, Path]) -> List[Deal]:
             category=item.get("category"),
             image_url=item.get("image_url"),
             expires_at=item.get("expires_at"),
+            coupon_code=item.get("coupon_code") or item.get("coupon"),
+            bank_offer=item.get("bank_offer"),
         )
         if deal.is_valid():
             deals.append(deal)
@@ -292,6 +423,10 @@ def collect_all_deals() -> List[Deal]:
     if os.getenv("FEEDS_ENABLED", "true").lower() == "true":
         min_disc = int(os.getenv("MIN_DISCOUNT_PERCENT", "30"))
         for d in fetch_live_feed_deals(min_discount=min_disc):
+            if d.id not in seen_ids and d.is_valid():
+                seen_ids.add(d.id)
+                deals.append(d)
+        for d in fetch_extra_feeds(min_discount=min_disc):
             if d.id not in seen_ids and d.is_valid():
                 seen_ids.add(d.id)
                 deals.append(d)
