@@ -10,6 +10,7 @@ from dealbot.agent import DealAgent, classify_category
 from dealbot.models import Deal, parse_rupees
 from dealbot.expiry_checker import check_deal_is_active, inspect_stock, mark_telegram_deal_expired
 from dealbot.pacing import get_recommended_sleep_seconds
+from dealbot.listen import drain_updates, listen
 
 def setup_logging():
     level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -73,6 +74,14 @@ def run_once() -> int:
         db_path = project_root / db_path
 
     store = StateStore(str(db_path))
+    if (
+        not dry_run
+        and os.getenv("LISTEN_FOR_ENGAGEMENT", "false").lower() == "true"
+    ):
+        token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+        caught = drain_updates(store, token)
+        if caught:
+            logger.info("Recorded %s Telegram engagement update(s).", caught)
     copywriter = AICopywriter()
     if copywriter.is_configured():
         logger.info(f"AI Copywriter initialized using model '{copywriter.model}'.")
@@ -151,7 +160,11 @@ def run_once() -> int:
         ]
         if not dry_run:
             store.record_decisions(decision_rows)
-        send_admin_note(plan.summary(), dry_run=dry_run)
+        note = plan.summary()
+        extra = store.engagement_line()
+        if extra:
+            note = f"{note}\n{extra}"
+        send_admin_note(note, dry_run=dry_run)
 
     # Sweep and update previously posted deals that may have gone Out of Stock
     sweep_expired_deals(store, dry_run=dry_run)
@@ -171,7 +184,10 @@ def main():
     while True:
         run_once()
         sleep_sec = get_recommended_sleep_seconds(poll_minutes=poll_minutes)
-        time.sleep(sleep_sec)
+        if os.getenv("LISTEN_FOR_ENGAGEMENT", "false").lower() == "true":
+            listen(sleep_sec)
+        else:
+            time.sleep(sleep_sec)
 
 if __name__ == "__main__":
     main()

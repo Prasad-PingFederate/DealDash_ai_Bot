@@ -82,6 +82,7 @@ jobs:
           AGENT_MODE: 'true'
           AGENT_LLM: 'true'
           ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          LISTEN_FOR_ENGAGEMENT: 'true'
         run: python run_once.py
 
       - name: Commit and persist state.sqlite3

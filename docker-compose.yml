@@ -8,5 +8,6 @@ services:
     environment:
       CONTINUOUS: "true"
       POLL_INTERVAL_MINUTES: "15"
+      LISTEN_FOR_ENGAGEMENT: "true"
     volumes:
       - ./data:/app/data

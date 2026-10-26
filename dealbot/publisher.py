@@ -59,6 +59,19 @@ class StateStore:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS engagement (
+                    deal_id TEXT PRIMARY KEY,
+                    worth_taps INTEGER DEFAULT 0,
+                    reaction_count INTEGER DEFAULT 0
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS bot_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
             # Auto-migrate older schemas if missing columns
             for col in [
                 "chat_id TEXT",
@@ -233,6 +246,56 @@ class StateStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def get_meta(self, key: str) -> Optional[str]:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("SELECT value FROM bot_meta WHERE key = ?", (key,)).fetchone()
+            return row[0] if row else None
+
+    def set_meta(self, key: str, value: str) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO bot_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+
+    def add_worth_tap(self, deal_id: str) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO engagement (deal_id, worth_taps, reaction_count) VALUES (?, 1, 0)
+                ON CONFLICT(deal_id) DO UPDATE SET worth_taps = worth_taps + 1
+                """,
+                (deal_id,),
+            )
+
+    def set_reaction_count(self, deal_id: str, total: int) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO engagement (deal_id, worth_taps, reaction_count) VALUES (?, 0, ?)
+                ON CONFLICT(deal_id) DO UPDATE SET reaction_count = excluded.reaction_count
+                """,
+                (deal_id, max(0, int(total))),
+            )
+
+    def deal_id_for_message(self, message_id: int) -> Optional[str]:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT deal_id FROM posted_deals WHERE message_id = ? ORDER BY posted_at DESC LIMIT 1",
+                (message_id,),
+            ).fetchone()
+            return row[0] if row else None
+
+    def engagement_line(self) -> str:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(worth_taps), 0), COALESCE(SUM(reaction_count), 0) FROM engagement"
+            ).fetchone()
+        taps, reactions = int(row[0] or 0), int(row[1] or 0)
+        if taps == 0 and reactions == 0:
+            return ""
+        return f"Engagement on earlier posts: {taps} worth-it taps, {reactions} reactions."
+
 
 def price_note_for(previous: Optional[int], lowest_before: Optional[int], price: Optional[int]) -> Optional[str]:
     """Only claim a drop we have actually seen. Never say lowest in 90 days."""
@@ -393,9 +456,10 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         return False, None, caption
 
     reply_markup = {
-        "inline_keyboard": [[
-            {"text": f"🛒 Buy Now on {deal.retailer}", "url": deal.url}
-        ]]
+        "inline_keyboard": [
+            [{"text": f"🛒 Buy Now on {deal.retailer}", "url": deal.url}],
+            [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}],
+        ]
     }
 
     # Guard against Telegram length limits (4096 char limit for text)

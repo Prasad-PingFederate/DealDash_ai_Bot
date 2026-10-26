@@ -286,3 +286,54 @@ def test_block_page_is_unknown_and_not_called_out_of_stock():
     bare = _page(200, "<html><title>Amazon.in</title></html>")
     with patch("requests.get", return_value=bare):
         assert inspect_stock("https://amazon.in/dp/X") == "unknown"
+
+
+def test_worth_it_taps_and_reactions_are_stored(tmp_path):
+    from dealbot.listen import drain_updates
+    from dealbot.publisher import StateStore
+
+    store = StateStore(str(tmp_path / "engage.sqlite3"))
+    store.mark_posted("amz-1", "Amazon", message_id=55)
+    payload = {
+        "ok": True,
+        "result": [
+            {"update_id": 7, "callback_query": {"id": "q1", "data": "worth:amz-1"}},
+            {"update_id": 8, "callback_query": {"id": "q2", "data": "ignore-me"}},
+            {
+                "update_id": 9,
+                "message_reaction_count": {
+                    "message_id": 55,
+                    "reactions": [{"total_count": 3}, {"total_count": 1}],
+                },
+            },
+        ],
+    }
+
+    def get(url, params=None, timeout=None):
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = payload
+        return resp
+
+    with patch("dealbot.listen.requests.get", get), patch("dealbot.listen.requests.post", return_value=_page(200)):
+        assert drain_updates(store, "123:abc") == 2
+    assert store.engagement_line() == "Engagement on earlier posts: 1 worth-it taps, 4 reactions."
+    assert store.get_meta("update_offset") == "10"
+    assert drain_updates(store, "") == 0
+
+
+def test_real_send_adds_a_worth_it_button(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100")
+    seen = {}
+
+    def post(url, json=None, timeout=None):
+        seen["markup"] = (json or {}).get("reply_markup")
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = {"result": {"message_id": 3}}
+        return resp
+
+    with patch("requests.post", post):
+        assert send_telegram_deal(_deal("amz-B0TESTDEAL1"), dry_run=False)[0] is True
+    rows = seen["markup"]["inline_keyboard"]
+    assert rows[0][0]["url"].startswith("https://www.amazon.in/")
+    assert rows[1][0]["callback_data"] == "worth:amz-B0TESTDEAL1"
