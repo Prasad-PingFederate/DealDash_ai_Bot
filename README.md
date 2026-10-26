@@ -30,7 +30,7 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
    - A critic throws away AI captions that hide the real price and uses the template instead.
    - The reason for every post and skip is stored in SQLite and, if `ADMIN_CHAT_ID` is set, sent only to you.
 7. **Zero-Cost 24/7 Cloud Deployment**:
-   - Runs automatically every 30 minutes in the cloud via GitHub Actions at **$0.00 cost**.
+   - Runs on GitHub Actions during 08:40–23:20 IST. The schedule asks for an hourly run. GitHub often starts late or skips a tick, and a late runner will not post after quiet hours.
    - Also includes Docker Compose for Always-Free Oracle Cloud VM or VPS.
 
 ---
@@ -108,7 +108,7 @@ python run_once.py
 
 ## ☁️ 100% Free 24/7 Cloud Deployment via GitHub Actions
 
-You don't even need to keep your laptop on or pay for a server. The included GitHub Actions workflow runs every 30 minutes for free:
+You don't even need to keep your laptop on or pay for a server. The included GitHub Actions workflow runs hourly through the day for free:
 
 1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
 2. Add the following repository secrets:

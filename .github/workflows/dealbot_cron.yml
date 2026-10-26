@@ -2,14 +2,18 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # Unified 30-minute interval across all active hours:
-    # Runs continuously every 30 minutes from 08:45 AM to 11:15 PM IST (03:15 to 17:45 UTC)
-    # Off-peak minutes (:15 and :45) avoid GitHub Actions queue congestion at :00 and :30.
-    # Single unified expression eliminates GitHub's multi-array schedule bug and removes all evening gaps.
-    # Automatically pauses from 11:16 PM to 08:44 AM IST (quiet mode, saves GitHub minutes).
-    - cron: '15,45 3-17 * * *'
+    # GitHub drops most :15/:45 ticks and starts the ones it keeps 1–5 hours late.
+    # Minute 7 is off the congested :00/:15/:30/:45 pile. Hours 3–17 UTC are
+    # 08:30–23:00 IST. A late runner is stopped by the IST window check below,
+    # so a 17:00 UTC job that starts at 01:00 IST does not post overnight.
+    - cron: '7 3-17 * * *'
 
-  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+# One poster at a time. A delayed run must finish its state push before the next starts.
+concurrency:
+  group: dealbot-live
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -18,23 +22,43 @@ jobs:
   run-dealbot:
     runs-on: ubuntu-latest
     steps:
+      - name: Check IST posting window
+        id: window
+        run: |
+          hour=$(TZ=Asia/Kolkata date +%H)
+          minute=$(TZ=Asia/Kolkata date +%M)
+          now=$((10#$hour * 60 + 10#$minute))
+          start=$((8 * 60 + 40))
+          end=$((23 * 60 + 20))
+          echo "IST now is ${hour}:${minute}"
+          if [ "$now" -lt "$start" ] || [ "$now" -gt "$end" ]; then
+            echo "open=false" >> "$GITHUB_OUTPUT"
+            echo "Outside 08:40–23:20 IST. Skipping so a late GitHub runner does not post at night."
+          else
+            echo "open=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.window.outputs.open == 'true'
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 20
 
       - name: Set up Python
+        if: steps.window.outputs.open == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
+        if: steps.window.outputs.open == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run DealBot Cycle
+        if: steps.window.outputs.open == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -57,8 +81,11 @@ jobs:
           python run_once.py
 
       - name: Commit and persist state.sqlite3
+        if: steps.window.outputs.open == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase --autostash origin main
           git add -f data/state.sqlite3 || true
-          git diff --staged --quiet || (git commit -m "chore(bot): persist posted deal state [skip ci]" && git push)
+          git diff --staged --quiet || git commit -m "chore(bot): persist posted deal state [skip ci]"
+          git push origin HEAD:main

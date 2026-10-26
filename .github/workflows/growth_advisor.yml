@@ -2,8 +2,9 @@ name: Autonomous Growth & Strategy Advisor (Hermes)
 
 on:
   schedule:
-    # Run weekly on Sunday morning at 04:15 UTC (09:45 AM IST)
-    - cron: '15 4 * * 0'
+    # Sunday 03:11 UTC (08:41 IST). GitHub often starts this hours late;
+    # an earlier slot still lands on Sunday daytime instead of the afternoon.
+    - cron: '11 3 * * 0'
   workflow_dispatch:
     inputs:
       sale_mode:
