@@ -50,6 +50,9 @@ jobs:
           FEEDS_ENABLED: 'true'
           MIN_DISCOUNT_PERCENT: '30'
           ALLOWED_RETAILERS: 'Amazon'
+          AGENT_MODE: 'true'
+          AGENT_LLM: 'true'
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
         run: |
           python run_once.py
 

@@ -23,7 +23,13 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
 5. **Smart Pacing & Operating Hours**:
    - Paces posts to prevent channel notification spam.
    - Respects Indian Standard Time (IST): active posting between 8:00 AM – 11:30 PM, quiet throttled sleep at night.
-6. **Zero-Cost 24/7 Cloud Deployment**:
+6. **Deal Editor Agent**:
+   - Does not post the first rows from the feed. Each cycle it scores fresh deals (discount, price, photo, title, category mix, IST time slot).
+   - If Gemini or Hermes is configured, the model may pick the slate. Unknown ids are ignored, and a bad reply falls back to the heuristic.
+   - Near-duplicate titles are dropped so the channel does not get two posts of the same headphones.
+   - A critic throws away AI captions that hide the real price and uses the template instead.
+   - The reason for every post and skip is stored in SQLite and, if `ADMIN_CHAT_ID` is set, sent only to you.
+7. **Zero-Cost 24/7 Cloud Deployment**:
    - Runs automatically every 30 minutes in the cloud via GitHub Actions at **$0.00 cost**.
    - Also includes Docker Compose for Always-Free Oracle Cloud VM or VPS.
 
@@ -36,6 +42,13 @@ It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacin
 │   Scout Engine   │ ──> │   AI Copywriter  │ ──> │ Publisher Engine │ ──> │ Auto-OOS Watcher  │
 │ Live Feeds & APIs│     │ Gemini 2.5 Flash │     │Telegram Photo/Btn│     │Edits Expired Posts│
 └──────────────────┘     └──────────────────┘     └──────────────────┘     └───────────────────┘
+         │                         ▲
+         ▼                         │
+┌──────────────────────────────────┴┐
+│ Deal editor agent                 │
+│ score → LLM or heuristic slate    │
+│ drop duplicates → critic on copy  │
+└───────────────────────────────────┘
 ```
 
 ---
@@ -68,13 +81,18 @@ AI_TIMEOUT_SECONDS=8
 # Deal Filtering
 FEEDS_ENABLED=true
 MIN_DISCOUNT_PERCENT=30
+
+# Editor agent (set AGENT_MODE=false for old first-come posting)
+AGENT_MODE=true
+AGENT_LLM=true
+AGENT_MIN_SCORE=32
 ```
 
 ---
 
 ## 🧪 Testing & Verification
 
-Run the entire suite of 23 unit, negative, and pacing tests:
+Run the entire suite of unit, negative, pacing, and agent tests:
 
 ```bash
 pytest -v
@@ -98,6 +116,7 @@ You don't even need to keep your laptop on or pay for a server. The included Git
    - `TELEGRAM_CHAT_ID`
    - `GEMINI_API_KEY`
    - `AMAZON_PARTNER_TAG`
+   - `ADMIN_CHAT_ID` (optional — private agent briefing, not the public channel)
 3. Go to the **Actions** tab and enable workflows. DealDash will run automatically 24/7/365!
 
 ---

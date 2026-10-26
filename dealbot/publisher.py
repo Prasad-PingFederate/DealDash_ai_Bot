@@ -1,6 +1,7 @@
 import html
 import logging
 import os
+import re
 import sqlite3
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Any
@@ -30,8 +31,29 @@ class StateStore:
                     last_checked_at TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS agent_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    deal_id TEXT,
+                    action TEXT,
+                    score INTEGER,
+                    category TEXT,
+                    reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             # Auto-migrate older schemas if missing columns
-            for col in ["chat_id TEXT", "message_id INTEGER", "caption TEXT", "status TEXT DEFAULT 'active'", "last_checked_at TIMESTAMP"]:
+            for col in [
+                "chat_id TEXT",
+                "message_id INTEGER",
+                "caption TEXT",
+                "status TEXT DEFAULT 'active'",
+                "last_checked_at TIMESTAMP",
+                "category TEXT",
+                "discount INTEGER",
+                "agent_score INTEGER",
+                "agent_reason TEXT",
+            ]:
                 try:
                     conn.execute(f"ALTER TABLE posted_deals ADD COLUMN {col}")
                 except sqlite3.OperationalError:
@@ -42,19 +64,47 @@ class StateStore:
             cur = conn.execute("SELECT 1 FROM posted_deals WHERE deal_id = ?", (deal_id,))
             return cur.fetchone() is not None
 
-    def mark_posted(self, deal_id: str, retailer: str, chat_id: Optional[str] = None, message_id: Optional[int] = None, caption: Optional[str] = None):
+    def mark_posted(
+        self,
+        deal_id: str,
+        retailer: str,
+        chat_id: Optional[str] = None,
+        message_id: Optional[int] = None,
+        caption: Optional[str] = None,
+        category: Optional[str] = None,
+        discount: Optional[int] = None,
+        agent_score: Optional[int] = None,
+        agent_reason: Optional[str] = None,
+    ):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO posted_deals (deal_id, retailer, chat_id, message_id, caption, status)
-                VALUES (?, ?, ?, ?, ?, 'active')
+                INSERT INTO posted_deals (
+                    deal_id, retailer, chat_id, message_id, caption, status,
+                    category, discount, agent_score, agent_reason
+                )
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)
                 ON CONFLICT(deal_id) DO UPDATE SET
                     retailer=excluded.retailer,
                     chat_id=excluded.chat_id,
                     message_id=excluded.message_id,
-                    caption=excluded.caption
+                    caption=excluded.caption,
+                    category=excluded.category,
+                    discount=excluded.discount,
+                    agent_score=excluded.agent_score,
+                    agent_reason=excluded.agent_reason
                 """,
-                (deal_id, retailer, chat_id, message_id, caption)
+                (
+                    deal_id,
+                    retailer,
+                    chat_id,
+                    message_id,
+                    caption,
+                    category,
+                    discount,
+                    agent_score,
+                    agent_reason,
+                ),
             )
 
     def get_recent_active_deals(self, limit: int = 15) -> List[Dict[str, Any]]:
@@ -71,9 +121,58 @@ class StateStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def get_recent_context(self, limit: int = 8) -> List[Dict[str, Any]]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                """
+                SELECT deal_id, retailer, caption, category, discount, posted_at
+                FROM posted_deals
+                ORDER BY posted_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def record_decisions(self, rows: List[Dict[str, Any]]) -> None:
+        if not rows:
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executemany(
+                """
+                INSERT INTO agent_decisions (deal_id, action, score, category, reason)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (row["deal_id"], row["action"], row.get("score"), row.get("category"), row.get("reason"))
+                    for row in rows
+                ],
+            )
+            conn.execute(
+                """
+                DELETE FROM agent_decisions
+                WHERE id < (
+                    SELECT MIN(id) FROM (
+                        SELECT id FROM agent_decisions ORDER BY id DESC LIMIT 400
+                    )
+                )
+                """
+            )
+
     def mark_expired(self, deal_id: str):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("UPDATE posted_deals SET status = 'expired' WHERE deal_id = ?", (deal_id,))
+
+def _ai_copy_keeps_price(ai_body: str, deal: Deal) -> bool:
+    """Reject model copy that dropped the real deal price."""
+    if not deal.current_price:
+        return True
+    digits = re.sub(r"\D", "", deal.current_price)
+    if len(digits) < 2:
+        return True
+    return digits in re.sub(r"\D", "", ai_body or "")
+
 
 def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
     retailer = html.escape(deal.retailer or "Store")
@@ -81,6 +180,9 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     ai_body = None
     if copywriter and copywriter.is_configured():
         ai_body = copywriter.craft_deal_copy(deal)
+        if ai_body and not _ai_copy_keeps_price(ai_body, deal):
+            logger.info("Agent critic rejected AI copy that dropped the deal price. Using the template.")
+            ai_body = None
 
     if ai_body:
         lines = [ai_body]
@@ -115,6 +217,31 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
 
 # Alias for backwards compatibility and test suite
 render_message = format_caption
+
+def send_admin_note(text: str, dry_run: bool = True) -> bool:
+    """Private briefing for the channel admin. Never posted to the public channel."""
+    if dry_run or not text:
+        logger.info("[agent briefing]\n%s", text)
+        return False
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    admin_id = os.getenv("ADMIN_CHAT_ID", "").strip()
+    if not token or token == "replace_me" or not admin_id:
+        logger.info("[agent briefing]\n%s", text)
+        return False
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": admin_id, "text": text[:3500], "disable_web_page_preview": True},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            logger.warning("Admin briefing failed (%s): %s", resp.status_code, resp.text[:200])
+            return False
+        return True
+    except requests.RequestException as exc:
+        logger.warning("Admin briefing request failed: %s", exc)
+        return False
+
 
 def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> Tuple[bool, Optional[int], str]:
     caption = format_caption(deal, copywriter=copywriter)
