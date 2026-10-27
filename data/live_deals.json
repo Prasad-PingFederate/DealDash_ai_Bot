@@ -1,5 +1,77 @@
 [
   {
+    "id": "amazon:B0CKVLCMJZ",
+    "asin": "B0CKVLCMJZ",
+    "title": "Havells Delite Kop'ere Water Purifier (Black), RO+UV+pH Balance, 7 Stages, 6.5L Stainless Steel Tank,Copper+Zinc+Minerals, Suitable for Borewell, Tanker &amp; Municipal Water",
+    "brand": "Havells",
+    "brand_tier": "tier1",
+    "category": "Home & Kitchen",
+    "image_url": "https://m.media-amazon.com/images/P/B0CKVLCMJZ.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0CKVLCMJZ?tag=dammaiprasad-21&linkCode=ll1",
+    "mrp": 27000,
+    "list_price": 8289,
+    "effective_price": 8289,
+    "coupon_discount": null,
+    "coupon_text": null,
+    "promo_code": null,
+    "bank_offer": null,
+    "discount_pct": 69,
+    "effective_discount_pct": 69,
+    "savings_inr": 18711,
+    "rating": null,
+    "review_count": null,
+    "score": 102,
+    "buy_confidence": 91,
+    "price_context": "all_time_low",
+    "historical_min": null,
+    "historical_avg": null,
+    "historical_max": null,
+    "is_loot": true,
+    "is_further_drop": false,
+    "source_count": 1,
+    "expired": false,
+    "price_spiked": false,
+    "posted_to_telegram": true,
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
+  },
+  {
+    "id": "amazon:B0F8QC2Z7C",
+    "asin": "B0F8QC2Z7C",
+    "title": "₹6848",
+    "brand": null,
+    "brand_tier": "unbranded",
+    "category": "Home & Kitchen",
+    "image_url": "https://m.media-amazon.com/images/P/B0F8QC2Z7C.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0F8QC2Z7C?tag=dammaiprasad-21&linkCode=ll1",
+    "mrp": 20000,
+    "list_price": 6848,
+    "effective_price": 6848,
+    "coupon_discount": null,
+    "coupon_text": null,
+    "promo_code": null,
+    "bank_offer": null,
+    "discount_pct": 66,
+    "effective_discount_pct": 66,
+    "savings_inr": 13152,
+    "rating": null,
+    "review_count": null,
+    "score": 100,
+    "buy_confidence": 87,
+    "price_context": "normal",
+    "historical_min": null,
+    "historical_avg": null,
+    "historical_max": null,
+    "is_loot": true,
+    "is_further_drop": false,
+    "source_count": 1,
+    "expired": false,
+    "price_spiked": false,
+    "posted_to_telegram": true,
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
+  },
+  {
     "id": "amazon:B09K7RLCPL",
     "asin": "B09K7RLCPL",
     "title": "[ICICI CC] PHILIPS Essential Air Fryer (Slate Grey, HD9200/60, 4.1L, 0.80 kilograms), 1400 Watts",
@@ -32,8 +104,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H2BYVZWM",
@@ -68,8 +140,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B00WUDU4FG",
@@ -104,8 +176,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DMS8VK96",
@@ -140,8 +212,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0CJLWDVD1",
@@ -176,8 +248,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0866B1P6B",
@@ -212,8 +284,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H5CT3NR9",
@@ -248,8 +320,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H6MJBCHN",
@@ -284,8 +356,44 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
+  },
+  {
+    "id": "amazon:B0G599TLD9",
+    "asin": "B0G599TLD9",
+    "title": "Portronics Muffs M6 Over Ear Wireless Bluetooth Headphone with Upto 40 Hours Playtime, Dual Pairing, 40mm Driver, HD Mic, Bluetooth 5.4V, Foldable Design, Type C Fast Charging (Biege)",
+    "brand": "Portronics",
+    "brand_tier": "tier2",
+    "category": "Audio & Headphones",
+    "image_url": "https://m.media-amazon.com/images/P/B0G599TLD9.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0G599TLD9?tag=dammaiprasad-21&linkCode=ll1",
+    "mrp": 2499,
+    "list_price": 949,
+    "effective_price": 949,
+    "coupon_discount": null,
+    "coupon_text": null,
+    "promo_code": null,
+    "bank_offer": null,
+    "discount_pct": 62,
+    "effective_discount_pct": 62,
+    "savings_inr": 1550,
+    "rating": null,
+    "review_count": null,
+    "score": 86,
+    "buy_confidence": 89,
+    "price_context": "all_time_low",
+    "historical_min": null,
+    "historical_avg": null,
+    "historical_max": null,
+    "is_loot": false,
+    "is_further_drop": false,
+    "source_count": 1,
+    "expired": false,
+    "price_spiked": false,
+    "posted_to_telegram": true,
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0FN7WG5KB",
@@ -320,8 +428,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DSJCF3C9",
@@ -356,8 +464,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DMJRJMD6",
@@ -392,8 +500,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0F2237QFM",
@@ -428,8 +536,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0F24RW9D2",
@@ -464,8 +572,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0FZVD8P6V",
@@ -500,8 +608,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B096MSG7JX",
@@ -536,8 +644,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0CM3K6H57",
@@ -572,8 +680,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0C85T9PXW",
@@ -608,8 +716,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0C82PJH3S",
@@ -644,8 +752,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0GGHXCQSR",
@@ -680,8 +788,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0FLYDHYY4",
@@ -716,8 +824,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B08THV7ZKD",
@@ -752,8 +860,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B08M1KMRLC",
@@ -788,8 +896,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H4GBJVW7",
@@ -824,8 +932,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0CJM2NST8",
@@ -860,8 +968,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B098ZPRGGZ",
@@ -896,8 +1004,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B097PG9JPD",
@@ -932,8 +1040,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0BDVBH82P",
@@ -968,8 +1076,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0B4WJMRSY",
@@ -1004,8 +1112,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B07YWMQWWK",
@@ -1040,8 +1148,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0CFF8PS6Y",
@@ -1076,13 +1184,13 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
-    "id": "amazon:B0CFF8PS6Y",
-    "asin": "B0CFF8PS6Y",
-    "title": "Lifelong Gym Typhoon Shaker Bottle 700ml | BPA Free Protein Shaker Bottle for Gym | Sipper Water Bottle for Adults |100% Leakproof Bottle for Protein, BCAAs, Pre Workout for Men &amp; Women (Black)",
+    "id": "amazon:B0FJFN99PB",
+    "asin": "B0FJFN99PB",
+    "title": "Lifelong Metal Adjustable Cloth Drying Stand | Balcony &amp; Window Hanging Laundry Rack | Wall-Mounted Cloth Hanger &amp; Organizer Shelf | Space-Saving Cloth Dryer Stand for Indoor &amp; Outdoor Use",
     "brand": "Lifelong",
     "brand_tier": "tier2",
     "category": "Electronics & Audio",
@@ -1112,8 +1220,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0BD43W4YP",
@@ -1148,14 +1256,14 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
-    "id": "amazon:B0F8QC2Z7C",
-    "asin": "B0F8QC2Z7C",
-    "title": "Havells Aquas Neo Water Purifier, RO + UF Purification, Vital Magnesium Enriched, 7-stages, 7L Storage, Ideal for Borewell, Tanker & Municipal Water, Significant water savings, BIS Approved, Black",
-    "brand": "Havells",
+    "id": "amazon:B0BD3ZPYP7",
+    "asin": "B0BD3ZPYP7",
+    "title": "Crompton Galaxy Decoration Copper USB Powered String Fairy Lights with 100 Led Light (10 Meters / 32 Feet, Red, Pack of 1) Rs.99 @ Amazon",
+    "brand": "Crompton",
     "brand_tier": "tier1",
     "category": "Mobiles & Accessories",
     "image_url": "https://m.media-amazon.com/images/P/B0BD3ZPYP7.jpg",
@@ -1184,8 +1292,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0F2MYJNCG",
@@ -1220,8 +1328,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0HB9S9BDQ",
@@ -1256,8 +1364,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0D4DZ7WL2",
@@ -1292,8 +1400,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B01MQ0K2DW",
@@ -1328,8 +1436,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B09QYV9R61",
@@ -1364,8 +1472,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DX3CBHHF",
@@ -1400,8 +1508,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B08HQL1DB2",
@@ -1436,8 +1544,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B01M0GS016",
@@ -1472,8 +1580,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0FCLPQG26",
@@ -1508,8 +1616,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0D41L64NR",
@@ -1544,8 +1652,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H7JQ7T7F",
@@ -1580,8 +1688,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B08S7V8YTN",
@@ -1616,8 +1724,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DZGZ472K",
@@ -1652,8 +1760,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0H8P1NCMN",
@@ -1688,8 +1796,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0D3596YR4",
@@ -1724,8 +1832,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0BGT9TWL6",
@@ -1760,8 +1868,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0FN4K4MPY",
@@ -1796,8 +1904,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B08QN8JKPL",
@@ -1832,8 +1940,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0DTJ1W6PN",
@@ -1868,8 +1976,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B07874GHW2",
@@ -1904,8 +2012,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0D6NF542S",
@@ -1940,8 +2048,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0CFFBZ23F",
@@ -1976,8 +2084,8 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   },
   {
     "id": "amazon:B0F1N1LBRD",
@@ -2012,7 +2120,7 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": true,
-    "updated_at": 1793097883,
-    "updated_at_ist": "2026-10-27 16:14 IST"
+    "updated_at": 1793099120,
+    "updated_at_ist": "2026-10-27 16:35 IST"
   }
 ]
