@@ -76,17 +76,19 @@ def map_ui_category(deal_category: str, title: str) -> str:
     t = (title or "").lower()
     c = (deal_category or "").lower()
 
-    if any(w in t for w in ("headphone", "earphone", "earbud", "audio", "speaker", "soundbar", "tws", "neckband", "bluetooth speaker", "mic")):
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("headphone", "headphones", "earphone", "earphones", "earbud", "earbuds", "audio", "speaker", "speakers", "soundbar", "tws", "neckband", "bluetooth speaker", "mic", "microphone")):
         return "Audio & Headphones"
-    if any(w in t for w in ("laptop", "macbook", "pc", "desktop", "monitor", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer")):
-        return "Laptops & Computing"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("phone", "mobile", "smartphone", "iphone", "galaxy", "case", "charger", "cable", "tempered glass", "power bank")):
-        return "Mobiles & Accessories"
-    if c == "home" or any(w in t for w in ("cooker", "pan", "bottle", "purifier", "vacuum", "air fryer", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture")):
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("cooker", "fryer", "air fryer", "pan", "bottle", "purifier", "vacuum", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture", "appliance", "blender", "iron", "toaster")):
         return "Home & Kitchen"
-    if c == "fashion" or any(w in t for w in ("shirt", "t-shirt", "shoe", "sneaker", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch")):
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("laptop", "laptops", "macbook", "pc", "desktop", "monitor", "monitors", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer")):
+        return "Laptops & Computing"
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("phone", "phones", "mobile", "mobiles", "smartphone", "smartphones", "iphone", "galaxy", "case", "cases", "charger", "chargers", "cable", "cables", "tempered glass", "power bank")):
+        return "Mobiles & Accessories"
+    if c == "home":
+        return "Home & Kitchen"
+    if c == "fashion" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shirt", "t-shirt", "tshirt", "shoe", "shoes", "sneaker", "sneakers", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch", "watches")):
         return "Fashion & Footwear"
-    if c in ("beauty", "grocery") or any(w in t for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper")):
+    if c in ("beauty", "grocery") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper", "face wash", "sunscreen", "lotion", "moisturizer")):
         return "Personal Care & Grocery"
 
     if c == "electronics":
@@ -281,20 +283,38 @@ def export_web_feed(
             promo_m = re.search(r"<code>([A-Za-z0-9_-]+)</code>", caption)
             promo_code = promo_m.group(1) if promo_m else None
 
+            # Extract price, mrp, bank offer from caption if missing from database columns
+            m_price = re.search(r"<b>₹([\d,]+)</b>", caption)
+            m_eff = re.search(r"Effective Price:\s*₹?([\d,]+)", caption)
+            m_mrp = re.search(r"MRP\s*<(?:s|del)>₹?([\d,]+)</(?:s|del)>", caption)
+            m_disc = re.search(r"<b>(\d{1,2})%\s*OFF</b>", caption)
+            m_bank = re.search(r"Bank offer:\s*([^\n<]+)", caption)
+
+            extracted_price = parse_rupees(m_price.group(1)) if m_price else None
+            extracted_eff = parse_rupees(m_eff.group(1)) if m_eff else None
+            mrp_price = parse_rupees(m_mrp.group(1)) if m_mrp else None
+            discount_pct = d_dict.get("discount") or (int(m_disc.group(1)) if m_disc else None)
+            bank_offer = m_bank.group(1).strip() if m_bank else None
+            final_price = d_dict.get("price") or extracted_eff or extracted_price
+
             deal_obj = Deal(
                 id=deal_id,
                 retailer="Amazon",
                 title=title,
                 url=f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1",
-                current_price=f"₹{d_dict['price']}" if d_dict.get("price") else None,
-                discount_percent=d_dict.get("discount"),
+                current_price=f"₹{final_price}" if final_price else None,
+                original_price=f"₹{mrp_price}" if mrp_price else None,
+                discount_percent=discount_pct,
                 canonical_product_id=f"amazon:{asin}",
                 category=d_dict.get("category"),
                 coupon_code=promo_code,
+                bank_offer=bank_offer,
             )
             if coupon_disc:
                 deal_obj.coupon_discount = coupon_disc
-                deal_obj.effective_price = max(1, (d_dict.get("price") or 0) - coupon_disc)
+                deal_obj.effective_price = max(1, (final_price or 0) - coupon_disc)
+            elif extracted_eff:
+                deal_obj.effective_price = extracted_eff
 
             score = d_dict.get("agent_score") or 70
             s_ctx = sightings.get(f"amazon:{asin}") or sightings.get(deal_id)
