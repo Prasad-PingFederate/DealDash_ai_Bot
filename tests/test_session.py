@@ -10,11 +10,11 @@ def test_posts_when_the_window_is_open_and_nothing_ran():
     assert plan(OPEN, None, DEADLINE) == ("post", 0)
 
 
-def test_waits_an_hour_after_the_last_cycle():
+def test_waits_for_pacing_cooldown_after_the_last_cycle():
     last = OPEN - timedelta(minutes=20)
     action, seconds = plan(OPEN, last, DEADLINE)
     assert action == "sleep"
-    assert 39 * 60 <= seconds <= 40 * 60
+    assert 24 * 60 <= seconds <= 25 * 60
 
 
 def test_posts_again_once_an_hour_has_passed():

@@ -267,6 +267,17 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
             if disc < lp:
                 result["effective_price"] = max(1, lp - disc)
 
+        # Compute live discount_pct and effective_discount_pct
+        lp = result.get("live_price")
+        mrp = result.get("mrp")
+        eff_p = result.get("effective_price") or lp
+        if mrp and lp and mrp > lp > 0:
+            result["discount_pct"] = int(round(((mrp - lp) / mrp) * 100))
+            result["effective_discount_pct"] = int(round(((mrp - eff_p) / mrp) * 100))
+        elif mrp and lp and mrp <= lp:
+            result["discount_pct"] = 0
+            result["effective_discount_pct"] = 0
+
         # 6. Bank Offers
         bank_match = re.search(r'(?:Instant Discount up to ₹?[\d,]+ on [A-Za-z0-9 ]+|Bank Offer: [^<]{5,80}|10% Instant Discount on [A-Za-z0-9 ]+)', text, re.IGNORECASE)
         if bank_match:

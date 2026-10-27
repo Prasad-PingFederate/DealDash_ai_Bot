@@ -240,6 +240,34 @@ def _deal_from_fields(
     if not title or not raw_url:
         return None
     if not worth_posting_discount(disc_per, org_price, disc_price, min_discount):
+        # Allow Amazon deals with valid price but missing/unstated feed MRP into Stage 1/2
+        # with provisional MRP/discount so live Amazon enrichment can fetch real MRP and discount
+        has_stated_mrp = bool(org_price and parse_rupees(org_price))
+        aff_url, deal_id, retailer = expand_and_convert_url(raw_url)
+        is_amazon = retailer == "Amazon" or "amazon.in" in raw_url.lower() or "amzn.to" in raw_url.lower() or bool(asin)
+        if not has_stated_mrp and is_amazon and disc_price:
+            p_val = parse_rupees(disc_price)
+            if p_val and p_val > 0:
+                prov_disc = max(disc_per, 30) if disc_per > 0 else 30
+                prov_mrp = str(int(round(p_val / (1.0 - prov_disc / 100.0))))
+                image = image_url if image_url.lower().startswith("https://") else None
+                if not image and retailer == "Amazon":
+                    image = _amazon_image(asin)
+                canon_id = f"amazon:{deal_id[4:]}" if deal_id.startswith("amz-") else (f"flipkart:{deal_id[3:]}" if deal_id.startswith("fk-") else f"store:{deal_id}")
+                deal = Deal(
+                    id=deal_id,
+                    retailer=retailer,
+                    title=clean_title(title),
+                    url=aff_url,
+                    current_price=f"₹{disc_price}",
+                    original_price=f"₹{prov_mrp}",
+                    discount_percent=prov_disc,
+                    image_url=image,
+                    coupon_code=_clean_code(coupon),
+                    bank_offer=bank[:90] if bank else None,
+                    canonical_product_id=canon_id,
+                )
+                return deal if deal.is_valid() else None
         return None
     aff_url, deal_id, retailer = expand_and_convert_url(raw_url)
     image = image_url if image_url.lower().startswith("https://") else None
@@ -426,16 +454,22 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                     asin=asin,
                     min_discount=min_discount,
                 )
-                if not deal and asin and target_url:
+                if not deal and (asin or "amazon.in" in target_url.lower() or "amzn.to" in target_url.lower()):
                     clean_url, deal_id, retailer = expand_and_convert_url(target_url)
+                    p_num = parse_rupees(disc_price)
+                    prov_disc = max(disc_per, 30) if disc_per > 0 else 30
+                    prov_mrp = org_price if org_price else (str(int(round(p_num / (1.0 - prov_disc / 100.0)))) if p_num else None)
                     deal = Deal(
-                        id=f"amz-reddit-{asin}",
+                        id=f"amz-reddit-{asin}" if asin else deal_id,
                         retailer=retailer,
                         title=clean_title(title),
                         url=clean_url,
-                        canonical_product_id=f"amazon:{asin}",
+                        current_price=f"₹{disc_price}" if disc_price else None,
+                        original_price=f"₹{prov_mrp}" if prov_mrp else None,
+                        discount_percent=prov_disc,
+                        canonical_product_id=f"amazon:{asin}" if asin else (deal_id if retailer != "Amazon" else None),
                         category="reddit",
-                        image_url=_amazon_image(asin),
+                        image_url=_amazon_image(asin) if asin else None,
                     )
                 if deal and deal.is_valid():
                     deal.category = "reddit"

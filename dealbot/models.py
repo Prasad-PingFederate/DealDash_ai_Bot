@@ -43,7 +43,16 @@ class Deal:
     is_loot: bool = False
     coupon_discount: Optional[int] = None
     effective_price: Optional[int] = None
+    effective_discount_pct: Optional[int] = None
     price_context: Optional[str] = None
+
+    @property
+    def discount_pct(self) -> Optional[int]:
+        return self.discount_percent
+
+    @discount_pct.setter
+    def discount_pct(self, val: Optional[int]) -> None:
+        self.discount_percent = val
 
     def savings_rupees(self) -> Optional[int]:
         price = self.effective_price if self.effective_price is not None else parse_rupees(self.current_price)

@@ -12,7 +12,8 @@ import os
 IST = timezone(timedelta(hours=5, minutes=30))
 WINDOW_OPEN = 8 * 60 + 40
 WINDOW_CLOSE = 23 * 60 + 20
-GAP = timedelta(hours=1)
+GAP = timedelta(minutes=45)
+BACKUP_GAP = timedelta(minutes=65)
 META_KEY = "last_cycle_at"
 
 
@@ -100,7 +101,7 @@ def load_last_cycle() -> datetime | None:
                 now_dt = datetime.now(timezone.utc)
                 elapsed_sec = int((now_dt - empty_dt).total_seconds())
                 if elapsed_sec < 900:
-                    return empty_dt - timedelta(minutes=45)
+                    return empty_dt - GAP + timedelta(minutes=15)
             except Exception:
                 pass
         return None
@@ -133,8 +134,8 @@ def main() -> int:
     if raw:
         deadline = datetime.fromisoformat(raw)
     else:
-        # Session duration: 1h 50m (110 minutes) so runs finish cleanly before next 2-hour cron
-        deadline = datetime.now(IST) + timedelta(minutes=110)
+        # Session duration: 2h 40m (160 minutes) to allow 65m backup cycles if cron drops
+        deadline = datetime.now(IST) + timedelta(minutes=160)
 
     now = datetime.now(IST)
     last_cycle = load_last_cycle()
@@ -146,6 +147,25 @@ def main() -> int:
         last_deal_ts = last_posted_deal_time()
         if last_deal_ts is None or (now - as_ist(last_deal_ts)) >= timedelta(minutes=45):
             last_cycle = None
+    else:
+        # Inside runner session loop: sleep 65 minutes after successful post,
+        # or 15 minutes retry sleep after 0 deals posted
+        from dealbot.publisher import StateStore
+        store = StateStore(str(database_path()))
+        last_posted_count = store.get_meta("last_cycle_posted_count")
+        if (
+            last_posted_count is not None
+            and int(last_posted_count) > 0
+            and last_cycle is not None
+        ):
+            ready = as_ist(last_cycle) + BACKUP_GAP
+            if now < ready:
+                if ready >= as_ist(deadline) or not posting_open(ready):
+                    print("stop")
+                    return 0
+                wait = max(1, int((ready - now).total_seconds()))
+                print(f"sleep {wait}")
+                return 0
 
     action, wait = plan(now, last_cycle, deadline)
     if action == "sleep":

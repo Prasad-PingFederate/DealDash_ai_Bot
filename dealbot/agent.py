@@ -137,6 +137,8 @@ def get_brand_tier(title: str) -> int:
             return 2
     return 0
 
+brand_tier = get_brand_tier
+
 JUNK_TITLE = re.compile(
     r"\b(coupon|voucher|redeem code|refurbished|renewed|pre-?owned|replica|lookalike|duplicate)\b",
     re.IGNORECASE,
@@ -493,9 +495,9 @@ class DealAgent:
                         chosen.append(item)
                 source = "llm+heuristic"
 
-        target_count = min(max_posts, len(shortlist))
+        target_count = min(max_posts, len(qualified))
         if len(chosen) < target_count:
-            fill = self._greedy([item for item in shortlist if item not in chosen], target_count - len(chosen))
+            fill = self._greedy([item for item in qualified if item not in chosen], target_count - len(chosen))
             for item in fill:
                 item.action = "post"
                 if not item.reason.startswith("llm pick"):
@@ -503,9 +505,9 @@ class DealAgent:
                 chosen.append(item)
 
         # Deterministic backfill: if greedy or LLM under-selected (e.g. near-duplicate skips),
-        # fill remaining slots up to target_count from the highest-scoring shortlist candidates
+        # fill remaining slots up to target_count from the highest-scoring qualifying candidates
         if len(chosen) < target_count:
-            for item in shortlist:
+            for item in qualified:
                 if len(chosen) >= target_count:
                     break
                 if item not in chosen and not any(other.deal.id == item.deal.id for other in chosen):

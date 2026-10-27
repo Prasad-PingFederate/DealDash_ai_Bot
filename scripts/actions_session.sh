@@ -76,8 +76,8 @@ if [ "${MANUAL:-false}" = "true" ]; then
 fi
 
 export SESSION_DEADLINE
-# Session duration: 1h 50m (110 minutes) so runs finish cleanly before next 2-hour cron
-SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(minutes=110)).isoformat())')"
+# Session duration: 2h 40m (160 minutes) to allow 65m backup cycles if cron drops
+SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(minutes=160)).isoformat())')"
 echo "Runner stays up until ${SESSION_DEADLINE} or 23:20 IST, whichever is first."
 
 while true; do

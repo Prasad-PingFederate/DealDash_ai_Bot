@@ -207,7 +207,7 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                 deal.current_price = f"₹{live_price:,}"
 
             live_mrp = enrichment.get("mrp")
-            if live_mrp and not deal.original_price:
+            if live_mrp:
                 deal.original_price = f"₹{live_mrp:,}"
 
             rating = enrichment.get("rating")
@@ -236,6 +236,36 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                 deal.bank_offer = enrichment["bank_offer"]
             if enrichment.get("hi_res_image"):
                 deal.image_url = enrichment["hi_res_image"]
+
+            eff_price = deal.effective_price if deal.effective_price is not None else live_price
+            effective_mrp = live_mrp or feed_mrp
+            if effective_mrp and live_price and effective_mrp > live_price > 0:
+                deal.discount_percent = int(round(((effective_mrp - live_price) / effective_mrp) * 100))
+                deal.effective_discount_pct = int(round(((effective_mrp - eff_price) / effective_mrp) * 100))
+            elif enrichment.get("discount_pct") is not None:
+                deal.discount_percent = enrichment["discount_pct"]
+                deal.effective_discount_pct = enrichment.get("effective_discount_pct", deal.discount_percent)
+            elif deal.discount_percent is not None:
+                deal.effective_discount_pct = deal.discount_percent
+
+            # Enforce minimum discount threshold after enrichment
+            min_disc_env = int(os.getenv("MIN_DISCOUNT_PERCENT", "30"))
+            from dealbot.agent import brand_tier
+            b_tier = brand_tier(deal.title)
+            required_disc = 25 if b_tier == 1 else min_disc_env
+            eff_disc = getattr(deal, "effective_discount_pct", None)
+            if eff_disc is None:
+                eff_disc = deal.discount_percent
+            if eff_disc is not None and eff_disc < required_disc:
+                logger.info(
+                    f"Skipping {deal.id}: effective discount {eff_disc}% is below required {required_disc}% "
+                    f"(Tier-{b_tier} brand)."
+                )
+                if skip_tracker is not None:
+                    skip_tracker["low_discount"] = skip_tracker.get("low_discount", 0) + 1
+                deal._verify_skip_reason = "low_discount"
+                store.record_event(deal.id, "skipped_low_discount")
+                return False
 
             # Record verified price sighting into historical tracker
             canon_id = getattr(deal, "canonical_product_id", None) or deal.id
@@ -322,7 +352,7 @@ def run_once() -> int:
     verified_candidates = []
     enriched_tried = 0
     enriched_ok = 0
-    skip_tracker = {"oos": 0, "jump": 0, "low_rating": 0}
+    skip_tracker = {"oos": 0, "jump": 0, "low_rating": 0, "low_discount": 0}
 
     if check_stock:
         for candidate in fresh:
@@ -394,7 +424,8 @@ def run_once() -> int:
     funnel_summary = (
         f"[FUNNEL] Raw: {len(deals)} | Unposted: {len(fresh)} | "
         f"Enriched: {enriched_ok}/{enriched_tried} (OOS:{skip_tracker['oos']}, "
-        f"PriceJump:{skip_tracker['jump']}, LowRating:{skip_tracker['low_rating']}) | "
+        f"PriceJump:{skip_tracker['jump']}, LowRating:{skip_tracker['low_rating']}, "
+        f"LowDisc:{skip_tracker.get('low_discount', 0)}) | "
         f"Selected: {len(queue)} (SoftFloor:{soft_floor_used}) | Posted: {posted_count}"
     )
     logger.info(funnel_summary)

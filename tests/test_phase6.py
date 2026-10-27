@@ -239,3 +239,143 @@ def test_sweep_expired_deals_capped_at_six_and_prioritizes_oldest(tmp_path):
     assert len(checked_deals) == 6
     # The 6 deals with NULL last_checked_at (sweep-4 through sweep-9) must be checked first!
     assert all(d in checked_deals for d in ["amz-sweep-4", "amz-sweep-5", "amz-sweep-6", "amz-sweep-7", "amz-sweep-8", "amz-sweep-9"])
+
+
+# ── 7. 45-MINUTE PACING GATE & 65-MINUTE IN-RUNNER BACKUP SLEEP ───────────────
+
+def test_45_minute_pacing_gate_allows_hourly_cron_startup():
+    """Verify that a runner starting 58 minutes after the previous cycle posts immediately on startup."""
+    from dealbot.session import plan, IST
+    now = datetime(2026, 10, 27, 13, 37, 30, tzinfo=IST)
+    deadline = now + timedelta(hours=3)
+
+    # Last post finished 58.5 minutes ago (12:39:00 IST)
+    last_post = datetime(2026, 10, 27, 12, 39, 0, tzinfo=IST)
+
+    action, wait = plan(now, last_post, deadline)
+    # Since 58.5m >= 45m (GAP), plan immediately allows posting!
+    assert action == "post"
+    assert wait == 0
+
+    # But if only 30 minutes have elapsed since last cycle:
+    recent_cycle = now - timedelta(minutes=30)
+    action_rec, wait_rec = plan(now, recent_cycle, deadline)
+    assert action_rec == "sleep"
+    # Must wait remaining 15 minutes (900 seconds)
+    assert 890 <= wait_rec <= 910
+
+
+def test_in_runner_backup_sleep_is_65_minutes(tmp_path, monkeypatch, capsys):
+    """Verify that inside the runner session loop (SESSION_STARTED=true), successful posts sleep 65 minutes."""
+    from dealbot.session import main as session_main
+
+    db_file = tmp_path / "test_session_65m.sqlite3"
+    monkeypatch.setenv("DATABASE_PATH", str(db_file))
+    monkeypatch.setenv("SESSION_STARTED", "true")
+
+    store = StateStore(str(db_file))
+    # Mark a cycle with 2 posted deals just 2 minutes ago
+    two_min_ago = (datetime.now(timezone.utc) - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    store.set_meta("last_cycle_at", two_min_ago)
+    store.set_meta("last_cycle_posted_count", "2")
+    store.checkpoint()
+
+    session_main()
+    out = capsys.readouterr().out.strip()
+    assert out.startswith("sleep ")
+    sleep_sec = int(out.split()[1])
+    # 65 minutes (3900s) minus ~2 minutes (120s) = ~3780s
+    assert 3750 <= sleep_sec <= 3800
+
+
+# ── 8. REDDIT PROVISIONAL DISCOUNT & LIVE STAGE 2 RECOMPUTATION ───────────────
+
+def test_reddit_deal_provisional_mrp_and_stage2_discount_recomputation(tmp_path):
+    """Verify Reddit deal without initial feed MRP gets provisional discount, survives Stage 1, and recomputes in Stage 2."""
+    from dealbot.sources import _deal_from_fields
+    from dealbot.main import verify_and_enrich_deal
+
+    # Deal from Reddit: title mentions price @ 1499, but no MRP or discount%
+    deal = _deal_from_fields(
+        title="Razer DeathAdder Essential Gaming Mouse @ 1499",
+        raw_url="https://www.amazon.in/dp/B094DPS5PF",
+        org_price="",
+        disc_price="1499",
+        disc_per=0,
+        asin="B094DPS5PF",
+        min_discount=30,
+    )
+    assert deal is not None
+    assert deal.current_price == "₹1499"
+    assert deal.discount_percent == 30  # Provisional 30% discount
+    assert deal.discount_pct == 30
+    assert deal.original_price is not None
+
+    # Stage 2 Live Amazon verification
+    mock_enrichment = {
+        "stock_status": "in_stock",
+        "live_price": 1499,
+        "mrp": 2999,  # 50% real discount on Amazon!
+        "rating": 4.4,
+        "review_count": 12500,
+        "coupon": None,
+        "coupon_discount": None,
+        "effective_price": None,
+        "bank_offer": None,
+        "hi_res_image": "https://m.media-amazon.com/images/I/razer.jpg",
+    }
+
+    db_file = tmp_path / "test_stage2.sqlite3"
+    store = StateStore(str(db_file))
+
+    with patch("dealbot.main.inspect_stock", return_value="in_stock"), \
+         patch("dealbot.main.enrich_amazon_deal", return_value=mock_enrichment):
+        ok = verify_and_enrich_deal(deal, store)
+
+    assert ok is True
+    # Recomputed from live_mrp (2999) and live_price (1499)
+    assert deal.discount_percent == 50
+    assert deal.discount_pct == 50
+    assert deal.effective_discount_pct == 50
+    assert deal.original_price == "₹2,999"
+    assert deal.rating == 4.4
+    assert deal.review_count == 12500
+
+
+def test_stage2_rejects_deal_below_minimum_discount_threshold(tmp_path):
+    """Verify that Stage 2 discards deals whose live effective discount is below MIN_DISCOUNT_PERCENT."""
+    from dealbot.main import verify_and_enrich_deal
+
+    deal = Deal(
+        id="amz-low-disc",
+        retailer="Amazon",
+        title="Generic USB Cable",
+        url="https://www.amazon.in/dp/B0GENERIC",
+        current_price="₹850",
+        original_price="₹1000",
+        discount_percent=15,
+        canonical_product_id="amazon:B0GENERIC",
+    )
+    mock_enrichment = {
+        "stock_status": "in_stock",
+        "live_price": 850,
+        "mrp": 1000,  # 15% discount, below required 30%
+        "rating": 4.2,
+        "review_count": 200,
+        "coupon": None,
+        "coupon_discount": None,
+        "effective_price": None,
+        "bank_offer": None,
+        "hi_res_image": None,
+    }
+    db_file = tmp_path / "test_stage2_low.sqlite3"
+    store = StateStore(str(db_file))
+    skip_tracker = {}
+
+    with patch("dealbot.main.inspect_stock", return_value="in_stock"), \
+         patch("dealbot.main.enrich_amazon_deal", return_value=mock_enrichment):
+        ok = verify_and_enrich_deal(deal, store, skip_tracker=skip_tracker)
+
+    assert ok is False
+    assert skip_tracker.get("low_discount") == 1
+

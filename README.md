@@ -1,110 +1,142 @@
 # 🚀 DealDash AI - Autonomous Affiliate Telegram Deal Bot
 
-An enterprise-grade, fully autonomous Python bot that discovers high-discount e-commerce deals across India (Amazon, Flipkart, etc.), crafts viral AI-written captions using **Google Gemini 2.5 Flash**, embeds high-resolution product photos, auto-injects your affiliate tracking tags, and publishes them to your Telegram channel.
-
-It features **real-time Out-of-Stock (OOS) auto-detection**, smart channel pacing, Telegram HTML injection defenses, SQLite deduplication, and a **GitHub Actions runner that keeps posting through the day**.
+An enterprise-grade, fully autonomous Python deal agent that discovers high-discount e-commerce deals across India (Amazon, Reddit, RSS feeds), performs **two-stage live page verification**, crafts viral AI captions via **Google Gemini 2.5 Flash / Groq / OpenRouter**, tracks historical price sightings, and publishes them with affiliate tags to Telegram with **real-time Out-of-Stock and price-spike monitoring**.
 
 ---
 
-## 🌟 Key Capabilities
+## 🌟 Key Capabilities (Phases 1–5)
 
-1. **Autonomous Live Ingestion**:
-   - Ingests 30+ human-verified price drops (30% to 80% OFF) automatically every cycle.
-   - Zero manual deal entry required.
-2. **AI Copywriter (Gemini, with a free Gemma backup)**:
-   - Transforms raw product titles into punchy Telegram posts.
-   - Gemini 2.5 Flash writes the caption and the deal pick.
-   - If the Gemini key is empty or the quota is dead, the same job switches to the free OpenRouter model `google/gemma-4-26b-a4b-it:free`. The endpoint stays `https://openrouter.ai/api/v1/chat/completions`.
-   - The free 31B Gemma route is not used. It is often still queued when the bot stops waiting at 12 seconds, and the post then falls back to the template. `openrouter/free` is not used either, because that id changes model on every call.
-   - If both models fail, the bot posts the clean template and does not crash.
-3. **Smart Affiliate Link Engine**:
-   - Automatically cleans third-party affiliate tags and injects your tag (e.g. `tag=dammaiprasad-21` for Amazon, `affid=` for Flipkart).
-4. **Auto Out-of-Stock (OOS) Detection**:
-   - Background worker sweeps posted deals and checks availability.
-   - Automatically edits the Telegram message to prepend `❌ [OFFER EXPIRED / OUT OF STOCK]` when items sell out.
-5. **Smart Pacing & Operating Hours**:
-   - Paces posts to prevent channel notification spam.
-   - Respects Indian Standard Time (IST): active posting between 8:00 AM – 11:30 PM, quiet throttled sleep at night.
-6. **Deal Editor Agent**:
-   - Does not post the first rows from the feed. Each cycle it scores fresh deals (discount, price, photo, title, category mix, IST time slot).
-   - If Gemini or Hermes is configured, the model may pick the slate. Unknown ids are ignored, and a bad reply falls back to the heuristic.
-   - Near-duplicate titles are dropped so the channel does not get two posts of the same headphones.
-   - A critic throws away AI captions that hide the real price and uses the template instead.
-   - The reason for every post and skip is stored in SQLite and, if `ADMIN_CHAT_ID` is set, sent only to you.
-7. **Daytime cloud runner**:
-   - GitHub Actions starts a job at 09:37, 12:37, 15:37, 18:37, and 21:37 IST. Each job stays up and posts about once an hour for up to five hours, and stops after 23:20 IST.
-   - GitHub can still fail to create a start. A job that is already running keeps posting, and the next start covers what is left. A manual run posts once immediately, then continues on the same hourly loop if the window is open.
-   - Also includes Docker Compose for an always-on VM. That loop is separate and is not what the Actions job uses.
+1. **Two-Stage Live Amazon Enrichment**:
+   - **Stage 1 (Pre-scoring)**: Fast, non-blocking scoring of all feed candidates (Reddit `r/dealsforindia`, `r/IndianGaming`, RSS feeds).
+   - **Stage 2 (Live Verification)**: Fetches the live Amazon product page to scrape real-time price, basis MRP, customer ratings, review volume, and on-page coupons before final selection.
+   - **Stage 3 (DealAgent Scoring)**: Re-scores verified survivors with actual live prices and social proof metrics.
+2. **Effective Coupon & Bank Offer Pricing**:
+   - Automatically detects and parses on-page Amazon coupons (flat `Apply ₹500 coupon` and percentage `Save 10% coupon`).
+   - Calculates `effective_price = live_price - coupon_discount` and `effective_discount_pct`.
+   - Post captions feature the exact deal price breakdown with strikethrough MRP and coupon instructions.
+3. **Historical Price Memory (`price_sightings`)**:
+   - Stores sightings across product runs in SQLite to identify genuine price drops and all-time lows.
+   - Detects and penalizes chronic fake MRP inflations on unbranded or generic accessories.
+4. **Composite Buyer Value Score**:
+   - **Brand Tiers**: Tier-1 (+20 pts for Apple, Samsung, Sony, LG, etc.), Tier-2 (+14 pts for boAt, Noise, Realme, Xiaomi).
+   - **Social Proof Boost**: +10 pts for verified ratings $\ge 4.2★$ with $\ge 500$ customer reviews.
+   - **Accessory Anti-Spoofing**: Prevents cheap ₹149 generic phone cases from hijacking Tier-1 brand boosts via preposition filtering (`for `, `case for `).
+5. **Auto Out-of-Stock (OOS) & In-Stock Price Spike Watcher**:
+   - Post-cycle background watcher verifies active Telegram posts (capped at 6 deals per cycle with 1.5s throttling to protect runner IP).
+   - Uses **consecutive 2-check confirmation** to prevent false edits caused by transient page glitches.
+   - Automatically edits Telegram posts to prepend:
+     - `❌ [OFFER EXPIRED / OUT OF STOCK]` when items sell out.
+     - `⚠️ [DEAL ENDED — PRICE INCREASED TO ₹X]` when the effective price jumps $\ge 25\%$ while still in stock.
+6. **Guaranteed Hourly Posting & Anti-Drift Clock**:
+   - **45-Minute Pacing Gate**: New hourly cron jobs starting 57–59 minutes after the previous run pass the cooldown gate and post immediately on startup.
+   - **65-Minute In-Runner Backup Sleep**: The active runner sleeps for 65 minutes after posting, ensuring clean replacement by the next hourly cron (:37), or auto-recovering dropped crons at :42.
+   - **Immediate SQLite Sync**: Checkpoints WAL mode and synchronizes `data/*.db` to `origin/main` immediately after every cycle.
+   - **Adaptive Soft-Floor & Deterministic Backfill**: Guarantees targeted posts per cycle even under strict LLM constraints.
+7. **AI Copywriter with Strict Critic & Telegram HTML Escaping**:
+   - Multi-provider support: **Google Gemini 2.5 Flash**, **Groq Llama 3.3 70B**, and **OpenRouter Gemma 26B**.
+   - **Strict Critic Validation**: Validates AI captions against deal price, effective price, and coupons to reject hallucinations.
+   - Full HTML entity escaping (`quote=False`) protects against Telegram `400 Bad Request: can't parse entities`.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌───────────────────┐
-│   Scout Engine   │ ──> │   AI Copywriter  │ ──> │ Publisher Engine │ ──> │ Auto-OOS Watcher  │
-│ Live Feeds & APIs│     │ Gemini 2.5 Flash │     │Telegram Photo/Btn│     │Edits Expired Posts│
-└──────────────────┘     └──────────────────┘     └──────────────────┘     └───────────────────┘
-         │                         ▲
-         ▼                         │
-┌────────────────────────────────┘
-│ Deal editor agent                 │
-│ price first, coupon only if known │
-│ check stock, then post            │
+┌─────────────────────────────────┐
+│        Scout Engine             │
+│   RSS Feeds, Reddit, Amazon     │
 └─────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│ Stage 1: Heuristic Pre-Scoring  │
+│  Fast, in-memory candidate rank │
+└─────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│ Stage 2: Live Amazon Enrichment │
+│  Scrape live price, MRP, rating,│
+│  coupons, and hi-res image      │
+└─────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│ Stage 3: Autonomous DealAgent   │
+│  Composite buyer score, brand   │
+│  tiers, soft-floor & backfill   │
+└─────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐      ┌─────────────────────────────┐
+│    AI Multi-Provider Engine     │ ───> │  Publisher & Telegram Post  │
+│  Gemini 2.5 / Groq / OpenRouter │      │  Affiliate link + HTML safe │
+└─────────────────────────────────┘      └─────────────────────────────┘
+                                                        │
+                                                        ▼
+                                         ┌─────────────────────────────┐
+                                         │ OOS & Price Spike Watcher   │
+                                         │ Edits expired/spiked posts  │
+                                         └─────────────────────────────┘
 ```
 
 ---
 
 ## ⚙️ Configuration (`.env`)
 
-Copy `.env.example` to `.env` and fill in your values:
+Copy `.env.example` to `.env` and configure your credentials:
 
 ```dotenv
 # Telegram Bot & Channel
 TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
 TELEGRAM_CHAT_ID=@YourDealChannel
+ADMIN_CHAT_ID=your_private_admin_chat_id
 
 # Bot Controls
 DRY_RUN=false
-CONTINUOUS=true
-POLL_INTERVAL_MINUTES=30
+CONTINUOUS=false
 MAX_POSTS_PER_CYCLE=3
-POST_DELAY_SECONDS=3
+POST_DELAY_SECONDS=2
+MIN_DISCOUNT_PERCENT=30
+ALLOWED_RETAILERS=Amazon
 
-# Affiliate Tags
+# Affiliate Tracking
 AMAZON_PARTNER_TAG=dammaiprasad-21
-FLIPKART_AFFILIATE_ID=yourflipkartid
 
-# AI Copywriter
+# Primary AI Copywriter (Google Gemini)
+AI_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
 AI_TIMEOUT_SECONDS=12
-# Backup only. Leave AI_PROVIDER unset or gemini.
+
+# Secondary High-Speed AI (Groq)
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# Fallback AI (OpenRouter / Gemma)
 HERMES_API_KEY=your_openrouter_key
 HERMES_MODEL=google/gemma-4-26b-a4b-it:free
+HERMES_ENDPOINT=https://openrouter.ai/api/v1/chat/completions
 
-# Deal Filtering
-FEEDS_ENABLED=true
-MIN_DISCOUNT_PERCENT=30
-
-# Editor agent (set AGENT_MODE=false for old first-come posting)
+# Autonomous DealAgent
 AGENT_MODE=true
 AGENT_LLM=true
-AGENT_MIN_SCORE=32
+AGENT_MIN_SCORE=28
+CHECK_STOCK_BEFORE_POST=true
+LISTEN_FOR_ENGAGEMENT=true
 ```
 
 ---
 
 ## 🧪 Testing & Verification
 
-Run the entire suite of unit, negative, pacing, and agent tests:
+Run the complete test suite across all phases:
 
 ```bash
 pytest -v
 ```
 
-Run a single-cycle dry run without sending live Telegram messages:
+Run a single local cycle in dry-run mode:
 
 ```bash
 python run_once.py
@@ -112,32 +144,12 @@ python run_once.py
 
 ---
 
-## ☁️ Daytime runner on GitHub Actions
+## ☁️ Autonomous Daytime Runner (GitHub Actions)
 
-You don't even need to keep your laptop on. The Actions workflow posts through the day. GitHub's own scheduler is not guaranteed, so each start stays on the runner instead of depending on a fresh tick every hour.
+The bot runs on GitHub Actions throughout Indian daytime hours (09:07 IST to 23:07 IST):
 
-1. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
-2. Add the following repository secrets:
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-   - `GEMINI_API_KEY`
-   - `HERMES_API_KEY` or `DEALS_AGENT_OPENROUTER` (OpenRouter key — used only when Gemini is empty or out of quota)
-   - `AMAZON_PARTNER_TAG`
-   - `ADMIN_CHAT_ID` (optional — private agent briefing, not the public channel)
-3. Go to the **Actions** tab and enable workflows. A job posts once an hour from the morning start until 23:20 IST. It does not run overnight.
-
----
-
-## 🐳 Docker Deployment (For VPS / Oracle Cloud Free Tier)
-
-```bash
-docker compose up -d --build
-docker compose logs -f dealbot
-```
-
----
-
-## ⚖️ Compliance & Disclosures
-
-- Automatically appends legal affiliate disclosures (`#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.`) to every post.
-- Preserves accurate pricing and strikethrough MRP without manufacturing discounts.
+1. Hourly cron triggers at minute `:37` (`37 3-17 * * *` UTC).
+2. Runner checks out repository and pulls the latest SQLite database.
+3. 45-minute startup gate ensures immediate posting without waiting.
+4. Database state is checkpointed and synced to `origin/main` after each cycle.
+5. In-runner 65-minute sleep provides seamless handoff to the next hourly job or fallback execution.
