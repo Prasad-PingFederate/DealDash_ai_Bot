@@ -381,6 +381,23 @@ class StateStore:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def get_top_live_deals_today(self, limit: int = 5, hours: int = 14) -> List[Dict[str, Any]]:
+        """Query top still-live deals posted in the last N hours, ordered by discount and agent score."""
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                """
+                SELECT deal_id, retailer, chat_id, message_id, caption, price, discount, agent_score, posted_at, canonical_product_id
+                FROM posted_deals
+                WHERE status = 'active'
+                  AND posted_at >= datetime('now', ?)
+                ORDER BY COALESCE(discount, 0) DESC, COALESCE(agent_score, 0) DESC, posted_at DESC
+                LIMIT ?
+                """,
+                (f"-{hours} hours", limit),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
     def get_recent_context(self, limit: int = 8) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
@@ -567,6 +584,7 @@ class StateStore:
                 "status": "normal",
                 "score_adj": 0,
                 "min_price": min_p,
+                "max_price": max_p,
                 "avg_price": avg_p,
                 "sighting_count": count,
             }
@@ -761,14 +779,30 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
             ai_body = None
 
     lines = [f"{mark} <b>{badge}</b> · {retailer}"]
+
+    # 1. Multi-Source Viral Consensus
+    if getattr(deal, "source_count", 1) >= 2:
+        lines.append(f"🔥 Trending across {deal.source_count} deal communities")
+
     percent = offer_percent(deal)
+    from dealbot.regions import get_currency_symbol
+    curr_sym = get_currency_symbol()
     price_bits = []
     if getattr(deal, "effective_price", None) and getattr(deal, "coupon_discount", None):
-        price_bits.append(f"<b>Effective Price: ₹{deal.effective_price:,}</b>")
+        price_bits.append(f"💰 <b>Effective Price: {curr_sym}{deal.effective_price:,}</b>")
         if percent:
-            price_bits.append(f"<b>{percent}% OFF</b>")
-        lines.append(" · ".join(price_bits))
-        lines.append(f"List Price: {html.escape(deal.current_price or '')} (Apply ₹{deal.coupon_discount:,} on-page coupon)")
+            price_bits.append(f"<i>({percent}% OFF)</i>")
+        lines.append(" ".join(price_bits))
+        waterfall_parts = []
+        if deal.original_price:
+            waterfall_parts.append(f"MRP: <del>{html.escape(deal.original_price, quote=False)}</del>")
+        if deal.current_price:
+            waterfall_parts.append(f"List: {html.escape(deal.current_price)}")
+        waterfall_parts.append(f"Coupon: -{curr_sym}{deal.coupon_discount:,}")
+        if getattr(deal, "bank_discount_amount", None):
+            waterfall_parts.append(f"Bank: -{curr_sym}{deal.bank_discount_amount:,}")
+        lines.append(f"🧾 {' | '.join(waterfall_parts)}")
+        lines.append(f"List Price: {html.escape(deal.current_price or '')} (Apply {curr_sym}{deal.coupon_discount:,} on-page coupon)")
     else:
         if deal.current_price:
             price_bits.append(f"<b>{html.escape(deal.current_price)}</b>")
@@ -780,20 +814,39 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     lines.append("")
     lines.append(f"<b>{html.escape(deal.title or 'Deal', quote=False)}</b>")
 
-    if deal.original_price:
+    if not (getattr(deal, "effective_price", None) and getattr(deal, "coupon_discount", None)) and deal.original_price:
         lines.append(f"MRP <s>{html.escape(deal.original_price, quote=False)}</s>")
     savings = deal.savings_rupees()
     if savings and savings >= 1:
-        lines.append(f"You save ₹{savings:,}")
+        lines.append(f"You save {curr_sym}{savings:,}")
+
     coupon = _coupon_code(deal)
     if coupon:
         lines.append(f"Coupon <b>{html.escape(coupon, quote=False)}</b>")
+
+    # 1-Tap Copy Promo Code (GrabOn-Style)
+    promo = getattr(deal, "promo_code", None)
+    if promo and promo != coupon:
+        lines.append(f"🎟️ Promo Code: <code>{html.escape(promo, quote=False)}</code> <i>(Tap to copy)</i>")
+    elif promo:
+        lines.append(f"🎟️ Promo Code: <code>{html.escape(promo, quote=False)}</code> <i>(Tap to copy)</i>")
+
     bank = (deal.bank_offer or "").strip()
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
         lines.append(f"Bank offer: {html.escape(bank[:90], quote=False)}")
     if getattr(deal, "rating", None) is not None:
         reviews_part = f" ({deal.review_count:,} reviews)" if getattr(deal, "review_count", None) else ""
         lines.append(f"⭐ <b>{deal.rating}★</b>{reviews_part}")
+
+    # BuyHatke-Style Buy-Now Confidence Meter
+    if getattr(deal, "buy_confidence", None) is not None:
+        from dealbot.agent import format_buy_confidence_meter
+        lines.append(format_buy_confidence_meter(deal.buy_confidence))
+
+    # Price Trajectory Trend
+    if getattr(deal, "price_trend_text", None):
+        lines.append(deal.price_trend_text)
+
     if deal.price_note:
         lines.append(html.escape(deal.price_note))
     if deal.checked:
@@ -857,11 +910,20 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         return False, None, caption
 
     # Upgraded High-CTR inline keyboard
-    disp_price = f"₹{deal.effective_price:,}" if getattr(deal, "effective_price", None) else deal.current_price
-    buy_text = f"🛒 Grab Deal @ {disp_price}" if disp_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
+    from dealbot.regions import (
+        get_currency_symbol,
+        get_keepa_url,
+        get_price_history_url,
+        get_market_region,
+    )
+    curr_sym = get_currency_symbol()
+    eff_p = getattr(deal, "effective_price", None)
+    disp_price = f"{curr_sym}{eff_p:,}" if eff_p else deal.current_price
+    disc_part = f" ({deal.discount_percent}% OFF)" if deal.discount_percent else ""
+    buy_text = f"🛒 Grab Deal @ {disp_price}{disc_part}" if disp_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
     primary_row = [{"text": buy_text, "url": deal.url or "#"}]
 
-    # Extract Amazon ASIN for Price History button (Keepa)
+    # Extract Amazon ASIN for Price Verification buttons (Keepa + PriceHistory/CamelCamelCamel)
     asin = None
     if deal.id and deal.id.startswith("amz-"):
         asin = deal.id.replace("amz-", "").strip().upper()
@@ -870,10 +932,19 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
 
     row2 = []
     if asin and len(asin) == 10:
-        row2.append({"text": "📊 Price History", "url": f"https://keepa.com/#!product/10-{asin}"})
-    row2.append({"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"})
+        row2.append({"text": "📈 Keepa Chart", "url": get_keepa_url(asin)})
+        ph_url = get_price_history_url(asin)
+        if ph_url:
+            provider_label = "Price History Check" if get_market_region() == "IN" else "CamelCamelCamel"
+            row2.append({"text": f"🔍 {provider_label}", "url": ph_url})
 
-    reply_markup = {"inline_keyboard": [primary_row, row2]}
+    row3 = [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}]
+
+    inline_rows = [primary_row]
+    if row2:
+        inline_rows.append(row2)
+    inline_rows.append(row3)
+    reply_markup = {"inline_keyboard": inline_rows}
 
     # Guard against Telegram length limits (4096 char limit for text)
     if len(caption) > 4000:
@@ -923,3 +994,104 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
     except requests.RequestException as e:
         logger.error(f"Telegram request failed: {e}")
         return False, None, caption
+
+
+def send_top_live_deals_digest(
+    store: StateStore,
+    chat_id: str,
+    token: str,
+    dry_run: bool = False,
+    limit: int = 5,
+) -> bool:
+    """Post and pin a curated digest of today's top still-live deals."""
+    logger = logging.getLogger("dealbot.publisher")
+    deals = store.get_top_live_deals_today(limit=limit)
+    if len(deals) < 3:
+        logger.info(f"Only {len(deals)} live deal(s) found for today (min 3 required for digest). Skipping.")
+        return False
+
+    from dealbot.regions import get_region_config, get_currency_symbol
+    cfg = get_region_config()
+    curr_sym = get_currency_symbol()
+    partner_tag = (
+        os.getenv("AMAZON_AFFILIATE_TAG")
+        or os.getenv("AMAZON_PARTNER_TAG")
+        or "dammaiprasad-21"
+    ).strip()
+
+    lines = [
+        f"🏆 <b>TODAY'S TOP {len(deals)} STILL-LIVE MEGA DEALS</b> 🔥",
+        "",
+    ]
+    for idx, d in enumerate(deals, start=1):
+        deal_id = d["deal_id"]
+        price = d.get("price")
+        discount = d.get("discount")
+        caption = d.get("caption") or ""
+
+        # Extract title from caption (the bold product title)
+        title = ""
+        for line in caption.split("\n"):
+            m = re.match(r"^<b>([^<]+)</b>$", line.strip())
+            if m and "deal" not in m.group(1).lower() and "loot" not in m.group(1).lower():
+                title = m.group(1).strip()
+                break
+        if not title:
+            m = re.search(r"<b>([^<]{5,80})</b>", caption)
+            title = m.group(1).strip() if m else deal_id
+
+        # Build affiliate URL
+        asin = None
+        if deal_id.startswith("amz-"):
+            asin = deal_id.replace("amz-", "")
+        elif d.get("canonical_product_id") and d["canonical_product_id"].startswith("amazon:"):
+            asin = d["canonical_product_id"].replace("amazon:", "")
+
+        if asin:
+            aff_url = f"https://www.{cfg.get('domain', 'amazon.in')}/dp/{asin}?tag={partner_tag}&linkCode=ll1"
+        else:
+            href_m = re.search(r'href="([^"]+)"', caption)
+            aff_url = href_m.group(1) if href_m else "#"
+
+        price_str = f"<b>{curr_sym}{price:,}</b>" if price else ""
+        disc_str = f"({discount}% OFF)" if discount else ""
+        lines.append(f"{idx}. <b>{html.escape(title[:65], quote=False)}</b> — {price_str} {disc_str} — <a href=\"{html.escape(aff_url)}\"><b>Grab Here</b></a>")
+
+    lines.append("")
+    lines.append("<i>⚡ Prices and coupons fluctuate rapidly. Forward to friends before these deals expire!</i>")
+    digest_html = "\n".join(lines)
+
+    if dry_run:
+        logger.info(f"[DRY RUN] Would send and pin Top Live Deals Digest:\n{digest_html}")
+        return True
+
+    if not token or not chat_id:
+        logger.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID for digest")
+        return False
+
+    endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": digest_html,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    resp = safe_telegram_post(endpoint, payload=payload, timeout=20)
+    if resp.status_code == 200:
+        msg_id = resp.json().get("result", {}).get("message_id")
+        logger.info(f"Published Top Live Deals Digest (message_id={msg_id})")
+        if msg_id:
+            pin_endpoint = f"https://api.telegram.org/bot{token}/pinChatMessage"
+            pin_payload = {
+                "chat_id": chat_id,
+                "message_id": msg_id,
+                "disable_notification": True,
+            }
+            try:
+                safe_telegram_post(pin_endpoint, payload=pin_payload, timeout=10)
+            except Exception as e:
+                logger.debug(f"pinChatMessage silent fallback: {e}")
+        return True
+    else:
+        logger.warning(f"Failed to post Top Live Deals Digest: {resp.status_code} {resp.text}")
+        return False

@@ -123,7 +123,9 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
         "coupon": None,
         "coupon_discount": None,
         "effective_price": None,
+        "promo_code": None,
         "bank_offer": None,
+        "bank_discount_amount": None,
         "hi_res_image": None,
     }
     if not url:
@@ -278,12 +280,46 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
             result["discount_pct"] = 0
             result["effective_discount_pct"] = 0
 
-        # 6. Bank Offers
-        bank_match = re.search(r'(?:Instant Discount up to ₹?[\d,]+ on [A-Za-z0-9 ]+|Bank Offer: [^<]{5,80}|10% Instant Discount on [A-Za-z0-9 ]+)', text, re.IGNORECASE)
-        if bank_match:
-            result["bank_offer"] = re.sub(r"\s+", " ", bank_match.group(0).strip())[:80]
+        # 6. Promo Code Extraction
+        promo_patterns = [
+            r'(?:use|enter|apply)\s+code\s+([A-Za-z0-9_-]{3,20})\b',
+            r'\bpromo\s+code\s*[:=]?\s*([A-Za-z0-9_-]{3,20})\b',
+            r'\bcoupon\s+code\s*[:=]?\s*([A-Za-z0-9_-]{3,20})\b',
+        ]
+        ignored_codes = {"THE", "AND", "WITH", "FOR", "GET", "APPLY", "SAVE", "OFF", "FLAT", "AT", "CHECKOUT"}
+        for p_pat in promo_patterns:
+            p_m = re.search(p_pat, text, re.IGNORECASE)
+            if p_m:
+                cand = p_m.group(1).upper()
+                if cand not in ignored_codes:
+                    result["promo_code"] = cand
+                    break
 
-        # 7. High-Res Image
+        # 7. Bank Offers & Flat Card Discount
+        bank_match = re.search(
+            r'(?:Flat\s*(?:₹|Rs\.?)\s*[\d,]+\s*(?:Instant\s+Discount|off)\s+on\s+[A-Za-z0-9 ]+|'
+            r'Instant Discount up to ₹?[\d,]+ on [A-Za-z0-9 ]+|'
+            r'Bank Offer: [^<]{5,80}|'
+            r'10% Instant Discount on [A-Za-z0-9 ]+|'
+            r'(?:₹|Rs\.?)\s*[\d,]+\s*(?:Instant Discount|off)\s+on\s+[A-Za-z0-9 ]+)',
+            text,
+            re.IGNORECASE,
+        )
+        if bank_match:
+            b_text = re.sub(r"\s+", " ", bank_match.group(0).strip())[:80]
+            result["bank_offer"] = b_text
+            # Parse unambiguous flat rupee discount
+            flat_m = re.search(r'(?:Flat\s*(?:₹|Rs\.?)\s*([\d,]+)|(?:₹|Rs\.?)\s*([\d,]+)\s*off|Instant Discount up to (?:₹|Rs\.?)\s*([\d,]+))', b_text, re.IGNORECASE)
+            if flat_m:
+                raw_amt = flat_m.group(1) or flat_m.group(2) or flat_m.group(3)
+                try:
+                    amt = int(raw_amt.replace(",", ""))
+                    if 50 <= amt <= 25000:
+                        result["bank_discount_amount"] = amt
+                except ValueError:
+                    pass
+
+        # 8. High-Res Image
         hires_match = re.search(r'data-old-hires="([^"]+)"', text)
         if hires_match and hires_match.group(1).startswith("http"):
             result["hi_res_image"] = hires_match.group(1)

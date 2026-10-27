@@ -122,7 +122,13 @@ def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
             asin_match = re.search(r"[?&]asin=([A-Z0-9]{10})", url, re.IGNORECASE)
         if asin_match:
             asin = asin_match.group(1).upper()
-            clean_url = f"https://www.amazon.in/dp/{asin}?tag={amazon_tag}&linkCode=ll1"
+            from dealbot.regions import get_region_config
+            target_domain = get_region_config().get("domain", "amazon.in")
+            for d_suffix in ("amazon.com", "amazon.co.uk", "amazon.ae", "amazon.in"):
+                if d_suffix in domain:
+                    target_domain = d_suffix
+                    break
+            clean_url = f"https://www.{target_domain}/dp/{asin}?tag={amazon_tag}&linkCode=ll1"
             return clean_url, f"amz-{asin}", "Amazon"
 
     # 2. Flipkart Canonicalization
@@ -162,7 +168,7 @@ def worth_posting_discount(discount_percent: int, original_price: str, deal_pric
 
 DEFAULT_EXTRA_FEED = "https://www.reddit.com/r/IndiaDeals/.rss"
 PRODUCT_URL = re.compile(
-    r"https?://(?:www\.|dl\.)?(?:amazon\.in|amzn\.to|amzn\.in|flipkart\.com)/[^\s<\"']+",
+    r"https?://(?:www\.|dl\.)?(?:amazon\.(?:in|com|co\.uk|ae)|amzn\.to|amzn\.in|flipkart\.com)/[^\s<\"']+",
     re.IGNORECASE,
 )
 
@@ -236,6 +242,7 @@ def _deal_from_fields(
     coupon: str = "",
     bank: str = "",
     image_url: str = "",
+    source_platform: str = "feed",
 ) -> Optional[Deal]:
     if not title or not raw_url:
         return None
@@ -266,6 +273,9 @@ def _deal_from_fields(
                     coupon_code=_clean_code(coupon),
                     bank_offer=bank[:90] if bank else None,
                     canonical_product_id=canon_id,
+                    source_platform=source_platform,
+                    matched_sources=[source_platform],
+                    source_count=1,
                 )
                 return deal if deal.is_valid() else None
         return None
@@ -286,11 +296,14 @@ def _deal_from_fields(
         coupon_code=_clean_code(coupon),
         bank_offer=bank[:90] if bank else None,
         canonical_product_id=canon_id,
+        source_platform=source_platform,
+        matched_sources=[source_platform],
+        source_count=1,
     )
     return deal if deal.is_valid() else None
 
 
-def parse_offer_feed(content: bytes, min_discount: int = 25) -> List[Deal]:
+def parse_offer_feed(content: bytes, min_discount: int = 25, source_platform: str = "feed") -> List[Deal]:
     """Read an IndiaFreeStuff-style XML feed or a normal RSS/Atom feed."""
     try:
         root = ET.fromstring(content)
@@ -319,6 +332,7 @@ def parse_offer_feed(content: bytes, min_discount: int = 25) -> List[Deal]:
                 coupon=_first_text(item, "coupon", "coupon_code", "offer_code", "promo_code"),
                 bank=_first_text(item, "bank_offer", "bank", "card_offer"),
                 image_url=_first_text(item, "image", "image_url", "img", "product_image"),
+                source_platform=source_platform,
             )
             if deal:
                 deals.append(deal)
@@ -360,20 +374,35 @@ def parse_offer_feed(content: bytes, min_discount: int = 25) -> List[Deal]:
             disc_per=percent or 0,
             asin="",
             min_discount=min_discount,
+            source_platform=source_platform,
         )
         if deal:
             deals.append(deal)
     return deals
 
 
-def _download_feed(feed_url: str, min_discount: int) -> List[Deal]:
+def _download_feed(feed_url: str, min_discount: int, source_platform: Optional[str] = None) -> List[Deal]:
     headers = {"User-Agent": USER_AGENT, "Accept": "application/xml, application/rss+xml, application/atom+xml"}
+    if not source_platform:
+        lower_url = feed_url.lower()
+        if "indiafreestuff" in lower_url:
+            source_platform = "indiafreestuff"
+        elif "desidime" in lower_url:
+            source_platform = "desidime"
+        elif "freekaamaal" in lower_url:
+            source_platform = "freekaamaal"
+        elif "reddit.com" in lower_url:
+            source_platform = "reddit"
+        elif "slickdeals.net" in lower_url:
+            source_platform = "slickdeals"
+        else:
+            source_platform = "feed"
     try:
         response = requests.get(feed_url, headers=headers, timeout=12)
         if response.status_code != 200:
             logger.warning(f"Feed {feed_url} returned status {response.status_code}")
             return []
-        deals = parse_offer_feed(response.content, min_discount=min_discount)
+        deals = parse_offer_feed(response.content, min_discount=min_discount, source_platform=source_platform)
         logger.info(f"Ingested {len(deals)} valid deals from {feed_url}")
         return deals
     except Exception as exc:
@@ -384,7 +413,8 @@ def _download_feed(feed_url: str, min_discount: int) -> List[Deal]:
 def fetch_live_feed_deals(min_discount: int = 25) -> List[Deal]:
     """Fetch live deals from the primary aggregator feed and inject affiliate tags."""
     feed_url = os.getenv("DEALS_FEED_URL", "https://www.indiafreestuff.in/feed")
-    return _download_feed(feed_url, min_discount)
+    source_plat = "indiafreestuff" if "indiafreestuff" in feed_url.lower() else "feed"
+    return _download_feed(feed_url, min_discount, source_platform=source_plat)
 
 
 def fetch_extra_feeds(min_discount: int = 25) -> List[Deal]:
@@ -407,7 +437,7 @@ REDDIT_DEAL_FEEDS = (
 )
 
 def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
-    """Fetch deals from Indian deal-sharing subreddits via Reddit public JSON feeds."""
+    """Fetch deals from deal-sharing subreddits via Reddit public JSON feeds."""
     raw = os.getenv("REDDIT_FEEDS_ENABLED", "true").strip().lower()
     if raw in {"false", "off", "0", "no"}:
         return []
@@ -415,7 +445,10 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 DealDashBot/1.0"
     }
-    for feed_url in REDDIT_DEAL_FEEDS:
+    from dealbot.regions import get_region_config
+    cfg = get_region_config()
+    reddit_feeds = cfg.get("reddit_feeds") if cfg.get("reddit_feeds") is not None else REDDIT_DEAL_FEEDS
+    for feed_url in reddit_feeds:
         try:
             resp = requests.get(feed_url, headers=headers, timeout=10)
             if resp.status_code != 200:
@@ -429,12 +462,12 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                 selftext = pdata.get("selftext", "")
 
                 target_url = None
-                if any(dom in link_url.lower() for dom in ("amazon.in", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
+                if any(dom in link_url.lower() for dom in ("amazon.", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
                     target_url = link_url
                 else:
                     found = re.findall(r'https?://[^\s<>"]+', selftext)
                     for u in found:
-                        if any(dom in u.lower() for dom in ("amazon.in", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
+                        if any(dom in u.lower() for dom in ("amazon.", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
                             target_url = u
                             break
 
@@ -453,8 +486,9 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                     disc_per=disc_per,
                     asin=asin,
                     min_discount=min_discount,
+                    source_platform="reddit",
                 )
-                if not deal and (asin or "amazon.in" in target_url.lower() or "amzn.to" in target_url.lower()):
+                if not deal and (asin or "amazon." in target_url.lower() or "amzn.to" in target_url.lower()):
                     clean_url, deal_id, retailer = expand_and_convert_url(target_url)
                     p_num = parse_rupees(disc_price)
                     prov_disc = max(disc_per, 30) if disc_per > 0 else 30
@@ -470,9 +504,15 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                         canonical_product_id=f"amazon:{asin}" if asin else (deal_id if retailer != "Amazon" else None),
                         category="reddit",
                         image_url=_amazon_image(asin) if asin else None,
+                        source_platform="reddit",
+                        matched_sources=["reddit"],
+                        source_count=1,
                     )
                 if deal and deal.is_valid():
                     deal.category = "reddit"
+                    deal.source_platform = "reddit"
+                    if "reddit" not in deal.matched_sources:
+                        deal.matched_sources.append("reddit")
                     deals.append(deal)
         except Exception as exc:
             logger.debug(f"Failed to fetch Reddit deals from {feed_url}: {exc}")
@@ -492,8 +532,12 @@ def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
     }
+    from dealbot.regions import get_region_config
+    cfg = get_region_config()
+    movers_url = cfg.get("movers_url", AMAZON_MOVERS_URL)
+    domain = cfg.get("domain", "amazon.in")
     try:
-        resp = requests.get(AMAZON_MOVERS_URL, headers=headers, timeout=10)
+        resp = requests.get(movers_url, headers=headers, timeout=10)
         if resp.status_code != 200:
             return []
         text = resp.text
@@ -506,7 +550,7 @@ def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
             if asin in seen_asins:
                 continue
             seen_asins.add(asin)
-            url = f"https://www.amazon.in/dp/{asin}"
+            url = f"https://www.{domain}/dp/{asin}"
             clean_url, deal_id, retailer = expand_and_convert_url(url)
             deal = Deal(
                 id=deal_id,
@@ -515,6 +559,9 @@ def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
                 url=clean_url,
                 canonical_product_id=f"amazon:{asin}",
                 image_url=_amazon_image(asin),
+                source_platform="amazon_movers",
+                matched_sources=["amazon_movers"],
+                source_count=1,
             )
             deals.append(deal)
             if len(deals) >= 5:
@@ -661,19 +708,35 @@ def collect_all_deals() -> List[Deal]:
     # 1. Live automated deals feeds (parallel fetching)
     if os.getenv("FEEDS_ENABLED", "true").lower() == "true":
         min_disc = int(os.getenv("MIN_DISCOUNT_PERCENT", "30"))
+        from dealbot.regions import get_region_config
+        cfg = get_region_config()
         tasks = [
             lambda: fetch_live_feed_deals(min_discount=min_disc),
             lambda: fetch_extra_feeds(min_discount=min_disc),
             lambda: fetch_reddit_deals(min_discount=min_disc),
             lambda: fetch_amazon_movers_and_shakers(min_discount=min_disc),
         ]
+        for rf in cfg.get("rss_feeds", []):
+            tasks.append(lambda u=rf: _download_feed(u, min_discount=min_disc))
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
             future_to_fn = {executor.submit(fn): fn for fn in tasks}
             for future in concurrent.futures.as_completed(future_to_fn):
                 try:
                     res = future.result()
                     for d in res:
-                        if d.id not in seen_ids and d.is_valid():
+                        if not d.is_valid():
+                            continue
+                        if d.id in seen_ids:
+                            for existing in deals:
+                                if existing.id == d.id:
+                                    sources = set(existing.matched_sources or [])
+                                    sources.update(d.matched_sources or [])
+                                    if getattr(d, "source_platform", None):
+                                        sources.add(d.source_platform)
+                                    existing.matched_sources = sorted(list(sources))
+                                    existing.source_count = max(len(existing.matched_sources), 1)
+                                    break
+                        else:
                             seen_ids.add(d.id)
                             deals.append(d)
                 except Exception as exc:

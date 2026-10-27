@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 from dealbot.publisher import StateStore, price_note_for, send_admin_note, send_telegram_deal
@@ -126,35 +126,50 @@ def _deal_richness(d: Deal) -> int:
 
 
 def deduplicate_deals_intra_cycle(deals: list) -> list:
-    """Deduplicate candidates by canonical_id before Stage 1, keeping the richer metadata candidate."""
+    """Deduplicate candidates by canonical_id before Stage 1, keeping the richer metadata candidate
+    and aggregating distinct source communities for viral consensus detection."""
     by_canon: dict = {}
     for d in deals:
         canon_id = getattr(d, "canonical_product_id", None) or d.id
         if not canon_id:
             continue
         if canon_id not in by_canon:
+            if not getattr(d, "matched_sources", None):
+                d.matched_sources = [d.source_platform or d.category or "feed"]
+            d.source_count = max(1, len(d.matched_sources))
             by_canon[canon_id] = d
         else:
             existing = by_canon[canon_id]
+            # Accumulate distinct source platforms
+            sources = set(existing.matched_sources or [])
+            sources.update(d.matched_sources or [])
+            if getattr(d, "source_platform", None):
+                sources.add(d.source_platform)
+            if getattr(existing, "source_platform", None):
+                sources.add(existing.source_platform)
+
             if _deal_richness(d) > _deal_richness(existing):
-                if not d.image_url and existing.image_url:
-                    d.image_url = existing.image_url
-                if not d.original_price and existing.original_price:
-                    d.original_price = existing.original_price
-                if not d.coupon_code and existing.coupon_code:
-                    d.coupon_code = existing.coupon_code
-                if not d.bank_offer and existing.bank_offer:
-                    d.bank_offer = existing.bank_offer
-                by_canon[canon_id] = d
+                winner = d
+                donor = existing
             else:
-                if not existing.image_url and d.image_url:
-                    existing.image_url = d.image_url
-                if not existing.original_price and d.original_price:
-                    existing.original_price = d.original_price
-                if not existing.coupon_code and d.coupon_code:
-                    existing.coupon_code = d.coupon_code
-                if not existing.bank_offer and d.bank_offer:
-                    existing.bank_offer = d.bank_offer
+                winner = existing
+                donor = d
+
+            if not winner.image_url and donor.image_url:
+                winner.image_url = donor.image_url
+            if not winner.original_price and donor.original_price:
+                winner.original_price = donor.original_price
+            if not winner.coupon_code and donor.coupon_code:
+                winner.coupon_code = donor.coupon_code
+            if not winner.bank_offer and donor.bank_offer:
+                winner.bank_offer = donor.bank_offer
+            if not getattr(winner, "rating", None) and getattr(donor, "rating", None):
+                winner.rating = donor.rating
+                winner.review_count = donor.review_count
+
+            winner.matched_sources = sorted(list(sources))
+            winner.source_count = max(len(winner.matched_sources), 1)
+            by_canon[canon_id] = winner
     return list(by_canon.values())
 
 
@@ -234,6 +249,10 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                 deal.effective_price = enrichment["effective_price"]
             if enrichment.get("bank_offer") and not deal.bank_offer:
                 deal.bank_offer = enrichment["bank_offer"]
+            if enrichment.get("promo_code"):
+                deal.promo_code = enrichment["promo_code"]
+            if enrichment.get("bank_discount_amount"):
+                deal.bank_discount_amount = enrichment["bank_discount_amount"]
             if enrichment.get("hi_res_image"):
                 deal.image_url = enrichment["hi_res_image"]
 
@@ -273,6 +292,13 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
             if verified_price:
                 ctx = store.record_price_sighting(canon_id, verified_price)
                 deal.price_context = ctx.get("status")
+                avg_p = ctx.get("avg_price")
+                max_p = ctx.get("max_price")
+                if (avg_p and avg_p > verified_price) or (max_p and max_p > verified_price):
+                    baseline = int(avg_p if avg_p and avg_p > verified_price else max_p)
+                    from dealbot.regions import get_currency_symbol
+                    curr_sym = get_currency_symbol()
+                    deal.price_trend_text = f"📉 Price Trend: {curr_sym}{baseline:,} (Avg) ➔ {curr_sym}{verified_price:,} (Now!)"
         return True
     else:
         store.record_event(deal.id, "stock_unknown")
@@ -321,6 +347,13 @@ def run_once() -> int:
         canon_id = getattr(deal, "canonical_product_id", None) or deal.id
         ctx = store.get_price_context(canon_id, seen)
         deal.price_context = ctx.get("status")
+        avg_p = ctx.get("avg_price")
+        max_p = ctx.get("max_price")
+        if (avg_p and avg_p > seen) or (max_p and max_p > seen):
+            baseline = int(avg_p if avg_p and avg_p > seen else max_p)
+            from dealbot.regions import get_currency_symbol
+            curr_sym = get_currency_symbol()
+            deal.price_trend_text = f"📉 Price Trend: {curr_sym}{baseline:,} (Avg) ➔ {curr_sym}{seen:,} (Now!)"
 
     fresh = []
     for deal in deals:
@@ -454,6 +487,20 @@ def run_once() -> int:
 
     # Sweep and update previously posted deals that may have gone Out of Stock
     sweep_expired_deals(store, dry_run=dry_run)
+
+    # Automated Nightly Top 5 Live Mega-Deals Digest (runs once per calendar day in 21:00-22:15 IST window)
+    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    is_digest_window = (now_ist.hour == 21) or (now_ist.hour == 22 and now_ist.minute <= 15)
+    today_str = now_ist.strftime("%Y-%m-%d")
+    last_digest_date = store.get_meta("last_daily_digest_date")
+    if is_digest_window and last_digest_date != today_str:
+        token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+        from dealbot.publisher import send_top_live_deals_digest
+        sent = send_top_live_deals_digest(store, chat_id=chat_id, token=token, dry_run=dry_run)
+        if sent:
+            store.set_meta("last_daily_digest_date", today_str)
+            store.checkpoint()
+            logger.info("Sent and pinned nightly Top Live Mega-Deals Digest for %s.", today_str)
 
     logger.info(f"Cycle complete. Posted {posted_count} new deal(s) (dry_run={dry_run}, agent={agent_mode}).")
     return posted_count

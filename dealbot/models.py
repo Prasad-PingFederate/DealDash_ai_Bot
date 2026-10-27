@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -45,6 +45,20 @@ class Deal:
     effective_price: Optional[int] = None
     effective_discount_pct: Optional[int] = None
     price_context: Optional[str] = None
+    source_count: int = 1
+    matched_sources: list = field(default_factory=list)
+    source_platform: Optional[str] = None
+    buy_confidence: Optional[int] = None
+    price_trend_text: Optional[str] = None
+    promo_code: Optional[str] = None
+    bank_discount_amount: Optional[int] = None
+
+    def __post_init__(self):
+        if not self.matched_sources:
+            initial = self.source_platform or self.category or "feed"
+            self.matched_sources = [initial]
+        if self.source_count < len(self.matched_sources):
+            self.source_count = len(self.matched_sources)
 
     @property
     def discount_pct(self) -> Optional[int]:

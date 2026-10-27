@@ -178,10 +178,11 @@ def validate_critic(copy_text: str, deal: Deal) -> bool:
         copy_text,
         re.IGNORECASE,
     )
+    valid_coupon_str = f"{deal.coupon_code or ''} {getattr(deal, 'promo_code', '') or ''}".upper().strip()
     for c_code in coupon_matches:
         if c_code.lower() in ignored_coupon_words:
             continue
-        if not deal.coupon_code or c_code.upper() not in deal.coupon_code.upper():
+        if not valid_coupon_str or c_code.upper() not in valid_coupon_str:
             logger.info(f"Critic rejected AI copy: hallucinated coupon '{c_code}'")
             return False
 

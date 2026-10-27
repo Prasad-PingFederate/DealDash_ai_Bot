@@ -218,6 +218,40 @@ def titles_too_similar(a: str, b: str, threshold: float = 0.55) -> bool:
     return overlap >= threshold
 
 
+def compute_buy_confidence(deal: Deal, score: int) -> int:
+    """Map composite score, historical context, rating, and brand tier into BuyHatke confidence (60-99%)."""
+    conf = 65 + int(min(22, max(0, (score - 16) * 0.7)))
+    p_context = getattr(deal, "price_context", None)
+    if p_context == "all_time_low":
+        conf += 8
+    elif p_context == "real_drop":
+        conf += 5
+    if getattr(deal, "is_further_price_drop", False):
+        conf += 4
+    if getattr(deal, "is_loot", False):
+        conf += 6
+    if getattr(deal, "rating", None) is not None and deal.rating >= 4.2:
+        conf += 4
+    b_tier = get_brand_tier(deal.title)
+    if b_tier == 1:
+        conf += 4
+    elif b_tier == 2:
+        conf += 2
+    if getattr(deal, "source_count", 1) >= 2:
+        conf += 3
+    return min(99, max(60, conf))
+
+
+def format_buy_confidence_meter(pct: int) -> str:
+    """Format BuyHatke-style confidence recommendation meter."""
+    if pct >= 90:
+        return f"🟢 Buy Confidence: {pct}% (█████) — Screaming Deal, Buy Now!"
+    elif pct >= 80:
+        return f"🟢 Buy Confidence: {pct}% (████░) — Strong Price Drop"
+    else:
+        return f"🟡 Buy Confidence: {pct}% (███░░) — Good Value"
+
+
 def _has_known_brand(title: str) -> bool:
     blob = (title or "").lower()
     return any(brand in blob for brand in KNOWN_BRANDS)
@@ -386,19 +420,27 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score += 8
             reasons.append("fresh category for the channel")
 
+    # Multi-Source Viral Consensus Boost (+15 pts for 2 sources, +22 pts for 3+ sources)
+    src_count = getattr(deal, "source_count", 1) or 1
+    if src_count == 2:
+        score += 15
+        sources_str = ", ".join(getattr(deal, "matched_sources", []) or ["2 sources"])
+        reasons.append(f"viral consensus ({sources_str}) (+15)")
+    elif src_count >= 3:
+        score += 22
+        sources_str = ", ".join(getattr(deal, "matched_sources", []) or [f"{src_count} sources"])
+        reasons.append(f"mega viral consensus ({sources_str}) (+22)")
+
     # Psychological Price-Point Conversion Boost (+6 pts)
     eval_price = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
     if eval_price is not None and discount >= 35:
-        is_sweet_spot = (
-            (49 <= eval_price <= 99)
-            or (149 <= eval_price <= 199)
-            or (249 <= eval_price <= 299)
-            or (449 <= eval_price <= 499)
-            or (899 <= eval_price <= 999)
-        )
+        from dealbot.regions import get_impulse_tiers, get_currency_symbol
+        curr_sym = get_currency_symbol()
+        impulse_tiers = get_impulse_tiers()
+        is_sweet_spot = any(low <= eval_price <= high for low, high in impulse_tiers)
         if is_sweet_spot:
             score += 6
-            reasons.append(f"psychological price point (₹{eval_price}) (+6)")
+            reasons.append(f"psychological price point ({curr_sym}{eval_price}) (+6)")
 
     # Deduct penalty if price verification was inconclusive
     if getattr(deal, "score_penalty", 0):
@@ -410,7 +452,9 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         score += boost
         reasons.append(f"fits {slot} shopping psychology (+{boost})")
 
-    return ScoredDeal(deal=deal, score=int(score), category=category, reason="; ".join(reasons))
+    final_score = int(score)
+    deal.buy_confidence = compute_buy_confidence(deal, final_score)
+    return ScoredDeal(deal=deal, score=final_score, category=category, reason="; ".join(reasons))
 
 
 def _extract_json(text: str) -> Dict[str, Any]:
