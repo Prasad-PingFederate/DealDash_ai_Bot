@@ -834,6 +834,16 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     bank = (deal.bank_offer or "").strip()
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
         lines.append(f"Bank offer: {html.escape(bank[:90], quote=False)}")
+
+    # Coupon Trick Checklist (Tick "Apply ₹... coupon" on Amazon page)
+    c_text = getattr(deal, "coupon_text", None) or (f"Apply {curr_sym}{deal.coupon_discount:,} coupon" if getattr(deal, "coupon_discount", None) else None)
+    if c_text:
+        lines.append(f'☑️ <b>Coupon Trick:</b> Tick <i>"{html.escape(c_text, quote=False)}"</i> on Amazon page!')
+
+    # Bonus Offers (UPI cashback, S&S, Combo)
+    extra_offers = getattr(deal, "extra_offers", []) or []
+    for off in extra_offers[:2]:
+        lines.append(f"🎁 <b>Bonus Offer:</b> {html.escape(str(off), quote=False)}")
     if getattr(deal, "rating", None) is not None:
         reviews_part = f" ({deal.review_count:,} reviews)" if getattr(deal, "review_count", None) else ""
         lines.append(f"⭐ <b>{deal.rating}★</b>{reviews_part}")

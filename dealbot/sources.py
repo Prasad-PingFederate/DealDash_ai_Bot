@@ -34,6 +34,78 @@ def clean_title(title: Optional[str]) -> str:
     t = re.sub(r"\s*-\s*(Amazon|Flipkart|Myntra|Ajio)$", "", t, flags=re.IGNORECASE)
     return t.strip() or "Special Deal"
 
+
+def extract_feed_coupon_and_offers(title: str, summary: str = "") -> dict:
+    """
+    Parse coupons, promo codes, bank offers, and extra offers from raw community feed items
+    before promotional stripping is applied (e.g., 'Apply ₹40 coupon', 'with 5% coupon + S&S').
+    """
+    combined = f"{title or ''} {summary or ''}"
+    res = {
+        "coupon_discount": None,
+        "coupon_text": None,
+        "promo_code": None,
+        "bank_offer": None,
+        "extra_offers": [],
+    }
+    if not combined.strip():
+        return res
+
+    # 1. Flat coupon (e.g. Apply ₹40 coupon, with ₹100 coupon, ₹50 coupon)
+    m_flat = re.search(r'(?:Apply|Save|Extra|with|includes)\s*(?:flat\s*)?(?:₹|Rs\.?|INR)\s*([\d,]+)\s*(?:off\s*)?(?:coupon|voucher|at checkout)?', combined, re.I)
+    if not m_flat:
+        m_flat = re.search(r'\[(?:Apply\s*)?(?:₹|Rs\.?|INR)\s*([\d,]+)\s*(?:off\s*)?coupon\]', combined, re.I)
+    if not m_flat:
+        m_flat = re.search(r'\b(?:₹|Rs\.?|INR)\s*([\d,]+)\s*coupon\b', combined, re.I)
+    if m_flat:
+        try:
+            amt = int(m_flat.group(1).replace(",", ""))
+            if 5 <= amt <= 25000:
+                res["coupon_discount"] = amt
+                res["coupon_text"] = f"Apply ₹{amt:,} coupon"
+        except ValueError:
+            pass
+
+    # 2. Percentage coupon
+    if not res["coupon_discount"]:
+        m_pct = re.search(r'(?:Apply|Save|Extra|with)\s*(\d{1,2})\s*%\s*(?:off\s*)?coupon', combined, re.I)
+        if m_pct:
+            try:
+                pct = int(m_pct.group(1))
+                if 1 <= pct <= 70:
+                    res["coupon_text"] = f"Apply {pct}% coupon"
+            except ValueError:
+                pass
+
+    # 3. Promo code
+    m_code = re.search(r'(?:Promo\s+Code|Coupon\s+Code|Use\s+Code|Code)\s*[:=]?\s*<b>?([A-Za-z0-9_-]{3,20})</b>?', combined, re.I)
+    if m_code:
+        code_cand = m_code.group(1).upper()
+        if code_cand not in {"THE", "AND", "WITH", "FOR", "GET", "APPLY", "SAVE", "OFF", "FLAT", "AT", "CHECKOUT"}:
+            res["promo_code"] = code_cand
+
+    # 4. Bank / UPI offer
+    m_bank = re.search(r'(?:Bank\s+offer|Instant\s+Discount|Discount\s+on\s+[A-Za-z]+)\s*[:=]?\s*([^\n,]{5,60})', combined, re.I)
+    if m_bank:
+        res["bank_offer"] = m_bank.group(0).strip()
+
+    # 5. Extra offers
+    if re.search(r'Subscribe\s*&\s*Save|\bS&S\b', combined, re.I):
+        res["extra_offers"].append("🔄 Subscribe & Save: Extra 5%–10% Off")
+    m_upi = re.search(r'(?:₹|Rs\.?)\s*([\d,]+)\s*(?:cashback|back)\s*(?:on\s+Amazon\s+Pay\s+UPI)?', combined, re.I)
+    if m_upi:
+        try:
+            u_amt = int(m_upi.group(1).replace(",", ""))
+            if 10 <= u_amt <= 500:
+                res["extra_offers"].append(f"💸 ₹{u_amt} Cashback on Amazon Pay UPI")
+        except ValueError:
+            pass
+    m_buy = re.search(r'Buy\s+\d+\s+Get\s+\d+%\s+Off', combined, re.I)
+    if m_buy:
+        res["extra_offers"].append(f"📦 {m_buy.group(0)}")
+
+    return res
+
 SHORTLINK_DOMAINS = (
     "amzn.to", "amzn.in", "fkrt.it", "bitli.in", "extp.in",
     "wishlink.com", "bit.ly", "cutt.ly", "tinyurl.com", "t.co", "vurl.com"
@@ -246,6 +318,18 @@ def _deal_from_fields(
 ) -> Optional[Deal]:
     if not title or not raw_url:
         return None
+    feed_offers = extract_feed_coupon_and_offers(title)
+    f_coupon_disc = feed_offers.get("coupon_discount")
+    f_coupon_txt = feed_offers.get("coupon_text")
+    f_promo = feed_offers.get("promo_code") or _clean_code(coupon)
+    f_bank = bank[:90] if bank else feed_offers.get("bank_offer")
+    f_extra = feed_offers.get("extra_offers") or []
+    f_eff_price = None
+    if disc_price and f_coupon_disc:
+        p_val = parse_rupees(disc_price)
+        if p_val and p_val > f_coupon_disc:
+            f_eff_price = p_val - f_coupon_disc
+
     if not worth_posting_discount(disc_per, org_price, disc_price, min_discount):
         # Allow Amazon deals with valid price but missing/unstated feed MRP into Stage 1/2
         # with provisional MRP/discount so live Amazon enrichment can fetch real MRP and discount
@@ -270,8 +354,13 @@ def _deal_from_fields(
                     original_price=f"₹{prov_mrp}",
                     discount_percent=prov_disc,
                     image_url=image,
-                    coupon_code=_clean_code(coupon),
-                    bank_offer=bank[:90] if bank else None,
+                    coupon_code=f_promo,
+                    promo_code=f_promo,
+                    coupon_discount=f_coupon_disc,
+                    coupon_text=f_coupon_txt,
+                    effective_price=f_eff_price,
+                    bank_offer=f_bank,
+                    extra_offers=f_extra,
                     canonical_product_id=canon_id,
                     source_platform=source_platform,
                     matched_sources=[source_platform],
@@ -293,8 +382,13 @@ def _deal_from_fields(
         original_price=f"₹{org_price}" if org_price else None,
         discount_percent=disc_per if disc_per > 0 else None,
         image_url=image,
-        coupon_code=_clean_code(coupon),
-        bank_offer=bank[:90] if bank else None,
+        coupon_code=f_promo,
+        promo_code=f_promo,
+        coupon_discount=f_coupon_disc,
+        coupon_text=f_coupon_txt,
+        effective_price=f_eff_price,
+        bank_offer=f_bank,
+        extra_offers=f_extra,
         canonical_product_id=canon_id,
         source_platform=source_platform,
         matched_sources=[source_platform],
@@ -493,6 +587,11 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                     p_num = parse_rupees(disc_price)
                     prov_disc = max(disc_per, 30) if disc_per > 0 else 30
                     prov_mrp = org_price if org_price else (str(int(round(p_num / (1.0 - prov_disc / 100.0)))) if p_num else None)
+                    r_offers = extract_feed_coupon_and_offers(full_blob)
+                    r_eff_price = None
+                    if p_num and r_offers.get("coupon_discount"):
+                        if p_num > r_offers["coupon_discount"]:
+                            r_eff_price = p_num - r_offers["coupon_discount"]
                     deal = Deal(
                         id=f"amz-reddit-{asin}" if asin else deal_id,
                         retailer=retailer,
@@ -504,6 +603,13 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                         canonical_product_id=f"amazon:{asin}" if asin else (deal_id if retailer != "Amazon" else None),
                         category="reddit",
                         image_url=_amazon_image(asin) if asin else None,
+                        coupon_code=r_offers.get("promo_code"),
+                        promo_code=r_offers.get("promo_code"),
+                        coupon_discount=r_offers.get("coupon_discount"),
+                        coupon_text=r_offers.get("coupon_text"),
+                        effective_price=r_eff_price,
+                        bank_offer=r_offers.get("bank_offer"),
+                        extra_offers=r_offers.get("extra_offers") or [],
                         source_platform="reddit",
                         matched_sources=["reddit"],
                         source_count=1,

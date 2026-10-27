@@ -22,6 +22,7 @@ DEFAULT_STOCK_HEADERS = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
     "Upgrade-Insecure-Requests": "1",
+    "Cookie": "i18n-prefs=INR; lc-acbin=en_IN",
 }
 
 CAPTCHA_PATTERNS = [
@@ -102,6 +103,141 @@ def check_deal_is_active(url: str, timeout: int = 8) -> bool:
     return inspect_stock(url, timeout=timeout) != "out_of_stock"
 
 
+def extract_amazon_coupon(text: str, live_price: Optional[int] = None):
+    """
+    Extract any on-page Amazon coupon without minimum rupee threshold (capturing ₹10-₹50 or 2%-10% coupons).
+    Checks DOM IDs/classes: #couponBadgeRegularVpc, #vpcButton, [id^="couponText"], [id*="couponBadge"],
+    .newCouponBadge, #promoPriceBlockMessage_feature_div, .promoPriceBlockMessage, label[for*="checkbox"],
+    #reinvent_price_desktop_newCouponBadge.
+    """
+    if not text:
+        return None, None
+
+    # Check targeted coupon blocks first
+    coupon_blocks = []
+    block_patterns = [
+        r'id=["\'](?:couponBadgeRegularVpc|vpcButton|reinvent_price_desktop_newCouponBadge|promoPriceBlockMessage_feature_div)["\'][^>]*>(.*?)</div>',
+        r'class=["\'][^"\']*(?:newCouponBadge|promoPriceBlockMessage)[^"\']*["\'][^>]*>(.*?)</div>',
+        r'id=["\'](?:couponText[A-Za-z0-9_-]*)["\'][^>]*>(.*?)</span>',
+        r'<label[^>]*for=["\'][^"\']*checkbox[^"\']*["\'][^>]*>(.*?)</label>',
+    ]
+    for b_pat in block_patterns:
+        for m in re.finditer(b_pat, text, re.IGNORECASE | re.DOTALL):
+            snippet = re.sub(r'<[^>]+>', ' ', m.group(1))
+            snippet = re.sub(r'\s+', ' ', snippet).strip()
+            if snippet:
+                coupon_blocks.append(snippet)
+
+    # Patterns for flat rupee and percentage coupons
+    flat_patterns = [
+        r'(?:Apply|Save|Extra|Collect)\s*(?:flat\s*)?(?:₹|Rs\.?|INR)\s*([\d,]+)\s*(?:off\s*)?(?:with\s*)?(?:coupon|voucher)',
+        r'(?:Apply|Save|Extra)\s*(?:₹|Rs\.?)\s*([\d,]+)\s*coupon',
+        r'(?:₹|Rs\.?)\s*([\d,]+)\s*coupon',
+    ]
+    pct_patterns = [
+        r'(?:Apply|Save|Extra)\s*(\d{1,2})\s*%\s*(?:off\s*)?(?:with\s*)?coupon',
+        r'(\d{1,2})\s*%\s*(?:off\s*)?(?:with\s*)?coupon',
+    ]
+
+    # Search in coupon blocks first, then fall back to full page text
+    search_targets = coupon_blocks + [text]
+
+    for target in search_targets:
+        # Check flat
+        for p in flat_patterns:
+            m = re.search(p, target, re.IGNORECASE)
+            if m:
+                val = m.group(1).replace(",", "")
+                try:
+                    c_amt = int(val)
+                    if 5 <= c_amt <= 25000:
+                        c_text = f"Apply ₹{c_amt:,} coupon"
+                        return c_amt, c_text
+                except ValueError:
+                    pass
+
+        # Check percentage
+        for p in pct_patterns:
+            m = re.search(p, target, re.IGNORECASE)
+            if m:
+                try:
+                    pct = float(m.group(1))
+                    if 1 <= pct <= 70:
+                        c_text = f"Apply {int(pct)}% coupon"
+                        c_disc = int(round((live_price or 0) * pct / 100)) if live_price else None
+                        return c_disc, c_text
+                except ValueError:
+                    pass
+
+    return None, None
+
+
+def extract_amazon_extra_offers(text: str):
+    """
+    Extract extra buying offers from Amazon offer boxes:
+    #sopp_feature_div, #itembox-Cashback, #itembox-Partner, #snsAccordionRowMiddle,
+    #ape_Detail_hero-quick-promo_Desktop_placement, #specialOffer_feature_div.
+    - Amazon Pay / UPI Cashback
+    - Subscribe & Save discount
+    - Buy More Save More / Combo Offers
+    """
+    if not text:
+        return []
+
+    offers = []
+
+    # 1. Amazon Pay / UPI / Rewards Cashback
+    upi_patterns = [
+        r'(?:Get|Flat|Earn)\s*(?:₹|Rs\.?|INR)\s*([\d,]+)\s*(?:back|cashback)\s*(?:with\s+Amazon\s+Pay\s+UPI)?',
+        r'Flat\s*(?:₹|Rs\.?|INR)\s*([\d,]+)\s*cashback',
+        r'Amazon\s+Pay\s+UPI[:\s]+(?:Get|Flat)?\s*(?:₹|Rs\.?|INR)\s*([\d,]+)\s*(?:back|cashback)?',
+        r'Collect\s*(?:₹|Rs\.?|INR)\s*([\d,]+)\s*reward',
+    ]
+    for p in upi_patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            amt = m.group(1).replace(",", "")
+            try:
+                amt_int = int(amt)
+                if 10 <= amt_int <= 500:
+                    offers.append(f"💸 ₹{amt_int} Cashback on Amazon Pay UPI")
+                    break
+            except ValueError:
+                pass
+
+    # 2. Subscribe & Save (S&S) Discount
+    sns_patterns = [
+        r'id=["\']snsAccordionRowMiddle["\']',
+        r'Subscribe\s*&\s*Save',
+        r'Save\s*(?:5%|10%|15%)\s*now\s+and\s+up\s+to\s+\d+%\s+on\s+repeat\s+deliveries',
+        r'Save\s+up\s+to\s+\d+%\s+with\s+Subscribe\s*&\s*Save',
+    ]
+    if any(re.search(p, text, re.IGNORECASE) for p in sns_patterns):
+        offers.append("🔄 Subscribe & Save: Extra 5%–10% Off")
+
+    # 3. Buy More Save More / Combo Offers
+    combo_patterns = [
+        r'Buy\s+(\d+)\s+(?:Get|items,\s*get)\s+(\d+)%\s+Off',
+        r'Buy\s+(\d+)\s+Save\s+(\d+)%',
+        r'Save\s+(?:₹|Rs\.?)\s*(\d+)\s+when\s+you\s+buy\s+(\d+)',
+    ]
+    for p in combo_patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            if "when you buy" in m.group(0).lower():
+                offers.append(f"📦 Save ₹{m.group(1)} when you buy {m.group(2)}")
+            else:
+                offers.append(f"📦 Buy {m.group(1)} Get {m.group(2)}% Off")
+            break
+
+    # Deduplicate while preserving order
+    unique_offers = []
+    for off in offers:
+        if off not in unique_offers:
+            unique_offers.append(off)
+    return unique_offers
+
+
 def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
     """
     Fetch an Amazon product page and extract live stock status and enriched metadata:
@@ -121,11 +257,13 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
         "rating": None,
         "review_count": None,
         "coupon": None,
+        "coupon_text": None,
         "coupon_discount": None,
         "effective_price": None,
         "promo_code": None,
         "bank_offer": None,
         "bank_discount_amount": None,
+        "extra_offers": [],
         "hi_res_image": None,
     }
     if not url:
@@ -216,52 +354,65 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
         if result["review_count"] == 0:
             result["review_count"] = None
 
-        # 5. On-page Coupons & Effective Price
-        coupon_patterns = [
-            (r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon', "flat"),
-            (r'Save\s*(?:₹|Rs\.?)\s*(\d+)\s*(?:with|at checkout|coupon)', "flat"),
-            (r'Save\s*(\d+)\s*%\s*(?:with|at checkout|coupon)', "percent"),
-            (r'Apply\s*(\d+)\s*%\s*coupon', "percent"),
-            (r'id="couponBadge"[^>]*>([^<]+)', "badge"),
-        ]
-        for pattern, kind in coupon_patterns:
-            m = re.search(pattern, text, re.IGNORECASE)
-            if m:
-                raw_c = m.group(0).strip()
-                clean_c = re.sub(r"\s+", " ", raw_c)
-                if len(clean_c) <= 60:
-                    result["coupon"] = clean_c
-                    if kind == "flat":
-                        try:
-                            c_amt = int(m.group(1))
-                            if c_amt > 0:
-                                result["coupon_discount"] = c_amt
-                        except (ValueError, IndexError):
-                            pass
-                    elif kind == "percent":
-                        try:
-                            pct = float(m.group(1))
-                            if 0 < pct < 100 and result.get("live_price"):
-                                pct_disc = int(round(result["live_price"] * pct / 100))
-                                result["coupon_discount"] = min(pct_disc, 2000)
-                        except (ValueError, IndexError):
-                            pass
-                    elif kind == "badge":
-                        badge_txt = m.group(1)
-                        flat_m = re.search(r'(?:₹|Rs\.?)\s*(\d+)', badge_txt)
-                        pct_m = re.search(r'(\d+)\s*%', badge_txt)
-                        if flat_m:
+        # 5. On-page Coupons & Effective Price (Requirement 1: Deep Small-Coupon Extractor)
+        c_disc, c_txt = extract_amazon_coupon(text, result.get("live_price"))
+        if c_disc is not None:
+            result["coupon_discount"] = c_disc
+        if c_txt is not None:
+            result["coupon"] = c_txt
+            result["coupon_text"] = c_txt
+
+        # Fallback to legacy regex if helper missed anything
+        if result["coupon_discount"] is None and result["coupon"] is None:
+            coupon_patterns = [
+                (r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon', "flat"),
+                (r'Save\s*(?:₹|Rs\.?)\s*(\d+)\s*(?:with|at checkout|coupon)', "flat"),
+                (r'Save\s*(\d+)\s*%\s*(?:with|at checkout|coupon)', "percent"),
+                (r'Apply\s*(\d+)\s*%\s*coupon', "percent"),
+                (r'id="couponBadge"[^>]*>([^<]+)', "badge"),
+            ]
+            for pattern, kind in coupon_patterns:
+                m = re.search(pattern, text, re.IGNORECASE)
+                if m:
+                    raw_c = m.group(0).strip()
+                    clean_c = re.sub(r"\s+", " ", raw_c)
+                    if len(clean_c) <= 60:
+                        result["coupon"] = clean_c
+                        result["coupon_text"] = clean_c
+                        if kind == "flat":
                             try:
-                                result["coupon_discount"] = int(flat_m.group(1))
-                            except ValueError:
+                                c_amt = int(m.group(1))
+                                if c_amt > 0:
+                                    result["coupon_discount"] = c_amt
+                            except (ValueError, IndexError):
                                 pass
-                        elif pct_m and result.get("live_price"):
+                        elif kind == "percent":
                             try:
-                                pct_disc = int(round(result["live_price"] * float(pct_m.group(1)) / 100))
-                                result["coupon_discount"] = min(pct_disc, 2000)
-                            except ValueError:
+                                pct = float(m.group(1))
+                                if 0 < pct < 100 and result.get("live_price"):
+                                    pct_disc = int(round(result["live_price"] * pct / 100))
+                                    result["coupon_discount"] = min(pct_disc, 2000)
+                            except (ValueError, IndexError):
                                 pass
-                    break
+                        elif kind == "badge":
+                            badge_txt = m.group(1)
+                            flat_m = re.search(r'(?:₹|Rs\.?)\s*(\d+)', badge_txt)
+                            pct_m = re.search(r'(\d+)\s*%', badge_txt)
+                            if flat_m:
+                                try:
+                                    result["coupon_discount"] = int(flat_m.group(1))
+                                except ValueError:
+                                    pass
+                            elif pct_m and result.get("live_price"):
+                                try:
+                                    pct_disc = int(round(result["live_price"] * float(pct_m.group(1)) / 100))
+                                    result["coupon_discount"] = min(pct_disc, 2000)
+                                except ValueError:
+                                    pass
+                        break
+
+        # 6. Extra Buying Offers (UPI Cashback, S&S, Combo Offers)
+        result["extra_offers"] = extract_amazon_extra_offers(text)
 
         if result.get("live_price") and result.get("coupon_discount"):
             disc = result["coupon_discount"]

@@ -380,6 +380,27 @@ def deal_to_web_json(
         or (getattr(deal, "is_loot", False) and score >= 82 and (eff_disc_pct or 0) >= 40)
     )
 
+    extra_offers = list(getattr(deal, "extra_offers", []) or [])
+
+    # Build Step-by-Step "How to Claim" Checklist (Requirement 3)
+    claim_steps = []
+    claim_steps.append("🛒 Click 'Grab Deal' to open the official Amazon India product page.")
+    if coupon_disc or coupon_text:
+        c_label = coupon_text or f"Apply ₹{coupon_disc:,} coupon"
+        claim_steps.append(f"☑️ Look below the price on Amazon and check the '{c_label}' box.")
+    if promo_code:
+        claim_steps.append(f"📋 At checkout, paste promo code '{promo_code}' in the Gift Cards & Promo Codes box.")
+    if bank_offer:
+        claim_steps.append(f"💳 Select eligible card/payment for instant bank discount: {bank_offer}.")
+    for off in extra_offers:
+        if "Subscribe & Save" in off or "S&S" in off:
+            claim_steps.append("🔄 For recurring items, select 'Subscribe & Save' to unlock an extra 5%–10% off.")
+        elif "Cashback" in off or "UPI" in off:
+            claim_steps.append(f"💸 Pay via Amazon Pay UPI to receive your cashback: {off}.")
+        elif "Buy" in off:
+            claim_steps.append(f"📦 Add qualifying combo items to your cart: {off}.")
+    claim_steps.append(f"🎉 Complete checkout at the effective deal price of ₹{eff_p:,}!")
+
     clean_aff_url = f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1"
     image_url = deal.image_url or f"https://m.media-amazon.com/images/P/{asin}.jpg"
 
@@ -413,6 +434,8 @@ def deal_to_web_json(
         "is_loot": is_loot,
         "is_further_drop": getattr(deal, "is_further_price_drop", False),
         "source_count": getattr(deal, "source_count", 1),
+        "extra_offers": extra_offers,
+        "claim_steps": claim_steps,
         "expired": expired,
         "price_spiked": price_spiked,
         "posted_to_telegram": posted_to_telegram,
@@ -578,6 +601,21 @@ def export_web_feed(
                 coupon_code=p_code,
                 bank_offer=bank_offer,
             )
+            # Extract extra offers and coupon tick instructions from caption if present
+            extra_offers = []
+            c_text_val = c_text
+            for line in caption.split("\n"):
+                if "Bonus Offer:" in line:
+                    off_text = re.sub(r"🎁\s*<b>Bonus Offer:</b>\s*", "", line).strip()
+                    if off_text and off_text not in extra_offers:
+                        extra_offers.append(off_text)
+                elif "Coupon Trick:" in line:
+                    c_tick = re.search(r'Tick\s*<i>"?([^"<]+)"?</i>', line)
+                    if c_tick and not c_text_val:
+                        c_text_val = c_tick.group(1).strip()
+            deal_obj.coupon_text = c_text_val
+            deal_obj.extra_offers = extra_offers
+
             if c_disc:
                 deal_obj.coupon_discount = c_disc
                 deal_obj.effective_price = max(1, (final_price or 0) - c_disc)

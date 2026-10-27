@@ -241,12 +241,31 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                 deal.rating = None
                 deal.review_count = None
 
+            # Coupon and Offer merging (Stage 2 Fallback)
+            if enrichment.get("coupon_discount") is not None and enrichment.get("coupon_discount") > 0:
+                deal.coupon_discount = enrichment["coupon_discount"]
+                deal.coupon_text = enrichment.get("coupon_text") or enrichment.get("coupon") or f"Apply ₹{deal.coupon_discount:,} coupon"
+                if not deal.coupon_code and enrichment.get("coupon"):
+                    deal.coupon_code = enrichment["coupon"]
+                deal.effective_price = enrichment.get("effective_price") or (max(1, live_price - deal.coupon_discount) if live_price else None)
+            elif getattr(deal, "coupon_discount", None) and deal.coupon_discount > 0:
+                # Preserve feed-extracted coupon if page scraper missed it
+                if live_price and live_price > deal.coupon_discount:
+                    deal.effective_price = max(1, live_price - deal.coupon_discount)
+                if not getattr(deal, "coupon_text", None):
+                    deal.coupon_text = f"Apply ₹{deal.coupon_discount:,} coupon"
+            elif enrichment.get("effective_price") is not None:
+                deal.effective_price = enrichment["effective_price"]
+
+            # Extra offers merging:
+            merged_offers = list(getattr(deal, "extra_offers", []) or [])
+            for off in enrichment.get("extra_offers", []) or []:
+                if off not in merged_offers:
+                    merged_offers.append(off)
+            deal.extra_offers = merged_offers
+
             if enrichment.get("coupon") and not deal.coupon_code:
                 deal.coupon_code = enrichment["coupon"]
-            if enrichment.get("coupon_discount") is not None:
-                deal.coupon_discount = enrichment["coupon_discount"]
-            if enrichment.get("effective_price") is not None:
-                deal.effective_price = enrichment["effective_price"]
             if enrichment.get("bank_offer") and not deal.bank_offer:
                 deal.bank_offer = enrichment["bank_offer"]
             if enrichment.get("promo_code"):

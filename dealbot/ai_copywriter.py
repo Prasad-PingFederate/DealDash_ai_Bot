@@ -464,6 +464,13 @@ class AICopywriter:
             "Your goal is to write high-converting, viral Telegram posts for Indian online shoppers."
         )
 
+        extra_ctx = []
+        if getattr(deal, "coupon_discount", None) or getattr(deal, "coupon_text", None):
+            extra_ctx.append(f"Coupon: Tick '{deal.coupon_text or f'Apply ₹{deal.coupon_discount} coupon'}' on Amazon page.")
+        if getattr(deal, "extra_offers", None):
+            extra_ctx.append(f"Bonus Offers: {', '.join(deal.extra_offers[:2])}")
+        extra_info = ("\n" + "\n".join(extra_ctx) + "\n") if extra_ctx else "\n"
+
         user_prompt = (
             f"Write ONE sentence for an Indian Telegram deal post.\n"
             f"Title: {deal.title}\n"
@@ -472,6 +479,7 @@ class AICopywriter:
             f"MRP: {deal.original_price or 'N/A'}\n"
             f"Discount: {f'{deal.discount_percent}% OFF' if deal.discount_percent else 'Special Offer'}\n"
             f"{sale_directive}"
+            f"{extra_info}"
             f"Rules:\n"
             f"1. One sentence only, under 140 characters, include the deal price digits.\n"
             f"2. No URL, no hashtag, no buy button.\n"

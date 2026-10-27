@@ -52,6 +52,9 @@ class Deal:
     price_trend_text: Optional[str] = None
     promo_code: Optional[str] = None
     bank_discount_amount: Optional[int] = None
+    coupon_text: Optional[str] = None
+    extra_offers: list = field(default_factory=list)
+    claim_steps: list = field(default_factory=list)
 
     def __post_init__(self):
         if not self.matched_sources:
