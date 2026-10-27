@@ -493,13 +493,26 @@ class DealAgent:
                         chosen.append(item)
                 source = "llm+heuristic"
 
-        if len(chosen) < max_posts:
-            fill = self._greedy([item for item in shortlist if item not in chosen], max_posts - len(chosen))
+        target_count = min(max_posts, len(shortlist))
+        if len(chosen) < target_count:
+            fill = self._greedy([item for item in shortlist if item not in chosen], target_count - len(chosen))
             for item in fill:
                 item.action = "post"
                 if not item.reason.startswith("llm pick"):
                     item.reason = f"heuristic pick; {item.reason}"
                 chosen.append(item)
+
+        # Deterministic backfill: if greedy or LLM under-selected (e.g. near-duplicate skips),
+        # fill remaining slots up to target_count from the highest-scoring shortlist candidates
+        if len(chosen) < target_count:
+            for item in shortlist:
+                if len(chosen) >= target_count:
+                    break
+                if item not in chosen and not any(other.deal.id == item.deal.id for other in chosen):
+                    item.action = "post"
+                    if "pick" not in item.reason and "backfill" not in item.reason:
+                        item.reason = f"deterministic backfill (score {item.score}); {item.reason}"
+                    chosen.append(item)
 
         chosen = chosen[:max_posts]
         chosen_ids = {item.deal.id for item in chosen}

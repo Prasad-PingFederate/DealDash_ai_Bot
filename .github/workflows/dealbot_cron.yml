@@ -2,9 +2,9 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # UTC. Hourly cron between 03:37 UTC (09:07 IST) and 17:37 UTC (23:07 IST).
+    # UTC. Run every 2 hours between 03:37 UTC (09:07 IST) and 17:37 UTC (23:07 IST).
     # Minute 37 stays off the crowded :00 and :30 slots.
-    - cron: '37 3-17 * * *'
+    - cron: '37 3,5,7,9,11,13,15,17 * * *'
 
   push:
     branches: [main]

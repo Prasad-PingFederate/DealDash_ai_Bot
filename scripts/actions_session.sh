@@ -5,30 +5,40 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-persist() {
+sync_sqlite_state() {
   (
     set -euo pipefail
     python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
+    rm -f data/*.sqlite3-wal data/*.sqlite3-shm data/*.db-wal data/*.db-shm || true
     git config user.name "github-actions[bot]"
     git config user.email "github-actions[bot]@users.noreply.github.com"
     mkdir -p data
-    cp data/state.sqlite3 "$RUNNER_TEMP/state.sqlite3"
-    git fetch origin main
-    git checkout -f -B main origin/main
+    TMP_BAK="${RUNNER_TEMP:-/tmp}/dealbot_sqlite_bak"
+    mkdir -p "$TMP_BAK"
+    cp -f data/* "$TMP_BAK/" 2>/dev/null || true
+    git fetch origin main || true
+    git checkout -f -B main origin/main || true
     mkdir -p data
-    cp "$RUNNER_TEMP/state.sqlite3" data/state.sqlite3
-    git add -f data/state.sqlite3
+    cp -f "$TMP_BAK"/* data/ 2>/dev/null || true
+    rm -f data/*.sqlite3-wal data/*.sqlite3-shm data/*.db-wal data/*.db-shm || true
+    git add -f data/
     if git diff --staged --quiet; then
       echo "State unchanged."
       exit 0
     fi
-    git commit -m "chore(bot): persist posted deal state [skip ci]"
-    git push origin HEAD:main
+    git commit -m "chore(bot): sync sqlite state [skip ci]"
+    git push origin HEAD:main || true
   )
+}
+
+# Backward compatibility alias
+persist() {
+  sync_sqlite_state
 }
 
 run_cycle() {
   echo "Posting cycle at $(TZ=Asia/Kolkata date '+%H:%M IST')"
+  git pull --ff-only origin main || true
   cycle_start=$(date +%s)
   if python run_once.py; then
     cycle_end=$(date +%s)
@@ -48,14 +58,14 @@ run_cycle() {
     python -c "from datetime import datetime, timezone; from dealbot.publisher import StateStore; from dealbot.session import database_path; s = StateStore(str(database_path())); s.set_meta('last_cycle_empty_at', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')); s.checkpoint()" || true
   fi
   export SESSION_STARTED=true
-  persist || echo "State push failed. The next cycle will try again."
+  sync_sqlite_state || echo "State push failed. The next cycle will try again."
 }
 
 # Graceful signal handling: ensure state is persisted if runner is cancelled or stopped
 cleanup() {
   echo "Caught termination signal. Checkpointing and persisting state before exit..."
   python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
-  persist || true
+  sync_sqlite_state || true
   exit 0
 }
 trap cleanup SIGTERM SIGINT
@@ -66,8 +76,8 @@ if [ "${MANUAL:-false}" = "true" ]; then
 fi
 
 export SESSION_DEADLINE
-# Session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next cron
-SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(hours=2, minutes=40)).isoformat())')"
+# Session duration: 1h 50m (110 minutes) so runs finish cleanly before next 2-hour cron
+SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(minutes=110)).isoformat())')"
 echo "Runner stays up until ${SESSION_DEADLINE} or 23:20 IST, whichever is first."
 
 while true; do

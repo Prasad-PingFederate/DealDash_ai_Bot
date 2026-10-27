@@ -106,7 +106,7 @@ def sanitize_telegram_html(text: str) -> str:
                 else:
                     sanitized_parts.append(f"<{tag_name}>")
         else:
-            escaped_text = html.escape(token)
+            escaped_text = html.escape(token, quote=False)
             sanitized_parts.append(escaped_text)
 
     # Close any unclosed tags
@@ -127,18 +127,22 @@ def validate_critic(copy_text: str, deal: Deal) -> bool:
 
     from dealbot.models import parse_rupees
     cur_p = parse_rupees(deal.current_price)
+    eff_p = getattr(deal, "effective_price", None)
     org_p = parse_rupees(deal.original_price)
     sav_p = deal.savings_rupees()
-    valid_prices = {p for p in (cur_p, org_p, sav_p) if p is not None}
+    valid_prices = {p for p in (cur_p, eff_p, org_p, sav_p) if p is not None}
 
     # Normalize copy text: remove trailing .00 from currency amounts
     clean_copy = re.sub(r"\.00\b", "", copy_text)
 
-    # 1. Price check: deal price digits must be present
-    if cur_p is not None:
+    # 1. Price check: deal price digits (current or effective price) must be present
+    if cur_p is not None or eff_p is not None:
         clean_digits = re.sub(r"\D", "", clean_copy)
-        if str(cur_p) not in clean_digits:
-            logger.info(f"Critic rejected AI copy: real deal price digits ({cur_p}) missing.")
+        price_found = (cur_p is not None and str(cur_p) in clean_digits) or (
+            eff_p is not None and str(eff_p) in clean_digits
+        )
+        if not price_found:
+            logger.info(f"Critic rejected AI copy: real deal price digits ({cur_p} / {eff_p}) missing.")
             return False
 
     # Extract all prices mentioned in copy (e.g. ₹1,24,999 or Rs. 1,499.00 or ₹899)
@@ -165,12 +169,18 @@ def validate_critic(copy_text: str, deal: Deal) -> bool:
             return False
 
     # 3. Coupon check: reject fake coupon codes
+    ignored_coupon_words = {
+        "savings", "discount", "discounts", "offer", "offers", "deal", "deals",
+        "available", "applied", "checkout", "page", "box", "apply", "voucher", "code", "extra"
+    }
     coupon_matches = re.findall(
         r"\b(?:coupon|promo\s*code|code)\s*[:=]?\s*['\"]?([A-Za-z0-9_-]{3,20})['\"]?",
         copy_text,
         re.IGNORECASE,
     )
     for c_code in coupon_matches:
+        if c_code.lower() in ignored_coupon_words:
+            continue
         if not deal.coupon_code or c_code.upper() not in deal.coupon_code.upper():
             logger.info(f"Critic rejected AI copy: hallucinated coupon '{c_code}'")
             return False

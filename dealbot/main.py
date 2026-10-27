@@ -26,15 +26,18 @@ def setup_logging():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-def sweep_expired_deals(store: StateStore, dry_run: bool = True):
+def sweep_expired_deals(store: StateStore, dry_run: bool = True, max_checks: int = 6, sleep_sec: float = 1.5):
     """Periodically check posted active deals and mark expired/OOS/Price-Spiked ones on Telegram after consecutive confirmation."""
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    active_deals = store.get_recent_active_deals(limit=10)
+    active_deals = store.get_recent_active_deals(limit=max_checks)
     if not active_deals:
         return
 
     logger = logging.getLogger("dealbot.main")
-    for row in active_deals:
+    for idx, row in enumerate(active_deals[:max_checks]):
+        if idx > 0 and sleep_sec > 0:
+            time.sleep(sleep_sec)
+
         deal_id = row["deal_id"]
         chat_id = row["chat_id"]
         msg_id = row["message_id"]
@@ -87,6 +90,8 @@ def sweep_expired_deals(store: StateStore, dry_run: bool = True):
                         )
                 else:
                     store.reset_spike_count(deal_id)
+        else:
+            store.touch_checked(deal_id)
 
 def _recent_categories(store: StateStore) -> list:
     categories = []
@@ -99,6 +104,58 @@ def _recent_categories(store: StateStore) -> list:
         if category:
             categories.append(category)
     return categories
+
+
+def _deal_richness(d: Deal) -> int:
+    score = 0
+    if d.image_url and d.image_url.startswith("http"):
+        score += 10
+    if d.original_price and parse_rupees(d.original_price):
+        score += 5
+    if d.current_price and parse_rupees(d.current_price):
+        score += 5
+    if d.discount_percent and d.discount_percent > 0:
+        score += 3
+    if getattr(d, "rating", None) and d.rating > 0:
+        score += 3
+    if getattr(d, "review_count", None) and d.review_count > 0:
+        score += 2
+    if len(d.title or "") > 20:
+        score += 2
+    return score
+
+
+def deduplicate_deals_intra_cycle(deals: list) -> list:
+    """Deduplicate candidates by canonical_id before Stage 1, keeping the richer metadata candidate."""
+    by_canon: dict = {}
+    for d in deals:
+        canon_id = getattr(d, "canonical_product_id", None) or d.id
+        if not canon_id:
+            continue
+        if canon_id not in by_canon:
+            by_canon[canon_id] = d
+        else:
+            existing = by_canon[canon_id]
+            if _deal_richness(d) > _deal_richness(existing):
+                if not d.image_url and existing.image_url:
+                    d.image_url = existing.image_url
+                if not d.original_price and existing.original_price:
+                    d.original_price = existing.original_price
+                if not d.coupon_code and existing.coupon_code:
+                    d.coupon_code = existing.coupon_code
+                if not d.bank_offer and existing.bank_offer:
+                    d.bank_offer = existing.bank_offer
+                by_canon[canon_id] = d
+            else:
+                if not existing.image_url and d.image_url:
+                    existing.image_url = d.image_url
+                if not existing.original_price and d.original_price:
+                    existing.original_price = d.original_price
+                if not existing.coupon_code and d.coupon_code:
+                    existing.coupon_code = d.coupon_code
+                if not existing.bank_offer and d.bank_offer:
+                    existing.bank_offer = d.bank_offer
+    return list(by_canon.values())
 
 
 def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | None = None) -> bool:
@@ -246,6 +303,9 @@ def run_once() -> int:
                 deal.is_further_price_drop = True
             fresh.append(deal)
 
+    # Intra-cycle deduplication by canonical_id before Stage 1 pre-scoring
+    fresh = deduplicate_deals_intra_cycle(fresh)
+
     recent_cats = _recent_categories(store)
     check_stock = (not dry_run) and os.getenv("CHECK_STOCK_BEFORE_POST", "true").lower() != "false"
 
@@ -299,7 +359,8 @@ def run_once() -> int:
             posted_count += 1
             if not dry_run:
                 picked = reasons.get(deal.id)
-                post_price = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
+                post_price = parse_rupees(deal.current_price)
+                eff_price = getattr(deal, "effective_price", None)
                 store.mark_posted(
                     deal.id,
                     deal.retailer,
@@ -312,6 +373,7 @@ def run_once() -> int:
                     agent_reason=picked.reason if picked else None,
                     canonical_product_id=getattr(deal, "canonical_product_id", None),
                     price=post_price,
+                    effective_price=eff_price,
                 )
                 time.sleep(post_delay)
                 store.record_event(deal.id, "posted", "checked" if deal.checked else "unverified")

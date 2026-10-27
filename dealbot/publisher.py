@@ -254,7 +254,11 @@ class StateStore:
         agent_reason: Optional[str] = None,
         canonical_product_id: Optional[str] = None,
         price: Optional[int] = None,
+        effective_price: Optional[int] = None,
     ):
+        valid_prices = [p for p in (price, effective_price) if p is not None and p > 0]
+        stored_price = min(valid_prices) if valid_prices else price
+
         with self._connect() as conn:
             conn.execute(
                 """
@@ -291,18 +295,18 @@ class StateStore:
                     agent_score,
                     agent_reason,
                     canonical_product_id,
-                    price,
+                    stored_price,
                 ),
             )
             # When an item is re-posted, update the baseline price and posted_at for all records with the same canonical_product_id
-            if canonical_product_id and price is not None and price > 0:
+            if canonical_product_id and stored_price is not None and stored_price > 0:
                 conn.execute(
                     """
                     UPDATE posted_deals
                     SET price = ?, posted_at = CURRENT_TIMESTAMP
                     WHERE canonical_product_id = ?
                     """,
-                    (price, canonical_product_id),
+                    (stored_price, canonical_product_id),
                 )
         self.checkpoint()
 
@@ -354,7 +358,15 @@ class StateStore:
                 (deal_id,),
             )
 
-    def get_recent_active_deals(self, limit: int = 15) -> List[Dict[str, Any]]:
+    def touch_checked(self, deal_id: str) -> None:
+        """Update last_checked_at timestamp for a posted deal."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE posted_deals SET last_checked_at = CURRENT_TIMESTAMP WHERE deal_id = ?",
+                (deal_id,),
+            )
+
+    def get_recent_active_deals(self, limit: int = 6) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
@@ -362,7 +374,8 @@ class StateStore:
                 SELECT deal_id, retailer, chat_id, message_id, caption, price
                 FROM posted_deals
                 WHERE status = 'active' AND message_id IS NOT NULL
-                ORDER BY posted_at DESC LIMIT ?
+                ORDER BY CASE WHEN last_checked_at IS NULL THEN 0 ELSE 1 END, last_checked_at ASC, posted_at ASC
+                LIMIT ?
                 """,
                 (limit,)
             )
@@ -765,19 +778,19 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
             lines.append(" · ".join(price_bits))
 
     lines.append("")
-    lines.append(f"<b>{html.escape(deal.title or 'Deal')}</b>")
+    lines.append(f"<b>{html.escape(deal.title or 'Deal', quote=False)}</b>")
 
     if deal.original_price:
-        lines.append(f"MRP <s>{html.escape(deal.original_price)}</s>")
+        lines.append(f"MRP <s>{html.escape(deal.original_price, quote=False)}</s>")
     savings = deal.savings_rupees()
     if savings and savings >= 1:
         lines.append(f"You save ₹{savings:,}")
     coupon = _coupon_code(deal)
     if coupon:
-        lines.append(f"Coupon <b>{html.escape(coupon)}</b>")
+        lines.append(f"Coupon <b>{html.escape(coupon, quote=False)}</b>")
     bank = (deal.bank_offer or "").strip()
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
-        lines.append(f"Bank offer: {html.escape(bank[:90])}")
+        lines.append(f"Bank offer: {html.escape(bank[:90], quote=False)}")
     if getattr(deal, "rating", None) is not None:
         reviews_part = f" ({deal.review_count:,} reviews)" if getattr(deal, "review_count", None) else ""
         lines.append(f"⭐ <b>{deal.rating}★</b>{reviews_part}")

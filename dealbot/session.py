@@ -133,8 +133,8 @@ def main() -> int:
     if raw:
         deadline = datetime.fromisoformat(raw)
     else:
-        # Session duration: 2h 40m (~2.6 hours)
-        deadline = datetime.now(IST) + timedelta(hours=2, minutes=40)
+        # Session duration: 1h 50m (110 minutes) so runs finish cleanly before next 2-hour cron
+        deadline = datetime.now(IST) + timedelta(minutes=110)
 
     now = datetime.now(IST)
     last_cycle = load_last_cycle()
