@@ -99,6 +99,64 @@ def _recent_categories(store: StateStore) -> list:
     return categories
 
 
+def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
+    """Check stock and enrich Amazon deals with live price, MRP, ratings, coupons, and images.
+    Returns True if valid for posting, False if rejected (OOS, price jumped >20%, or poor rating)."""
+    logger = logging.getLogger("dealbot.main")
+    status = inspect_stock(deal.url)
+    if status == "out_of_stock":
+        logger.info(f"Skipping {deal.id}: out of stock or gone.")
+        store.record_event(deal.id, "skipped_oos")
+        return False
+    if status == "in_stock":
+        deal.checked = True
+        if "amazon." in (deal.url or "").lower():
+            enrichment = enrich_amazon_deal(deal.url)
+            live_price = enrichment.get("live_price")
+            feed_price = parse_rupees(deal.current_price)
+            if live_price and feed_price:
+                if live_price > int(feed_price * 1.20):
+                    logger.info(
+                        f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase)."
+                    )
+                    store.record_event(deal.id, "skipped_price_jumped")
+                    return False
+                deal.current_price = f"₹{live_price:,}"
+                canon_id = getattr(deal, "canonical_product_id", None) or deal.id
+                store.record_price_sighting(canon_id, live_price)
+                ctx = store.get_price_context(canon_id, live_price)
+                deal.price_context = ctx.get("status")
+
+            live_mrp = enrichment.get("mrp")
+            if live_mrp and not deal.original_price:
+                deal.original_price = f"₹{live_mrp:,}"
+
+            rating = enrichment.get("rating")
+            reviews = enrichment.get("review_count")
+            if rating is not None:
+                deal.rating = rating
+                deal.review_count = reviews
+                if rating < 3.6 or (reviews is not None and reviews < 15 and rating < 4.0):
+                    logger.info(f"Skipping {deal.id}: low rating {rating}★ ({reviews} reviews).")
+                    store.record_event(deal.id, "skipped_low_rating")
+                    return False
+
+            if enrichment.get("coupon") and not deal.coupon_code:
+                deal.coupon_code = enrichment["coupon"]
+            if enrichment.get("coupon_discount") is not None:
+                deal.coupon_discount = enrichment["coupon_discount"]
+            if enrichment.get("effective_price") is not None:
+                deal.effective_price = enrichment["effective_price"]
+            if enrichment.get("bank_offer") and not deal.bank_offer:
+                deal.bank_offer = enrichment["bank_offer"]
+            if enrichment.get("hi_res_image"):
+                deal.image_url = enrichment["hi_res_image"]
+        return True
+    else:
+        store.record_event(deal.id, "stock_unknown")
+        return True
+
+
 def run_once() -> int:
     setup_logging()
     logger = logging.getLogger("dealbot.main")
@@ -138,81 +196,70 @@ def run_once() -> int:
             continue
         previous, lowest_before = store.note_price(deal.id, seen)
         deal.price_note = price_note_for(previous, lowest_before, seen)
+        canon_id = getattr(deal, "canonical_product_id", None) or deal.id
+        store.record_price_sighting(canon_id, seen)
+        ctx = store.get_price_context(canon_id, seen)
+        deal.price_context = ctx.get("status")
+
     fresh = []
     for deal in deals:
         if not deal.is_valid():
             continue
-        price_num = parse_rupees(deal.current_price)
+        price_num = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
         canon_id = getattr(deal, "canonical_product_id", None) or deal.id
         if not store.is_posted(deal.id, canonical_product_id=canon_id, current_price=price_num):
             if store.is_price_drop(deal.id, canonical_product_id=canon_id, current_price=price_num):
                 deal.is_further_price_drop = True
             fresh.append(deal)
 
+    recent_cats = _recent_categories(store)
+    check_stock = (not dry_run) and os.getenv("CHECK_STOCK_BEFORE_POST", "true").lower() != "false"
+
+    # Stage 1: Pre-score all feed candidates fast without network calls
+    from dealbot.agent import score_deal
+    fresh.sort(key=lambda d: score_deal(d, recent_cats).score, reverse=True)
+
+    # Stage 2: Two-stage funnel with backfill - enrich top candidates before final selection
+    top_n = max(max_posts * 3, 9)
+    to_enrich = fresh[:top_n]
+    remaining_fresh = fresh[top_n:]
+
+    verified_candidates = []
+    if check_stock:
+        for candidate in to_enrich:
+            if verify_and_enrich_deal(candidate, store):
+                verified_candidates.append(candidate)
+        # If any candidates discarded, backfill from remaining_fresh
+        backfill_idx = 0
+        while len(verified_candidates) < top_n and backfill_idx < len(remaining_fresh):
+            candidate = remaining_fresh[backfill_idx]
+            backfill_idx += 1
+            if verify_and_enrich_deal(candidate, store):
+                verified_candidates.append(candidate)
+    else:
+        verified_candidates = fresh
+
+    # Stage 3: Re-score enriched survivors and pick final posts via DealAgent
     plan = None
     if agent_mode:
         agent = DealAgent(copywriter=copywriter)
-        # Two spare picks so an out-of-stock link does not leave the cycle empty.
-        spare = 0 if dry_run else 2
-        plan = agent.plan(fresh, _recent_categories(store), max_posts=max_posts + spare)
+        plan = agent.plan(verified_candidates, recent_cats, max_posts=max_posts)
         queue = [item.deal for item in plan.posts]
         reasons = {item.deal.id: item for item in plan.posts}
     else:
-        queue = fresh[: max_posts if dry_run else max_posts + 2]
+        queue = verified_candidates[:max_posts]
         reasons = {}
 
-    check_stock = (not dry_run) and os.getenv("CHECK_STOCK_BEFORE_POST", "true").lower() != "false"
     posted_count = 0
     for deal in queue:
         if posted_count >= max_posts:
             break
-        if check_stock:
-            status = inspect_stock(deal.url)
-            if status == "out_of_stock":
-                logger.info(f"Skipping {deal.id} before post: page is out of stock or gone.")
-                store.record_event(deal.id, "skipped_oos")
-                continue
-            if status == "in_stock":
-                deal.checked = True
-                if "amazon." in (deal.url or "").lower():
-                    enrichment = enrich_amazon_deal(deal.url)
-                    live_price = enrichment.get("live_price")
-                    feed_price = parse_rupees(deal.current_price)
-                    if live_price and feed_price:
-                        if live_price > int(feed_price * 1.20):
-                            logger.info(f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase).")
-                            store.record_event(deal.id, "skipped_price_jumped")
-                            continue
-                        deal.current_price = f"₹{live_price:,}"
-
-                    live_mrp = enrichment.get("mrp")
-                    if live_mrp and not deal.original_price:
-                        deal.original_price = f"₹{live_mrp:,}"
-
-                    rating = enrichment.get("rating")
-                    reviews = enrichment.get("review_count")
-                    if rating is not None:
-                        deal.rating = rating
-                        deal.review_count = reviews
-                        if rating < 3.6 or (reviews is not None and reviews < 15 and rating < 4.0):
-                            logger.info(f"Skipping {deal.id}: low rating {rating}★ ({reviews} reviews).")
-                            store.record_event(deal.id, "skipped_low_rating")
-                            continue
-
-                    if enrichment.get("coupon") and not deal.coupon_code:
-                        deal.coupon_code = enrichment["coupon"]
-                    if enrichment.get("bank_offer") and not deal.bank_offer:
-                        deal.bank_offer = enrichment["bank_offer"]
-                    if enrichment.get("hi_res_image"):
-                        deal.image_url = enrichment["hi_res_image"]
-            else:
-                store.record_event(deal.id, "stock_unknown")
-
         success, msg_id, caption = send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
         if success:
             posted_count += 1
             if not dry_run:
                 picked = reasons.get(deal.id)
+                post_price = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
                 store.mark_posted(
                     deal.id,
                     deal.retailer,
@@ -224,7 +271,7 @@ def run_once() -> int:
                     agent_score=picked.score if picked else None,
                     agent_reason=picked.reason if picked else None,
                     canonical_product_id=getattr(deal, "canonical_product_id", None),
-                    price=parse_rupees(deal.current_price),
+                    price=post_price,
                 )
                 time.sleep(post_delay)
                 store.record_event(deal.id, "posted", "checked" if deal.checked else "unverified")

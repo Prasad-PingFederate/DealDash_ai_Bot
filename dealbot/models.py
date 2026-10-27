@@ -41,9 +41,12 @@ class Deal:
     rating: Optional[float] = None
     review_count: Optional[int] = None
     is_loot: bool = False
+    coupon_discount: Optional[int] = None
+    effective_price: Optional[int] = None
+    price_context: Optional[str] = None
 
     def savings_rupees(self) -> Optional[int]:
-        price = parse_rupees(self.current_price)
+        price = self.effective_price if self.effective_price is not None else parse_rupees(self.current_price)
         mrp = parse_rupees(self.original_price)
         if price is None or mrp is None or mrp <= price:
             return None

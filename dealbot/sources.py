@@ -5,8 +5,9 @@ import os
 import re
 import time
 import urllib.parse
+import concurrent.futures
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 import xml.etree.ElementTree as ET
 import requests
 from dealbot.models import Deal, parse_rupees
@@ -202,7 +203,9 @@ def _prices_from_text(text: str) -> tuple:
     original = None
     if len(amounts) > 1 and amounts[1] > (current or 0):
         original = amounts[1]
-    return current, original, percent
+    if percent is None and current and original and original > current:
+        percent = int(round((original - current) / original * 100))
+    return current, original, percent or 0
 
 
 def _deal_from_fields(
@@ -352,6 +355,111 @@ def fetch_extra_feeds(min_discount: int = 25) -> List[Deal]:
         deals.extend(_download_feed(url, min_discount))
     return deals
 
+
+REDDIT_DEAL_FEEDS = (
+    "https://www.reddit.com/r/dealsforindia/new.json?limit=25",
+    "https://www.reddit.com/r/IndianGaming/new.json?limit=25",
+)
+
+def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
+    """Fetch deals from Indian deal-sharing subreddits via Reddit public JSON feeds."""
+    raw = os.getenv("REDDIT_FEEDS_ENABLED", "true").strip().lower()
+    if raw in {"false", "off", "0", "no"}:
+        return []
+    deals: List[Deal] = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 DealDashBot/1.0"
+    }
+    for feed_url in REDDIT_DEAL_FEEDS:
+        try:
+            resp = requests.get(feed_url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            children = data.get("data", {}).get("children", [])
+            for child in children:
+                pdata = child.get("data", {})
+                title = pdata.get("title", "")
+                link_url = pdata.get("url", "")
+                selftext = pdata.get("selftext", "")
+
+                target_url = None
+                if any(dom in link_url.lower() for dom in ("amazon.in", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
+                    target_url = link_url
+                else:
+                    found = re.findall(r'https?://[^\s<>"]+', selftext)
+                    for u in found:
+                        if any(dom in u.lower() for dom in ("amazon.in", "amzn.to", "amzn.in", "flipkart.com", "fkrt.it")):
+                            target_url = u
+                            break
+
+                if not target_url:
+                    continue
+
+                full_blob = f"{title} {selftext}"
+                disc_price, org_price, disc_per = _prices_from_text(full_blob)
+                asin_match = AMAZON_ASIN_REGEX.search(target_url)
+                asin = asin_match.group(1).upper() if asin_match else None
+                deal = _deal_from_fields(
+                    title=title,
+                    raw_url=target_url,
+                    org_price=org_price,
+                    disc_price=disc_price,
+                    disc_per=disc_per,
+                    asin=asin,
+                    min_discount=min_discount,
+                )
+                if deal and deal.is_valid():
+                    deals.append(deal)
+        except Exception as exc:
+            logger.debug(f"Failed to fetch Reddit deals from {feed_url}: {exc}")
+    return deals
+
+
+AMAZON_MOVERS_URL = "https://www.amazon.in/gp/movers-and-shakers/electronics"
+
+def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
+    """Lightweight scraper for trending products from Amazon Movers & Shakers. Fails silently if blocked."""
+    raw = os.getenv("AMAZON_MOVERS_ENABLED", "true").strip().lower()
+    if raw in {"false", "off", "0", "no"}:
+        return []
+    deals: List[Deal] = []
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        resp = requests.get(AMAZON_MOVERS_URL, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return []
+        text = resp.text
+        if "validateCaptcha" in text or "Type the characters" in text:
+            return []
+
+        asin_matches = re.findall(r'href="([^"]*/dp/([A-Z0-9]{10})[^"]*)"', text)
+        seen_asins = set()
+        for href, asin in asin_matches:
+            if asin in seen_asins:
+                continue
+            seen_asins.add(asin)
+            url = f"https://www.amazon.in/dp/{asin}"
+            clean_url, deal_id, retailer = expand_and_convert_url(url)
+            deal = Deal(
+                id=deal_id,
+                retailer=retailer,
+                title=f"Trending Deal: Amazon Movers & Shakers ({asin})",
+                url=clean_url,
+                canonical_product_id=f"amazon:{asin}",
+                image_url=_amazon_image(asin),
+            )
+            deals.append(deal)
+            if len(deals) >= 5:
+                break
+    except Exception as exc:
+        logger.debug(f"Amazon Movers & Shakers scraper exception: {exc}")
+    return deals
+
 def get_amazon_creators_token(client_id: str, client_secret: str) -> Optional[str]:
     """Retrieve and cache OAuth2 Bearer token for Amazon Creators API."""
     now = time.time()
@@ -483,21 +591,30 @@ def load_local_deals(filepath: Union[str, Path]) -> List[Deal]:
     return deals
 
 def collect_all_deals() -> List[Deal]:
-    """Aggregate and deduplicate deals from all configured sources."""
+    """Aggregate and deduplicate deals from all configured sources using parallel fetching."""
     deals: List[Deal] = []
     seen_ids = set()
 
-    # 1. Live automated deals feeds
+    # 1. Live automated deals feeds (parallel fetching)
     if os.getenv("FEEDS_ENABLED", "true").lower() == "true":
         min_disc = int(os.getenv("MIN_DISCOUNT_PERCENT", "30"))
-        for d in fetch_live_feed_deals(min_discount=min_disc):
-            if d.id not in seen_ids and d.is_valid():
-                seen_ids.add(d.id)
-                deals.append(d)
-        for d in fetch_extra_feeds(min_discount=min_disc):
-            if d.id not in seen_ids and d.is_valid():
-                seen_ids.add(d.id)
-                deals.append(d)
+        tasks = [
+            lambda: fetch_live_feed_deals(min_discount=min_disc),
+            lambda: fetch_extra_feeds(min_discount=min_disc),
+            lambda: fetch_reddit_deals(min_discount=min_disc),
+            lambda: fetch_amazon_movers_and_shakers(min_discount=min_disc),
+        ]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_fn = {executor.submit(fn): fn for fn in tasks}
+            for future in concurrent.futures.as_completed(future_to_fn):
+                try:
+                    res = future.result()
+                    for d in res:
+                        if d.id not in seen_ids and d.is_valid():
+                            seen_ids.add(d.id)
+                            deals.append(d)
+                except Exception as exc:
+                    logger.warning(f"Error fetching from deal source: {exc}")
 
     # 2. Amazon Creators API
     if os.getenv("AMAZON_API_ENABLED", "false").lower() == "true":

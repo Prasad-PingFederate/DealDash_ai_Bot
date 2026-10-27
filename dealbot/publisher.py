@@ -78,6 +78,18 @@ class StateStore:
                     value TEXT
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS price_sightings (
+                    canonical_id TEXT PRIMARY KEY,
+                    min_price INTEGER NOT NULL,
+                    max_price INTEGER NOT NULL,
+                    avg_price REAL NOT NULL,
+                    last_price INTEGER NOT NULL,
+                    sighting_count INTEGER NOT NULL DEFAULT 1,
+                    first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             # Auto-migrate older schemas if missing columns
             for col in [
                 "chat_id TEXT",
@@ -425,6 +437,84 @@ class StateStore:
                 conn.execute("DELETE FROM price_seen WHERE id = ?", (row[0],))
             return previous, lowest_before
 
+    def record_price_sighting(self, canonical_id: str, price: int) -> None:
+        """Track running price stats (min, max, avg, last, sighting_count) for canonical product IDs."""
+        if not canonical_id or price is None or price <= 0:
+            return
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT min_price, max_price, avg_price, sighting_count FROM price_sightings WHERE canonical_id = ?",
+                (canonical_id,),
+            )
+            row = cur.fetchone()
+            if row:
+                min_p, max_p, avg_p, count = row
+                new_count = count + 1
+                new_avg = ((avg_p * count) + price) / new_count
+                new_min = min(min_p, price)
+                new_max = max(max_p, price)
+                conn.execute(
+                    """
+                    UPDATE price_sightings
+                    SET min_price = ?, max_price = ?, avg_price = ?, last_price = ?,
+                        sighting_count = ?, last_seen_at = CURRENT_TIMESTAMP
+                    WHERE canonical_id = ?
+                    """,
+                    (new_min, new_max, new_avg, price, new_count, canonical_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO price_sightings (canonical_id, min_price, max_price, avg_price, last_price, sighting_count, first_seen_at, last_seen_at)
+                    VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    (canonical_id, price, price, float(price), price),
+                )
+
+    def get_price_context(self, canonical_id: str, current_price: int) -> dict:
+        """
+        Evaluate current price against historical sightings for this canonical product:
+        - 'real_drop' (+18): sighting_count >= 2 and current_price <= avg_price * 0.82
+        - 'all_time_low' (+10): sighting_count >= 3 and current_price < min_price
+        - 'stagnant' (-10): sighting_count >= 4 and current_price >= avg_price * 0.98
+        - 'normal' (0): default
+        """
+        default_res = {
+            "status": "normal",
+            "score_adj": 0,
+            "min_price": None,
+            "avg_price": None,
+            "sighting_count": 0,
+        }
+        if not canonical_id or current_price is None or current_price <= 0:
+            return default_res
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT min_price, max_price, avg_price, last_price, sighting_count FROM price_sightings WHERE canonical_id = ?",
+                (canonical_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return default_res
+            min_p, max_p, avg_p, last_p, count = row
+            res = {
+                "status": "normal",
+                "score_adj": 0,
+                "min_price": min_p,
+                "avg_price": avg_p,
+                "sighting_count": count,
+            }
+            if count >= 3 and current_price < min_p:
+                res["status"] = "all_time_low"
+                res["score_adj"] = 10
+            elif count >= 2 and current_price <= int(avg_p * 0.82):
+                res["status"] = "real_drop"
+                res["score_adj"] = 18
+            elif count >= 4 and current_price >= int(avg_p * 0.98):
+                res["status"] = "stagnant"
+                res["score_adj"] = -10
+            return res
+
     def record_event(self, deal_id: str, outcome: str, detail: str = "") -> None:
         with self._connect() as conn:
             conn.execute(
@@ -512,14 +602,17 @@ def price_note_for(previous: Optional[int], lowest_before: Optional[int], price:
 
 def _ai_copy_keeps_price(ai_body: str, deal: Deal) -> bool:
     """Reject model copy that dropped the real deal price. Normalizes commas and .00."""
-    if not deal.current_price:
-        return True
-    price = parse_rupees(deal.current_price)
-    if not price:
+    if not deal.current_price and not getattr(deal, "effective_price", None):
         return True
     clean_body = re.sub(r"\.00\b", "", ai_body or "")
-    digits = str(price)
-    return digits in re.sub(r"\D", "", clean_body)
+    digits_body = re.sub(r"\D", "", clean_body)
+    price = parse_rupees(deal.current_price)
+    if price and str(price) in digits_body:
+        return True
+    eff = getattr(deal, "effective_price", None)
+    if eff and str(eff) in digits_body:
+        return True
+    return False
 
 
 def offer_percent(deal: Deal) -> Optional[int]:
@@ -604,12 +697,19 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     lines = [f"{mark} <b>{badge}</b> · {retailer}"]
     percent = offer_percent(deal)
     price_bits = []
-    if deal.current_price:
-        price_bits.append(f"<b>{html.escape(deal.current_price)}</b>")
-    if percent:
-        price_bits.append(f"<b>{percent}% OFF</b>")
-    if price_bits:
+    if getattr(deal, "effective_price", None) and getattr(deal, "coupon_discount", None):
+        price_bits.append(f"<b>Effective Price: ₹{deal.effective_price:,}</b>")
+        if percent:
+            price_bits.append(f"<b>{percent}% OFF</b>")
         lines.append(" · ".join(price_bits))
+        lines.append(f"List Price: {html.escape(deal.current_price or '')} (Apply ₹{deal.coupon_discount:,} on-page coupon)")
+    else:
+        if deal.current_price:
+            price_bits.append(f"<b>{html.escape(deal.current_price)}</b>")
+        if percent:
+            price_bits.append(f"<b>{percent}% OFF</b>")
+        if price_bits:
+            lines.append(" · ".join(price_bits))
 
     lines.append("")
     lines.append(f"<b>{html.escape(deal.title or 'Deal')}</b>")
@@ -691,7 +791,8 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         return False, None, caption
 
     # Upgraded High-CTR inline keyboard
-    buy_text = f"🛒 Grab Deal @ {deal.current_price}" if deal.current_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
+    disp_price = f"₹{deal.effective_price:,}" if getattr(deal, "effective_price", None) else deal.current_price
+    buy_text = f"🛒 Grab Deal @ {disp_price}" if disp_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
     primary_row = [{"text": buy_text, "url": deal.url or "#"}]
 
     # Extract Amazon ASIN for Price History button (Keepa)

@@ -121,6 +121,8 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
         "rating": None,
         "review_count": None,
         "coupon": None,
+        "coupon_discount": None,
+        "effective_price": None,
         "bank_offer": None,
         "hi_res_image": None,
     }
@@ -207,21 +209,56 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
             except ValueError:
                 pass
 
-        # 5. On-page Coupons
+        # 5. On-page Coupons & Effective Price
         coupon_patterns = [
-            r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon',
-            r'Save\s*(?:₹|Rs\.?)\s*(\d+)\s*(?:with|at checkout|coupon)',
-            r'Save\s*(\d+)\s*%\s*(?:with|at checkout|coupon)',
-            r'id="couponBadge"[^>]*>([^<]+)',
+            (r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon', "flat"),
+            (r'Save\s*(?:₹|Rs\.?)\s*(\d+)\s*(?:with|at checkout|coupon)', "flat"),
+            (r'Save\s*(\d+)\s*%\s*(?:with|at checkout|coupon)', "percent"),
+            (r'Apply\s*(\d+)\s*%\s*coupon', "percent"),
+            (r'id="couponBadge"[^>]*>([^<]+)', "badge"),
         ]
-        for pattern in coupon_patterns:
+        for pattern, kind in coupon_patterns:
             m = re.search(pattern, text, re.IGNORECASE)
             if m:
                 raw_c = m.group(0).strip()
                 clean_c = re.sub(r"\s+", " ", raw_c)
-                if len(clean_c) <= 40:
+                if len(clean_c) <= 60:
                     result["coupon"] = clean_c
+                    if kind == "flat":
+                        try:
+                            c_amt = int(m.group(1))
+                            if c_amt > 0:
+                                result["coupon_discount"] = c_amt
+                        except (ValueError, IndexError):
+                            pass
+                    elif kind == "percent":
+                        try:
+                            pct = float(m.group(1))
+                            if 0 < pct < 100 and result.get("live_price"):
+                                result["coupon_discount"] = int(round(result["live_price"] * pct / 100))
+                        except (ValueError, IndexError):
+                            pass
+                    elif kind == "badge":
+                        badge_txt = m.group(1)
+                        flat_m = re.search(r'(?:₹|Rs\.?)\s*(\d+)', badge_txt)
+                        pct_m = re.search(r'(\d+)\s*%', badge_txt)
+                        if flat_m:
+                            try:
+                                result["coupon_discount"] = int(flat_m.group(1))
+                            except ValueError:
+                                pass
+                        elif pct_m and result.get("live_price"):
+                            try:
+                                result["coupon_discount"] = int(round(result["live_price"] * float(pct_m.group(1)) / 100))
+                            except ValueError:
+                                pass
                     break
+
+        if result.get("live_price") and result.get("coupon_discount"):
+            disc = result["coupon_discount"]
+            lp = result["live_price"]
+            if disc < lp:
+                result["effective_price"] = max(1, lp - disc)
 
         # 6. Bank Offers
         bank_match = re.search(r'(?:Instant Discount up to ₹?[\d,]+ on [A-Za-z0-9 ]+|Bank Offer: [^<]{5,80}|10% Instant Discount on [A-Za-z0-9 ]+)', text, re.IGNORECASE)

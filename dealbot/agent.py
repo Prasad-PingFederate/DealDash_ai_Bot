@@ -82,6 +82,11 @@ NARROW_TYPES = (
     "trimmer", "bottle", "kettle", "cooker", "fan", "ssd", "mouse", "keyboard",
 )
 
+MRP_INFLATED_TYPES = (
+    "smartwatch", "earbuds", "earbud", "tws", "neckband", "cable", "charger",
+    "case", "screen protector", "tempered glass", "bulb",
+)
+
 def extract_narrow_type(title: str) -> Optional[str]:
     blob = (title or "").lower()
     for nt in NARROW_TYPES:
@@ -189,7 +194,10 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     reasons: List[str] = []
     score = 8
 
-    price = parse_rupees(deal.current_price)
+    # Use effective price (with on-page coupons subtracted) if present
+    price = getattr(deal, "effective_price", None)
+    if price is None:
+        price = parse_rupees(deal.current_price)
     mrp = parse_rupees(deal.original_price)
     stated = int(deal.discount_percent or 0)
     savings = deal.savings_rupees()
@@ -200,8 +208,28 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             reasons.append(f"listed {stated}% but prices say {implied}%")
             score -= 10
             discount = implied
-        elif not stated:
+        elif not stated or getattr(deal, "effective_price", None):
             discount = implied
+
+    title = (deal.title or "").strip()
+    brand_tier = get_brand_tier(title)
+
+    # 1. Fake-MRP Generic Junk Penalty:
+    # Generic unbranded product with steep >= 75% fake discount under ₹800
+    if brand_tier == 0 and price is not None and price < 800 and discount >= 75:
+        score -= 25
+        reasons.append("fake-mrp generic junk penalty")
+        discount = min(discount, 45)
+
+    # 2. MRP-Inflated Category Discount Cap:
+    # For Tier-2 or unbranded products in categories known for chronic 80%+ fake MRPs
+    p_context = getattr(deal, "price_context", None)
+    is_historical_drop = p_context in ("real_drop", "all_time_low")
+    title_lower = title.lower()
+    if brand_tier <= 2 and any(inflated in title_lower for inflated in MRP_INFLATED_TYPES):
+        if not is_historical_drop and discount > 50:
+            discount = 50
+            reasons.append("mrp-inflated category cap")
 
     if discount:
         score += int(min(discount, 70) * 0.45)
@@ -237,7 +265,6 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         score += 4
         reasons.append("has a buyable price")
 
-    title = (deal.title or "").strip()
     if len(title) < 8 or title.lower() in {"special deal", "deal"}:
         score -= 14
         reasons.append("weak title")
@@ -247,7 +274,6 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     else:
         score += 3
 
-    brand_tier = get_brand_tier(title)
     if brand_tier == 1:
         score += 20
         reasons.append("Tier-1 brand")
@@ -257,12 +283,6 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     else:
         score -= 4
         reasons.append("no-name")
-
-    # Fake-MRP Generic Junk Penalty:
-    # Generic unbranded product with steep >= 80% fake discount under ₹250
-    if brand_tier == 0 and price is not None and price < 250 and discount >= 80:
-        score -= 25
-        reasons.append("fake-mrp generic junk penalty")
 
     # Social Proof Boost
     if getattr(deal, "rating", None) is not None:
@@ -278,13 +298,27 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score -= 20
             reasons.append(f"poor rating ({r_val}★)")
 
-    # Loot Detection Flag
+    # Historical Price Context Adjustments
+    if p_context == "real_drop":
+        score += 18
+        reasons.append("historical real drop (+18)")
+    elif p_context == "all_time_low":
+        score += 10
+        reasons.append("all-time low (+10)")
+    elif p_context == "stagnant":
+        score -= 10
+        reasons.append("stagnant price (-10)")
+
+    # Loot Detection Flag (Strictly gated)
     is_loot = False
-    if brand_tier == 1 and discount >= 60:
+    deal_rating = getattr(deal, "rating", None)
+    rating_ok = deal_rating is None or deal_rating >= 4.0
+
+    if brand_tier == 1 and discount >= 60 and rating_ok:
         is_loot = True
-    elif brand_tier == 1 and savings is not None and savings >= 5000 and discount >= 40:
+    elif brand_tier in (1, 2) and savings is not None and savings >= 5000 and discount >= 40 and rating_ok:
         is_loot = True
-    elif getattr(deal, "is_further_price_drop", False) and discount >= 30:
+    elif (getattr(deal, "is_further_price_drop", False) or is_historical_drop) and discount >= 30:
         is_loot = True
     elif price is not None and price < 99 and discount >= 50 and brand_tier >= 1:
         is_loot = True
