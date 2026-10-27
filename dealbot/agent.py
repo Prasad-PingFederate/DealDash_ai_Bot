@@ -22,32 +22,35 @@ CATEGORY_KEYWORDS = {
     "electronics": (
         "headphone", "earbud", "earphone", "speaker", "watch", "phone", "charger",
         "laptop", "keyboard", "mouse", "camera", "trimmer", "tv", "monitor",
-        "power bank", "bluetooth", "ssd", "router", "printer",
+        "power bank", "bluetooth", "ssd", "router", "printer", "gaming", "tablet",
     ),
     "home": (
         "mixer", "grinder", "cooker", "fan", "vacuum", "kettle", "iron", "bottle",
         "bedsheet", "blanket", "cookware", "air fryer", "induction", "lamp",
-        "storage", "pressure cooker",
+        "storage", "pressure cooker", "appliance", "purifier", "mop",
     ),
     "fashion": (
         "shoe", "shirt", "jeans", "saree", "kurta", "t-shirt", "tshirt", "dress",
-        "jacket", "sandal", "sneaker", "handbag", "wallet",
+        "jacket", "sandal", "sneaker", "handbag", "wallet", "sunglasses", "backpack", "luggage",
     ),
     "beauty": (
         "cream", "shampoo", "lipstick", "serum", "perfume", "face wash", "sunscreen",
-        "moisturizer", "conditioner",
+        "moisturizer", "conditioner", "grooming", "shaving", "lotion", "body wash", "soap",
     ),
     "grocery": (
         "oil", "rice", "atta", "snack", "coffee", "tea", "ghee", "spice", "biscuit",
+        "chocolate", "dry fruit", "almond", "cashew",
     ),
+    "fitness": ("fitness", "dumbbell", "yoga", "protein", "shaker", "treadmill", "cycle"),
+    "stationery": ("notebook", "pen", "desk", "office", "study", "chair"),
     "kids": ("toy", "diaper", "kids", "baby", "school bag"),
     "books": ("book", "novel", "kindle"),
 }
 
 SLOT_BOOSTS = {
-    "morning": {"home": 8, "grocery": 8, "beauty": 4},
-    "afternoon": {"electronics": 4, "fashion": 4, "home": 4},
-    "evening": {"electronics": 10, "fashion": 8, "beauty": 4},
+    "morning": {"home": 8, "grocery": 8, "beauty": 8, "fitness": 8, "stationery": 8},
+    "afternoon": {"fashion": 8, "beauty": 8, "home": 4},
+    "evening": {"electronics": 10, "home": 10},
     "night": {},
 }
 
@@ -70,8 +73,15 @@ TIER_1_BRANDS = (
 TIER_2_BRANDS = (
     "boat", "noise", "boult", "fire-boltt", "fireboltt", "ptron", "realme", "xiaomi",
     "redmi", "poco", "iqoo", "vivo", "oppo", "tecno", "infinix", "zebronics", "portronics",
-    "ambrane", "lifelong", "agaro", "wipro", "syska", "solimo", "amazon basics",
+    "ambrane", "ptron", "lifelong", "agaro", "wipro", "syska", "solimo", "amazon basics",
     "amazfit", "garmin", "mamaearth", "fire tv", "alexa",
+    # Expanded Indian FMCG, personal care, home, electronics & sports brands
+    "plum", "mcaffeine", "beardo", "bombay shaving company", "the man company",
+    "wild stone", "fogg", "nivea", "garnier", "lakme", "maybelline", "himalaya",
+    "dabur", "tata", "nescafe", "cadbury", "ariel", "surf excel", "vim", "dettol",
+    "harpic", "pigeon", "butterfly", "bajaj", "orient", "usha", "halonix",
+    "ant esports", "cosmic byte", "redgear", "classmate", "parker", "casio",
+    "yonex", "nivia", "cosco", "decathlon",
 )
 
 KNOWN_BRANDS = tuple(sorted(set(TIER_1_BRANDS + TIER_2_BRANDS)))
@@ -147,6 +157,7 @@ class AgentPlan:
     posts: List[ScoredDeal] = field(default_factory=list)
     skips: List[ScoredDeal] = field(default_factory=list)
     source: str = "heuristic"
+    soft_floor_used: bool = False
 
     def summary(self) -> str:
         lines = [f"DealDash agent ({self.source})"]
@@ -169,7 +180,7 @@ def current_slot(now=None) -> str:
         return "morning"
     if 12 <= hour <= 16:
         return "afternoon"
-    if 17 <= hour <= 22:
+    if 17 <= hour <= 23:
         return "evening"
     return "night"
 
@@ -373,10 +384,29 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score += 8
             reasons.append("fresh category for the channel")
 
+    # Psychological Price-Point Conversion Boost (+6 pts)
+    eval_price = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
+    if eval_price is not None and discount >= 35:
+        is_sweet_spot = (
+            (49 <= eval_price <= 99)
+            or (149 <= eval_price <= 199)
+            or (249 <= eval_price <= 299)
+            or (449 <= eval_price <= 499)
+            or (899 <= eval_price <= 999)
+        )
+        if is_sweet_spot:
+            score += 6
+            reasons.append(f"psychological price point (₹{eval_price}) (+6)")
+
+    # Deduct penalty if price verification was inconclusive
+    if getattr(deal, "score_penalty", 0):
+        score -= deal.score_penalty
+        reasons.append(f"inconclusive price penalty (-{deal.score_penalty})")
+
     boost = SLOT_BOOSTS.get(slot, {}).get(category, 0)
     if boost:
         score += boost
-        reasons.append(f"fits the {slot} slot")
+        reasons.append(f"fits {slot} shopping psychology (+{boost})")
 
     return ScoredDeal(deal=deal, score=int(score), category=category, reason="; ".join(reasons))
 
@@ -398,7 +428,7 @@ def _extract_json(text: str) -> Dict[str, Any]:
 class DealAgent:
     def __init__(self, copywriter=None, min_score: Optional[int] = None):
         self.copywriter = copywriter
-        self.min_score = min_score if min_score is not None else int(os.getenv("AGENT_MIN_SCORE", "40"))
+        self.min_score = min_score if min_score is not None else int(os.getenv("AGENT_MIN_SCORE", "32"))
         self.use_llm = os.getenv("AGENT_LLM", "true").lower() != "false"
 
     def plan(self, deals: Sequence[Deal], recent_categories: Sequence[str], max_posts: int) -> AgentPlan:
@@ -406,8 +436,37 @@ class DealAgent:
         scored = [score_deal(deal, recent_categories, slot=slot) for deal in deals]
         scored.sort(key=lambda item: item.score, reverse=True)
 
+        # Pass 1: Strict Quality Gate
         qualified = [item for item in scored if item.score >= self.min_score]
         rejected = [item for item in scored if item.score < self.min_score]
+
+        soft_floor_used = False
+        target_deals = min(max_posts, 2)
+        # Pass 2: Adaptive Soft-Floor Backfill — Guaranteed Hourly Activity
+        # If Pass 1 returns 0 deals (or only 1 deal when MAX_POSTS_PER_CYCLE >= 3),
+        # automatically relax the threshold down to score >= 16 for verified in-stock deals
+        # (discount_pct >= 25%, not explicitly rated < 3.6★) so the channel always posts at least 1–2 solid deals every hour
+        if len(qualified) == 0 or (len(qualified) < 2 and max_posts >= 3):
+            needed = target_deals - len(qualified)
+            soft_candidates = []
+            for item in rejected:
+                d = item.deal
+                disc = d.discount_percent or 0
+                p = getattr(d, "effective_price", None) or parse_rupees(d.current_price)
+                m = parse_rupees(d.original_price)
+                if p and m and m > p:
+                    disc = max(disc, int(round((m - p) / m * 100)))
+                r = getattr(d, "rating", None)
+                if item.score >= 16 and disc >= 25 and (r is None or r >= 3.6):
+                    soft_candidates.append(item)
+
+            if soft_candidates:
+                soft_floor_used = True
+                for item in soft_candidates[:needed]:
+                    rejected.remove(item)
+                    item.reason = f"soft-floor backfill (score {item.score}); {item.reason}"
+                    qualified.append(item)
+
         for item in rejected:
             item.action = "skip"
             item.reason = f"below score floor {self.min_score}; {item.reason}"
@@ -453,7 +512,7 @@ class DealAgent:
                 skips.append(item)
         skips.extend(rejected[:12])
 
-        plan = AgentPlan(posts=chosen, skips=skips, source=source if chosen else "heuristic")
+        plan = AgentPlan(posts=chosen, skips=skips, source=source if chosen else "heuristic", soft_floor_used=soft_floor_used)
         logger.info(plan.summary())
         return plan
 

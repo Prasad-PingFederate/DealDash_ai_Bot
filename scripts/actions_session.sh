@@ -29,13 +29,25 @@ persist() {
 
 run_cycle() {
   echo "Posting cycle at $(TZ=Asia/Kolkata date '+%H:%M IST')"
+  cycle_start=$(date +%s)
   if python run_once.py; then
-    python -c "from dealbot.session import mark_cycle; mark_cycle()"
+    cycle_end=$(date +%s)
+    cycle_elapsed=$((cycle_end - cycle_start))
+    posted_count=$(python -c "from dealbot.publisher import StateStore; from dealbot.session import database_path; print(StateStore(str(database_path())).get_meta('last_cycle_posted_count') or 0)" 2>/dev/null || echo 0)
+    echo "Cycle completed in ${cycle_elapsed}s. Posted deals: ${posted_count}."
+    
+    if [ "$posted_count" -gt 0 ]; then
+      # Set last_cycle_at to cycle_start to eliminate progressive session clock drift
+      python -c "from datetime import datetime, timezone; from dealbot.session import mark_cycle; mark_cycle(when=datetime.fromtimestamp(${cycle_start}, timezone.utc), posted_count=${posted_count})"
+    else
+      echo "Empty cycle (0 deals posted). Scheduling 15-minute retry."
+      python -c "from datetime import datetime, timezone; from dealbot.publisher import StateStore; from dealbot.session import database_path; s = StateStore(str(database_path())); s.set_meta('last_cycle_empty_at', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')); s.checkpoint()"
+    fi
   else
-    echo "Cycle failed. Waiting 15 minutes before the next try."
-    sleep 900
-    return
+    echo "Cycle execution encountered an error. Waiting 15 minutes before the next try."
+    python -c "from datetime import datetime, timezone; from dealbot.publisher import StateStore; from dealbot.session import database_path; s = StateStore(str(database_path())); s.set_meta('last_cycle_empty_at', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')); s.checkpoint()" || true
   fi
+  export SESSION_STARTED=true
   persist || echo "State push failed. The next cycle will try again."
 }
 
@@ -54,7 +66,7 @@ if [ "${MANUAL:-false}" = "true" ]; then
 fi
 
 export SESSION_DEADLINE
-# Session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next 3-hour cron
+# Session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next cron
 SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(hours=2, minutes=40)).isoformat())')"
 echo "Runner stays up until ${SESSION_DEADLINE} or 23:20 IST, whichever is first."
 
@@ -73,8 +85,17 @@ while true; do
           exit 1
           ;;
       esac
-      echo "Sleeping ${seconds}s"
-      sleep "$seconds"
+      echo "Sleeping ${seconds}s until next cycle (signal-responsive)..."
+      slept=0
+      while [ "$slept" -lt "$seconds" ]; do
+        chunk=5
+        rem=$((seconds - slept))
+        if [ "$rem" -lt 5 ]; then
+          chunk="$rem"
+        fi
+        sleep "$chunk"
+        slept=$((slept + chunk))
+      done
       ;;
     stop)
       echo "Channel window closed or the runner budget is over."

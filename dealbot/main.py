@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 from dealbot.publisher import StateStore, price_note_for, send_admin_note, send_telegram_deal
@@ -100,13 +101,16 @@ def _recent_categories(store: StateStore) -> list:
     return categories
 
 
-def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
+def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | None = None) -> bool:
     """Check stock and enrich Amazon deals with live price, MRP, ratings, coupons, and images.
     Returns True if valid for posting, False if rejected (OOS, price jumped >20%, or poor rating)."""
     logger = logging.getLogger("dealbot.main")
     status = inspect_stock(deal.url)
     if status == "out_of_stock":
         logger.info(f"Skipping {deal.id}: out of stock or gone.")
+        if skip_tracker is not None:
+            skip_tracker["oos"] = skip_tracker.get("oos", 0) + 1
+        deal._verify_skip_reason = "oos"
         store.record_event(deal.id, "skipped_oos")
         return False
     if status == "in_stock":
@@ -115,6 +119,7 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
             enrichment = enrich_amazon_deal(deal.url)
             live_price = enrichment.get("live_price")
             feed_price = parse_rupees(deal.current_price)
+            feed_mrp = parse_rupees(deal.original_price)
             is_unverified_source = (
                 getattr(deal, "category", "") == "reddit"
                 or (deal.id and "reddit" in deal.id.lower())
@@ -122,12 +127,26 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
             )
             if live_price and feed_price and not is_unverified_source:
                 if live_price > int(feed_price * 1.20):
-                    logger.info(
-                        f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase)."
-                    )
-                    store.record_event(deal.id, "skipped_price_jumped")
-                    return False
-            if live_price:
+                    # Smart live price discrepancy: if live_price matches feed MRP,
+                    # treat as inconclusive due to datacenter IP showing non-deal price
+                    if feed_mrp and abs(live_price - feed_mrp) / max(feed_mrp, 1) < 0.05:
+                        logger.info(
+                            f"Deal {deal.id}: live price ₹{live_price} matches feed MRP ₹{feed_mrp} "
+                            f"(inconclusive check due to datacenter IP). Applying -8 penalty instead of discarding."
+                        )
+                        deal.score_penalty = getattr(deal, "score_penalty", 0) + 8
+                    else:
+                        logger.info(
+                            f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase)."
+                        )
+                        if skip_tracker is not None:
+                            skip_tracker["jump"] = skip_tracker.get("jump", 0) + 1
+                        deal._verify_skip_reason = "jump"
+                        store.record_event(deal.id, "skipped_price_jumped")
+                        return False
+                else:
+                    deal.current_price = f"₹{live_price:,}"
+            elif live_price and is_unverified_source:
                 deal.current_price = f"₹{live_price:,}"
 
             live_mrp = enrichment.get("mrp")
@@ -136,13 +155,19 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
 
             rating = enrichment.get("rating")
             reviews = enrichment.get("review_count")
-            if rating is not None:
+            if rating is not None and rating > 0:
                 deal.rating = rating
                 deal.review_count = reviews
-                if rating < 3.6 or (reviews is not None and reviews < 15 and rating < 4.0):
+                if rating < 3.6 or (reviews is not None and reviews > 0 and reviews < 15 and rating < 4.0):
                     logger.info(f"Skipping {deal.id}: low rating {rating}★ ({reviews} reviews).")
+                    if skip_tracker is not None:
+                        skip_tracker["low_rating"] = skip_tracker.get("low_rating", 0) + 1
+                    deal._verify_skip_reason = "low_rating"
                     store.record_event(deal.id, "skipped_low_rating")
                     return False
+            else:
+                deal.rating = None
+                deal.review_count = None
 
             if enrichment.get("coupon") and not deal.coupon_code:
                 deal.coupon_code = enrichment["coupon"]
@@ -228,33 +253,39 @@ def run_once() -> int:
     from dealbot.agent import score_deal
     fresh.sort(key=lambda d: score_deal(d, recent_cats).score, reverse=True)
 
-    # Stage 2: Two-stage funnel with backfill - enrich top candidates before final selection
-    top_n = max(max_posts * 3, 9)
-    to_enrich = fresh[:top_n]
-    remaining_fresh = fresh[top_n:]
+    # Stage 2: Two-stage funnel with backfill loop
+    # Iterate through Stage 1 ranked candidates until either max(max_posts * 2, 6) verified pass
+    # OR at most 12 enrichment fetches attempted.
+    target_verified = max(max_posts * 2, 6)
+    max_fetches = 12
 
     verified_candidates = []
+    enriched_tried = 0
+    enriched_ok = 0
+    skip_tracker = {"oos": 0, "jump": 0, "low_rating": 0}
+
     if check_stock:
-        for candidate in to_enrich:
-            if verify_and_enrich_deal(candidate, store):
+        for candidate in fresh:
+            if len(verified_candidates) >= target_verified or enriched_tried >= max_fetches:
+                break
+            enriched_tried += 1
+            if verify_and_enrich_deal(candidate, store, skip_tracker=skip_tracker):
                 verified_candidates.append(candidate)
-        # If any candidates discarded, backfill from remaining_fresh
-        backfill_idx = 0
-        while len(verified_candidates) < top_n and backfill_idx < len(remaining_fresh):
-            candidate = remaining_fresh[backfill_idx]
-            backfill_idx += 1
-            if verify_and_enrich_deal(candidate, store):
-                verified_candidates.append(candidate)
+                enriched_ok += 1
     else:
         verified_candidates = fresh
+        enriched_tried = len(verified_candidates)
+        enriched_ok = len(verified_candidates)
 
     # Stage 3: Re-score enriched survivors and pick final posts via DealAgent
     plan = None
+    soft_floor_used = False
     if agent_mode:
         agent = DealAgent(copywriter=copywriter)
         plan = agent.plan(verified_candidates, recent_cats, max_posts=max_posts)
         queue = [item.deal for item in plan.posts]
         reasons = {item.deal.id: item for item in plan.posts}
+        soft_floor_used = plan.soft_floor_used
     else:
         queue = verified_candidates[:max_posts]
         reasons = {}
@@ -287,6 +318,25 @@ def run_once() -> int:
         elif not dry_run:
             store.record_event(deal.id, "send_failed")
 
+    # Record last cycle posted count in SQLite metadata
+    store.set_meta("last_cycle_posted_count", str(posted_count))
+    if posted_count == 0:
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        store.set_meta("last_cycle_empty_at", now_iso)
+    store.checkpoint()
+
+    # Update hourly pacing lock ONLY when deals were actually posted
+    from dealbot.session import mark_cycle
+    mark_cycle(posted_count=posted_count)
+
+    funnel_summary = (
+        f"[FUNNEL] Raw: {len(deals)} | Unposted: {len(fresh)} | "
+        f"Enriched: {enriched_ok}/{enriched_tried} (OOS:{skip_tracker['oos']}, "
+        f"PriceJump:{skip_tracker['jump']}, LowRating:{skip_tracker['low_rating']}) | "
+        f"Selected: {len(queue)} (SoftFloor:{soft_floor_used}) | Posted: {posted_count}"
+    )
+    logger.info(funnel_summary)
+
     if plan is not None:
         decision_rows = [
             {
@@ -300,10 +350,13 @@ def run_once() -> int:
         ]
         if not dry_run:
             store.record_decisions(decision_rows)
-        note = plan.summary()
+        note = f"{plan.summary()}\n\n{funnel_summary}"
         extra = store.engagement_line()
         if extra:
             note = f"{note}\n{extra}"
+        send_admin_note(note, dry_run=dry_run)
+    else:
+        note = funnel_summary
         send_admin_note(note, dry_run=dry_run)
 
     # Sweep and update previously posted deals that may have gone Out of Stock

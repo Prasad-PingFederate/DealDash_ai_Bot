@@ -209,6 +209,11 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
             except ValueError:
                 pass
 
+        if result["rating"] == 0 or result["rating"] == 0.0:
+            result["rating"] = None
+        if result["review_count"] == 0:
+            result["review_count"] = None
+
         # 5. On-page Coupons & Effective Price
         coupon_patterns = [
             (r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon', "flat"),

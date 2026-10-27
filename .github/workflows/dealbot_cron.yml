@@ -2,17 +2,16 @@ name: Autonomous DealBot Runner
 
 on:
   schedule:
-    # UTC. Each start stays on the runner and posts about once an hour for
-    # up to 5h15m, stopping at 23:20 IST. GitHub often never creates a
-    # scheduled run. The starts are 3 hours apart, so a dropped tick still
-    # leaves the previous runner awake, and the next one covers what remains.
-    #   04:07 UTC = 09:37 IST
-    #   07:07 UTC = 12:37 IST
-    #   10:07 UTC = 15:37 IST
-    #   13:07 UTC = 18:37 IST
-    #   16:07 UTC = 21:37 IST
-    # Minute 7 stays off the crowded :00 slot.
-    - cron: '7 4,7,10,13,16 * * *'
+    # UTC. Hourly cron between 03:37 UTC (09:07 IST) and 17:37 UTC (23:07 IST).
+    # Minute 37 stays off the crowded :00 and :30 slots.
+    - cron: '37 3-17 * * *'
+
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'
+      - 'reports/**'
+      - '**.md'
 
   workflow_dispatch:
 

@@ -70,22 +70,61 @@ def database_path() -> Path:
     return path
 
 
+def last_posted_deal_time() -> datetime | None:
+    try:
+        from dealbot.publisher import StateStore
+        store = StateStore(str(database_path()))
+        with store._connect() as conn:
+            row = conn.execute("SELECT posted_at FROM posted_deals ORDER BY posted_at DESC LIMIT 1").fetchone()
+            if row and row[0]:
+                ts = row[0].replace(" ", "T")
+                if not ts.endswith("Z") and "+" not in ts:
+                    ts += "+00:00"
+                return datetime.fromisoformat(ts)
+    except Exception:
+        pass
+    return None
+
+
 def load_last_cycle() -> datetime | None:
     from dealbot.publisher import StateStore
 
-    raw = StateStore(str(database_path())).get_meta(META_KEY)
+    store = StateStore(str(database_path()))
+    # Only lock pacing if the last cycle actually posted deals
+    last_posted_count = store.get_meta("last_cycle_posted_count")
+    if last_posted_count is not None and int(last_posted_count) == 0:
+        last_empty = store.get_meta("last_cycle_empty_at")
+        if last_empty:
+            try:
+                empty_dt = datetime.fromisoformat(last_empty.replace("Z", "+00:00"))
+                now_dt = datetime.now(timezone.utc)
+                elapsed_sec = int((now_dt - empty_dt).total_seconds())
+                if elapsed_sec < 900:
+                    return empty_dt - timedelta(minutes=45)
+            except Exception:
+                pass
+        return None
+
+    raw = store.get_meta(META_KEY)
     if not raw:
         return None
-    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
-def mark_cycle(when: datetime | None = None) -> None:
+def mark_cycle(when: datetime | None = None, posted_count: int = 1) -> None:
+    """Only lock the hourly pacing timer when deals were actually posted (posted_count > 0)."""
+    if posted_count <= 0:
+        return
     from dealbot.publisher import StateStore
 
     when = as_ist(when or datetime.now(IST)).astimezone(timezone.utc)
     stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")
     store = StateStore(str(database_path()))
     store.set_meta(META_KEY, stamp)
+    store.set_meta("last_posted_at", stamp)
     store.checkpoint()
 
 
@@ -94,9 +133,21 @@ def main() -> int:
     if raw:
         deadline = datetime.fromisoformat(raw)
     else:
-        # Default session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next 3-hour cron
+        # Session duration: 2h 40m (~2.6 hours)
         deadline = datetime.now(IST) + timedelta(hours=2, minutes=40)
-    action, wait = plan(datetime.now(IST), load_last_cycle(), deadline)
+
+    now = datetime.now(IST)
+    last_cycle = load_last_cycle()
+
+    # Ensure the first cycle in any runner runs immediately on startup unless
+    # a cycle actually posted deals within the last 45 minutes in SQLite.
+    is_startup = os.getenv("SESSION_STARTED", "false").lower() != "true"
+    if is_startup:
+        last_deal_ts = last_posted_deal_time()
+        if last_deal_ts is None or (now - as_ist(last_deal_ts)) >= timedelta(minutes=45):
+            last_cycle = None
+
+    action, wait = plan(now, last_cycle, deadline)
     if action == "sleep":
         print(f"sleep {wait}")
     else:
