@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 persist() {
   (
     set -euo pipefail
+    python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
     git config user.name "github-actions[bot]"
     git config user.email "github-actions[bot]@users.noreply.github.com"
     mkdir -p data
@@ -40,7 +41,8 @@ run_cycle() {
 
 # Graceful signal handling: ensure state is persisted if runner is cancelled or stopped
 cleanup() {
-  echo "Caught termination signal. Persisting state before exit..."
+  echo "Caught termination signal. Checkpointing and persisting state before exit..."
+  python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
   persist || true
   exit 0
 }

@@ -51,22 +51,53 @@ SLOT_BOOSTS = {
     "night": {},
 }
 
-# Names Indian deal audiences already trust. A known brand gets shared;
-# a no-name 90% off cable usually does not.
-KNOWN_BRANDS = (
-    "apple", "samsung", "oneplus", "xiaomi", "redmi", "realme", "oppo", "vivo", "iqoo",
-    "nothing", "google", "pixel", "motorola", "nokia",
-    "boat", "noise", "fire-boltt", "fireboltt", "boult", "ptron", "sony", "jbl", "bose",
-    "sennheiser", "marshall", "ultimate ears",
-    "logitech", "hp", "dell", "lenovo", "asus", "acer", "msi", "lg", "canon", "nikon",
-    "philips", "prestige", "pigeon", "bajaj", "havells", "orient", "atomberg", "crompton",
-    "usha", "preethi", "butterfly", "wonderchef", "borosil", "milton", "cello",
-    "nike", "adidas", "puma", "skechers", "woodland", "bata", "crocs",
-    "allen solly", "levis", "levi's", "van heusen", "peter england", "fastrack", "titan",
-    "casio", "fossil", "amazfit", "garmin", "fossil",
-    "mamaearth", "minimalist", "nivea", "lakme", "maybelline", "loreal", "l'oreal",
-    "kindle", "echo dot", "fire tv", "alexa", "lifelong", "agaro",
+TIER_1_BRANDS = (
+    "apple", "samsung", "sony", "bose", "sennheiser", "jbl", "oneplus", "google", "pixel",
+    "nothing", "motorola", "asus", "hp", "dell", "lenovo", "acer", "lg", "logitech",
+    "sandisk", "crucial", "kingston", "seagate", "wd", "western digital", "marshall",
+    "gopro", "dji", "playstation", "xbox", "nintendo",
+    "philips", "dyson", "prestige", "hawkins", "pigeon", "bajaj", "havells", "crompton",
+    "atomberg", "usha", "orient", "ifb", "bosch", "whirlpool", "eureka forbes", "kent",
+    "aquaguard", "borosil", "milton", "cello", "wonderchef", "butterfly", "preethi",
+    "nike", "adidas", "puma", "skechers", "asics", "woodland", "bata", "crocs",
+    "levis", "levi's", "tommy hilfiger", "calvin klein", "us polo", "u.s. polo", "allen solly",
+    "van heusen", "peter england", "louis philippe", "ray-ban", "fastrack", "titan",
+    "casio", "fossil", "timex",
+    "l'oreal", "loreal", "nivea", "minimalist", "cetaphil", "neutrogena", "the derma co",
+    "dot & key", "maybelline", "lakme", "plum", "forest essentials", "kindle", "echo dot",
 )
+
+TIER_2_BRANDS = (
+    "boat", "noise", "boult", "fire-boltt", "fireboltt", "ptron", "realme", "xiaomi",
+    "redmi", "poco", "iqoo", "vivo", "oppo", "tecno", "infinix", "zebronics", "portronics",
+    "ambrane", "lifelong", "agaro", "wipro", "syska", "solimo", "amazon basics",
+    "amazfit", "garmin", "mamaearth", "fire tv", "alexa",
+)
+
+KNOWN_BRANDS = tuple(sorted(set(TIER_1_BRANDS + TIER_2_BRANDS)))
+
+NARROW_TYPES = (
+    "cable", "earbud", "earphone", "headphone", "speaker", "smartwatch", "watch",
+    "power bank", "charger", "t-shirt", "shirt", "shoe", "sneaker", "sandal",
+    "trimmer", "bottle", "kettle", "cooker", "fan", "ssd", "mouse", "keyboard",
+)
+
+def extract_narrow_type(title: str) -> Optional[str]:
+    blob = (title or "").lower()
+    for nt in NARROW_TYPES:
+        if nt in blob:
+            return nt
+    return None
+
+def get_brand_tier(title: str) -> int:
+    blob = (title or "").lower()
+    for b in TIER_1_BRANDS:
+        if re.search(r"\b" + re.escape(b) + r"\b", blob):
+            return 1
+    for b in TIER_2_BRANDS:
+        if re.search(r"\b" + re.escape(b) + r"\b", blob):
+            return 2
+    return 0
 
 JUNK_TITLE = re.compile(
     r"\b(coupon|voucher|redeem code|refurbished|renewed|pre-?owned|replica|lookalike|duplicate)\b",
@@ -216,12 +247,52 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     else:
         score += 3
 
-    if _has_known_brand(title):
+    brand_tier = get_brand_tier(title)
+    if brand_tier == 1:
+        score += 20
+        reasons.append("Tier-1 brand")
+    elif brand_tier == 2:
         score += 14
-        reasons.append("known brand")
+        reasons.append("Tier-2 brand")
     else:
         score -= 4
         reasons.append("no-name")
+
+    # Fake-MRP Generic Junk Penalty:
+    # Generic unbranded product with steep >= 80% fake discount under ₹250
+    if brand_tier == 0 and price is not None and price < 250 and discount >= 80:
+        score -= 25
+        reasons.append("fake-mrp generic junk penalty")
+
+    # Social Proof Boost
+    if getattr(deal, "rating", None) is not None:
+        r_val = deal.rating
+        rev_count = getattr(deal, "review_count", None) or 0
+        if r_val >= 4.2 and rev_count >= 500:
+            score += 10
+            reasons.append(f"strong social proof ({r_val}★, {rev_count} rev)")
+        elif r_val >= 4.0 and rev_count >= 50:
+            score += 5
+            reasons.append(f"good social proof ({r_val}★)")
+        elif r_val < 3.6:
+            score -= 20
+            reasons.append(f"poor rating ({r_val}★)")
+
+    # Loot Detection Flag
+    is_loot = False
+    if brand_tier == 1 and discount >= 60:
+        is_loot = True
+    elif brand_tier == 1 and savings is not None and savings >= 5000 and discount >= 40:
+        is_loot = True
+    elif getattr(deal, "is_further_price_drop", False) and discount >= 30:
+        is_loot = True
+    elif price is not None and price < 99 and discount >= 50 and brand_tier >= 1:
+        is_loot = True
+
+    if is_loot:
+        deal.is_loot = True
+        score += 15
+        reasons.append("🚨 LOOT ALERT 🔥")
 
     if JUNK_TITLE.search(title):
         score -= 18
@@ -336,6 +407,9 @@ class DealAgent:
                     penalty += 18
                 if any(titles_too_similar(item.deal.title, other.deal.title) for other in selected):
                     penalty += 45
+                item_nt = extract_narrow_type(item.deal.title)
+                if item_nt and any(extract_narrow_type(other.deal.title) == item_nt for other in selected):
+                    penalty += 25
                 return item.score - penalty
 
             remaining.sort(key=adjusted, reverse=True)
@@ -404,6 +478,11 @@ class DealAgent:
                         from dealbot.ai_copywriter import validate_critic
                         if validate_critic(copy, deal_obj):
                             deal_obj._cached_ai_copy = copy
+                        else:
+                            logger.info(
+                                f"Critic rejected LLM copy for {deal_id}; falling back to template copy for this deal only."
+                            )
+                            deal_obj._cached_ai_copy = None
                 if len(ids) >= max_posts:
                     break
             return ids

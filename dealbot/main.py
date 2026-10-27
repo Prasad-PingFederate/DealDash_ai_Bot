@@ -8,7 +8,13 @@ from dealbot.sources import collect_all_deals
 from dealbot.ai_copywriter import AICopywriter
 from dealbot.agent import DealAgent, classify_category
 from dealbot.models import Deal, parse_rupees
-from dealbot.expiry_checker import check_deal_is_active, inspect_stock, mark_telegram_deal_expired
+from dealbot.expiry_checker import (
+    check_deal_is_active,
+    inspect_stock,
+    mark_telegram_deal_expired,
+    enrich_amazon_deal,
+    mark_telegram_deal_price_spike,
+)
 from dealbot.pacing import get_recommended_sleep_seconds
 from dealbot.listen import drain_updates, listen
 
@@ -20,7 +26,7 @@ def setup_logging():
     )
 
 def sweep_expired_deals(store: StateStore, dry_run: bool = True):
-    """Periodically check posted active deals and mark expired/OOS ones on Telegram after consecutive confirmation."""
+    """Periodically check posted active deals and mark expired/OOS/Price-Spiked ones on Telegram after consecutive confirmation."""
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     active_deals = store.get_recent_active_deals(limit=10)
     if not active_deals:
@@ -32,6 +38,7 @@ def sweep_expired_deals(store: StateStore, dry_run: bool = True):
         chat_id = row["chat_id"]
         msg_id = row["message_id"]
         caption = row.get("caption") or ""
+        posted_price = row.get("price")
 
         url = None
         if deal_id.startswith("amz-"):
@@ -57,6 +64,27 @@ def sweep_expired_deals(store: StateStore, dry_run: bool = True):
                 logger.info(f"Deal {deal_id} first OOS signal detected. Awaiting 2nd confirmation before editing Telegram.")
         elif stock_status == "in_stock":
             store.reset_oos_count(deal_id)
+            # In-Stock Price Spike detection: if price increased >= 25% while item remains in stock
+            if "amazon." in url.lower():
+                enrichment = enrich_amazon_deal(url)
+                live_price = enrichment.get("live_price")
+                if live_price and posted_price and posted_price > 0 and live_price >= int(posted_price * 1.25):
+                    spikes = store.increment_spike_count(deal_id)
+                    if spikes >= 2:
+                        logger.info(
+                            f"Deal {deal_id} confirmed PRICE SPIKE from ₹{posted_price:,} to ₹{live_price:,} "
+                            f"({spikes} consecutive checks). Updating Telegram message..."
+                        )
+                        if not dry_run and token:
+                            mark_telegram_deal_price_spike(token, chat_id, msg_id, caption, live_price)
+                        store.mark_expired(deal_id)
+                    else:
+                        logger.info(
+                            f"Deal {deal_id} first price spike signal (₹{posted_price:,} -> ₹{live_price:,}). "
+                            f"Awaiting 2nd confirmation."
+                        )
+                else:
+                    store.reset_spike_count(deal_id)
 
 def _recent_categories(store: StateStore) -> list:
     categories = []
@@ -117,6 +145,8 @@ def run_once() -> int:
         price_num = parse_rupees(deal.current_price)
         canon_id = getattr(deal, "canonical_product_id", None) or deal.id
         if not store.is_posted(deal.id, canonical_product_id=canon_id, current_price=price_num):
+            if store.is_price_drop(deal.id, canonical_product_id=canon_id, current_price=price_num):
+                deal.is_further_price_drop = True
             fresh.append(deal)
 
     plan = None
@@ -144,6 +174,37 @@ def run_once() -> int:
                 continue
             if status == "in_stock":
                 deal.checked = True
+                if "amazon." in (deal.url or "").lower():
+                    enrichment = enrich_amazon_deal(deal.url)
+                    live_price = enrichment.get("live_price")
+                    feed_price = parse_rupees(deal.current_price)
+                    if live_price and feed_price:
+                        if live_price > int(feed_price * 1.20):
+                            logger.info(f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase).")
+                            store.record_event(deal.id, "skipped_price_jumped")
+                            continue
+                        deal.current_price = f"₹{live_price:,}"
+
+                    live_mrp = enrichment.get("mrp")
+                    if live_mrp and not deal.original_price:
+                        deal.original_price = f"₹{live_mrp:,}"
+
+                    rating = enrichment.get("rating")
+                    reviews = enrichment.get("review_count")
+                    if rating is not None:
+                        deal.rating = rating
+                        deal.review_count = reviews
+                        if rating < 3.6 or (reviews is not None and reviews < 15 and rating < 4.0):
+                            logger.info(f"Skipping {deal.id}: low rating {rating}★ ({reviews} reviews).")
+                            store.record_event(deal.id, "skipped_low_rating")
+                            continue
+
+                    if enrichment.get("coupon") and not deal.coupon_code:
+                        deal.coupon_code = enrichment["coupon"]
+                    if enrichment.get("bank_offer") and not deal.bank_offer:
+                        deal.bank_offer = enrichment["bank_offer"]
+                    if enrichment.get("hi_res_image"):
+                        deal.image_url = enrichment["hi_res_image"]
             else:
                 store.record_event(deal.id, "stock_unknown")
 

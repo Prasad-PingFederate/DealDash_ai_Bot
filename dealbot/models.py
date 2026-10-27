@@ -38,6 +38,9 @@ class Deal:
     checked: bool = False
     canonical_product_id: Optional[str] = None
     is_further_price_drop: bool = False
+    rating: Optional[float] = None
+    review_count: Optional[int] = None
+    is_loot: bool = False
 
     def savings_rupees(self) -> Optional[int]:
         price = parse_rupees(self.current_price)

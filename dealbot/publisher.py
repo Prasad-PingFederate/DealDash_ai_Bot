@@ -92,34 +92,55 @@ class StateStore:
                 "canonical_product_id TEXT",
                 "price INTEGER",
                 "consecutive_oos_count INTEGER DEFAULT 0",
+                "consecutive_spike_count INTEGER DEFAULT 0",
             ]:
                 try:
                     conn.execute(f"ALTER TABLE posted_deals ADD COLUMN {col}")
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
+    def checkpoint(self) -> None:
+        """
+        Execute a deterministic WAL checkpoint to flush all WAL frames into the main database file.
+        This prevents data loss when GitHub Actions runners are cancelled or stopped.
+        """
+        try:
+            with sqlite3.connect(self.db_path, timeout=15.0) as conn:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                logger.debug("SQLite WAL checkpoint completed (TRUNCATE).")
+        except sqlite3.OperationalError as e:
+            logger.warning(f"SQLite WAL checkpoint failed: {e}")
+
+    def checkpoint_and_close(self) -> None:
+        self.checkpoint()
+
     def is_posted(
         self,
         deal_id: str,
         canonical_product_id: Optional[str] = None,
         current_price: Optional[int] = None,
+        original_price: Optional[int] = None,
         window_hours: int = 48,
+        min_cooldown_hours: int = 0,
     ) -> bool:
         """
         Check if a deal or canonical product ID has been posted within window_hours.
-        Allows re-triggering ONLY if the new numeric price is >= 15% lower than
-        the previously posted price (Price-Drop Exception).
+        Allows re-triggering ONLY if:
+        1. Valid current_price > 0 (strictly rejects <= 0 or None).
+        2. Not an anomalous price (e.g. current_price < 50 when original_price > 2000).
+        3. At least min_cooldown_hours (default 2 hours) have elapsed since the previous post.
+        4. The new numeric price is >= 15% lower than the previously posted price.
         """
         with self._connect() as conn:
             # 1. Check direct match on deal_id
             cur = conn.execute(
                 """
-                SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff
+                SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff, datetime('now', ?) as cooldown_cutoff
                 FROM posted_deals
                 WHERE deal_id = ?
                 ORDER BY posted_at DESC LIMIT 1
                 """,
-                (f"-{window_hours} hours", deal_id),
+                (f"-{window_hours} hours", f"-{min_cooldown_hours} hours", deal_id),
             )
             row = cur.fetchone()
 
@@ -127,25 +148,52 @@ class StateStore:
             if not row and canonical_product_id:
                 cur = conn.execute(
                     """
-                    SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff
+                    SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff, datetime('now', ?) as cooldown_cutoff
                     FROM posted_deals
                     WHERE canonical_product_id = ? AND posted_at >= datetime('now', ?)
                     ORDER BY posted_at DESC LIMIT 1
                     """,
-                    (f"-{window_hours} hours", canonical_product_id, f"-{window_hours} hours"),
+                    (f"-{window_hours} hours", f"-{min_cooldown_hours} hours", canonical_product_id, f"-{window_hours} hours"),
                 )
                 row = cur.fetchone()
 
             if not row:
                 return False
 
-            prev_deal_id, prev_price, posted_at, cutoff = row
+            prev_deal_id, prev_price, posted_at, cutoff, cooldown_cutoff = row
             # If posted older than window, allow re-posting
             if posted_at and cutoff and posted_at < cutoff:
                 return False
 
-            # Price-Drop Exception: allow if new price is at least 15% lower
-            if current_price is not None and prev_price is not None and prev_price > 0:
+            # Price-Drop Exception validation
+            # 1. Current price must be valid positive integer
+            if current_price is None or current_price <= 0:
+                return True
+
+            # 2. Reject anomalous price glitches (e.g. current_price < 50 when original/prev_price > 2000)
+            if original_price and original_price > 2000 and current_price < 50:
+                logger.warning(
+                    f"Anomalous glitched price detected for {canonical_product_id or deal_id}: "
+                    f"₹{current_price} with MRP ₹{original_price}. Disallowing price-drop re-post."
+                )
+                return True
+            if prev_price and prev_price > 2000 and current_price < 50:
+                logger.warning(
+                    f"Anomalous glitched price detected for {canonical_product_id or deal_id}: "
+                    f"₹{current_price} vs prev ₹{prev_price}. Disallowing price-drop re-post."
+                )
+                return True
+
+            # 3. Minimum cooldown check (e.g. 2 hours): do not spam within cooldown even if price dropped further
+            if min_cooldown_hours > 0 and posted_at and cooldown_cutoff and posted_at > cooldown_cutoff:
+                logger.debug(
+                    f"Cooldown active for {canonical_product_id or deal_id} (posted at {posted_at}). "
+                    f"Suppression until {min_cooldown_hours}h elapsed."
+                )
+                return True
+
+            # 4. Check if new price is at least 15% lower than previous price
+            if prev_price is not None and prev_price > 0:
                 if current_price <= int(prev_price * 0.85):
                     logger.info(
                         f"Price-drop exception for {canonical_product_id or deal_id}: "
@@ -154,6 +202,32 @@ class StateStore:
                     return False
 
             return True
+
+    def is_price_drop(
+        self,
+        deal_id: str,
+        canonical_product_id: Optional[str] = None,
+        current_price: Optional[int] = None,
+        window_hours: int = 48,
+    ) -> bool:
+        """Check if this deal qualifies as a genuine price drop over the previously posted price."""
+        if current_price is None or current_price <= 0:
+            return False
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                SELECT price FROM posted_deals
+                WHERE (deal_id = ? OR (canonical_product_id IS NOT NULL AND canonical_product_id = ?))
+                  AND posted_at >= datetime('now', ?)
+                ORDER BY posted_at DESC LIMIT 1
+                """,
+                (deal_id, canonical_product_id or "", f"-{window_hours} hours"),
+            )
+            row = cur.fetchone()
+            if row and row[0] is not None and row[0] > 0:
+                prev_price = int(row[0])
+                return current_price <= int(prev_price * 0.85)
+        return False
 
     def mark_posted(
         self,
@@ -175,21 +249,24 @@ class StateStore:
                 INSERT INTO posted_deals (
                     deal_id, retailer, chat_id, message_id, caption, status,
                     category, discount, agent_score, agent_reason,
-                    canonical_product_id, price
+                    canonical_product_id, price, posted_at, consecutive_oos_count, consecutive_spike_count
                 )
-                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0, 0)
                 ON CONFLICT(deal_id) DO UPDATE SET
                     retailer=excluded.retailer,
                     chat_id=excluded.chat_id,
                     message_id=excluded.message_id,
                     caption=excluded.caption,
+                    status='active',
                     category=excluded.category,
                     discount=excluded.discount,
                     agent_score=excluded.agent_score,
                     agent_reason=excluded.agent_reason,
                     canonical_product_id=COALESCE(excluded.canonical_product_id, posted_deals.canonical_product_id),
                     price=COALESCE(excluded.price, posted_deals.price),
-                    consecutive_oos_count=0
+                    posted_at=CURRENT_TIMESTAMP,
+                    consecutive_oos_count=0,
+                    consecutive_spike_count=0
                 """,
                 (
                     deal_id,
@@ -205,6 +282,17 @@ class StateStore:
                     price,
                 ),
             )
+            # When an item is re-posted, update the baseline price and posted_at for all records with the same canonical_product_id
+            if canonical_product_id and price is not None and price > 0:
+                conn.execute(
+                    """
+                    UPDATE posted_deals
+                    SET price = ?, posted_at = CURRENT_TIMESTAMP
+                    WHERE canonical_product_id = ?
+                    """,
+                    (price, canonical_product_id),
+                )
+        self.checkpoint()
 
     def increment_oos_count(self, deal_id: str) -> int:
         """Increment consecutive OOS count for a deal and return the updated count."""
@@ -230,12 +318,36 @@ class StateStore:
                 (deal_id,),
             )
 
+    def increment_spike_count(self, deal_id: str) -> int:
+        """Increment consecutive price spike count for a deal and return the updated count."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE posted_deals
+                SET consecutive_spike_count = COALESCE(consecutive_spike_count, 0) + 1,
+                    last_checked_at = CURRENT_TIMESTAMP
+                WHERE deal_id = ?
+                """,
+                (deal_id,),
+            )
+            cur = conn.execute("SELECT consecutive_spike_count FROM posted_deals WHERE deal_id = ?", (deal_id,))
+            row = cur.fetchone()
+            return int(row[0]) if row and row[0] is not None else 1
+
+    def reset_spike_count(self, deal_id: str):
+        """Reset consecutive price spike count when price is normal."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE posted_deals SET consecutive_spike_count = 0, last_checked_at = CURRENT_TIMESTAMP WHERE deal_id = ?",
+                (deal_id,),
+            )
+
     def get_recent_active_deals(self, limit: int = 15) -> List[Dict[str, Any]]:
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
                 """
-                SELECT deal_id, retailer, chat_id, message_id, caption
+                SELECT deal_id, retailer, chat_id, message_id, caption, price
                 FROM posted_deals
                 WHERE status = 'active' AND message_id IS NOT NULL
                 ORDER BY posted_at DESC LIMIT ?
@@ -399,13 +511,15 @@ def price_note_for(previous: Optional[int], lowest_before: Optional[int], price:
     return f"Lower than the last price we saw (₹{previous:,})."
 
 def _ai_copy_keeps_price(ai_body: str, deal: Deal) -> bool:
-    """Reject model copy that dropped the real deal price."""
+    """Reject model copy that dropped the real deal price. Normalizes commas and .00."""
     if not deal.current_price:
         return True
-    digits = re.sub(r"\D", "", deal.current_price)
-    if len(digits) < 2:
+    price = parse_rupees(deal.current_price)
+    if not price:
         return True
-    return digits in re.sub(r"\D", "", ai_body or "")
+    clean_body = re.sub(r"\.00\b", "", ai_body or "")
+    digits = str(price)
+    return digits in re.sub(r"\D", "", clean_body)
 
 
 def offer_percent(deal: Deal) -> Optional[int]:
@@ -441,9 +555,11 @@ def safe_telegram_post(endpoint: str, payload: dict, timeout: int = 20) -> reque
 
 
 def deal_badge(deal: Deal) -> str:
-    """LOOT for a steep drop, including a product under ₹99. Otherwise DEAL."""
+    """LOOT ALERT for loot items or steep drops, FURTHER PRICE DROP for drops. Otherwise DEAL."""
     if getattr(deal, "is_further_price_drop", False):
         return "FURTHER PRICE DROP"
+    if getattr(deal, "is_loot", False):
+        return "LOOT ALERT"
     percent = offer_percent(deal) or 0
     price = parse_rupees(deal.current_price)
     if percent >= 50 or (price is not None and price < 100 and percent >= 20):
@@ -471,10 +587,15 @@ def _ai_tagline(ai_body: Optional[str], deal: Deal) -> Optional[str]:
 def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
     retailer = html.escape(deal.retailer or "Store")
     badge = deal_badge(deal)
-    mark = "🔥" if badge == "LOOT" else "⚡"
+    if badge == "LOOT ALERT":
+        mark = "🚨"
+    elif badge in ("LOOT", "FURTHER PRICE DROP"):
+        mark = "🔥"
+    else:
+        mark = "⚡"
 
-    ai_body = None
-    if copywriter and copywriter.is_configured():
+    ai_body = getattr(deal, "_cached_ai_copy", None)
+    if ai_body is None and copywriter and copywriter.is_configured():
         ai_body = copywriter.craft_deal_copy(deal)
         if ai_body and not _ai_copy_keeps_price(ai_body, deal):
             logger.info("Agent critic rejected AI copy that dropped the deal price.")
@@ -504,6 +625,9 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     bank = (deal.bank_offer or "").strip()
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
         lines.append(f"Bank offer: {html.escape(bank[:90])}")
+    if getattr(deal, "rating", None) is not None:
+        reviews_part = f" ({deal.review_count:,} reviews)" if getattr(deal, "review_count", None) else ""
+        lines.append(f"⭐ <b>{deal.rating}★</b>{reviews_part}")
     if deal.price_note:
         lines.append(html.escape(deal.price_note))
     if deal.checked:

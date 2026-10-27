@@ -84,7 +84,9 @@ def mark_cycle(when: datetime | None = None) -> None:
 
     when = as_ist(when or datetime.now(IST)).astimezone(timezone.utc)
     stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")
-    StateStore(str(database_path())).set_meta(META_KEY, stamp)
+    store = StateStore(str(database_path()))
+    store.set_meta(META_KEY, stamp)
+    store.checkpoint()
 
 
 def main() -> int:

@@ -119,35 +119,40 @@ def sanitize_telegram_html(text: str) -> str:
 def validate_critic(copy_text: str, deal: Deal) -> bool:
     """
     Strict Critic: verify that the LLM did not hallucinate a price,
-    discount percentage, or coupon code absent from deal metadata.
+    discount percentage, coupon code, or bank offer absent from deal metadata.
+    Normalizes Indian number formatting (₹1,24,999) and decimals (.00).
     """
     if not copy_text:
         return False
 
+    from dealbot.models import parse_rupees
+    cur_p = parse_rupees(deal.current_price)
+    org_p = parse_rupees(deal.original_price)
+    sav_p = deal.savings_rupees()
+    valid_prices = {p for p in (cur_p, org_p, sav_p) if p is not None}
+
+    # Normalize copy text: remove trailing .00 from currency amounts
+    clean_copy = re.sub(r"\.00\b", "", copy_text)
+
     # 1. Price check: deal price digits must be present
-    if deal.current_price:
-        deal_digits = re.sub(r"\D", "", deal.current_price)
-        if len(deal_digits) >= 2 and deal_digits not in re.sub(r"\D", "", copy_text):
-            logger.info("Critic rejected AI copy: real deal price digits missing.")
+    if cur_p is not None:
+        clean_digits = re.sub(r"\D", "", clean_copy)
+        if str(cur_p) not in clean_digits:
+            logger.info(f"Critic rejected AI copy: real deal price digits ({cur_p}) missing.")
             return False
 
-    # Extract all prices mentioned in copy (e.g. ₹999 or Rs. 999)
+    # Extract all prices mentioned in copy (e.g. ₹1,24,999 or Rs. 1,499.00 or ₹899)
     mentioned_prices = []
-    for match in re.findall(r"(?:₹|Rs\.?)\s*([\d,]+)", copy_text, re.IGNORECASE):
+    for match in re.findall(r"(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)", copy_text, re.IGNORECASE):
         try:
-            val = int(match.replace(",", ""))
+            val = int(round(float(match.replace(",", ""))))
             mentioned_prices.append(val)
         except ValueError:
             pass
 
-    if mentioned_prices:
-        from dealbot.models import parse_rupees
-        cur_p = parse_rupees(deal.current_price)
-        org_p = parse_rupees(deal.original_price)
-        sav_p = deal.savings_rupees()
-        valid_prices = {p for p in (cur_p, org_p, sav_p) if p is not None}
+    if mentioned_prices and valid_prices:
         for p in mentioned_prices:
-            if valid_prices and not any(abs(p - vp) <= 2 for vp in valid_prices):
+            if not any(abs(p - vp) <= 2 for vp in valid_prices):
                 logger.info(f"Critic rejected AI copy: hallucinated price ₹{p} (valid: {valid_prices})")
                 return False
 
@@ -160,11 +165,24 @@ def validate_critic(copy_text: str, deal: Deal) -> bool:
             return False
 
     # 3. Coupon check: reject fake coupon codes
-    coupon_matches = re.findall(r"\b(?:coupon|promo\s*code|code)\s*[:=]?\s*['\"]?([A-Za-z0-9_-]{3,20})['\"]?", copy_text, re.IGNORECASE)
+    coupon_matches = re.findall(
+        r"\b(?:coupon|promo\s*code|code)\s*[:=]?\s*['\"]?([A-Za-z0-9_-]{3,20})['\"]?",
+        copy_text,
+        re.IGNORECASE,
+    )
     for c_code in coupon_matches:
-        if not deal.coupon_code or c_code.upper() != deal.coupon_code.upper():
+        if not deal.coupon_code or c_code.upper() not in deal.coupon_code.upper():
             logger.info(f"Critic rejected AI copy: hallucinated coupon '{c_code}'")
             return False
+
+    # 4. Bank offer check: verify mentioned banks exist in deal metadata
+    known_banks = ["hdfc", "icici", "sbi", "axis", "kotak", "citi", "bob", "yes bank", "federal"]
+    bank_offer_lower = (deal.bank_offer or "").lower()
+    for bank in known_banks:
+        if re.search(r"\b" + re.escape(bank) + r"\b", copy_text, re.IGNORECASE):
+            if bank not in bank_offer_lower:
+                logger.info(f"Critic rejected AI copy: hallucinated bank offer '{bank}' (metadata: {deal.bank_offer})")
+                return False
 
     return True
 

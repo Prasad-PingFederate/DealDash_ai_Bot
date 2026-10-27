@@ -102,6 +102,210 @@ def check_deal_is_active(url: str, timeout: int = 8) -> bool:
     return inspect_stock(url, timeout=timeout) != "out_of_stock"
 
 
+def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
+    """
+    Fetch an Amazon product page and extract live stock status and enriched metadata:
+    - stock_status: 'in_stock', 'out_of_stock', or 'unknown'
+    - live_price: int or None
+    - mrp: int or None
+    - rating: float or None
+    - review_count: int or None
+    - coupon: str or None
+    - bank_offer: str or None
+    - hi_res_image: str or None
+    """
+    result = {
+        "stock_status": "unknown",
+        "live_price": None,
+        "mrp": None,
+        "rating": None,
+        "review_count": None,
+        "coupon": None,
+        "bank_offer": None,
+        "hi_res_image": None,
+    }
+    if not url:
+        result["stock_status"] = "out_of_stock"
+        return result
+
+    try:
+        headers = dict(DEFAULT_STOCK_HEADERS)
+        headers["User-Agent"] = random.choice(CHROME_USER_AGENTS)
+        resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        if resp.status_code in [404, 410]:
+            result["stock_status"] = "out_of_stock"
+            return result
+        if resp.status_code in [403, 429, 503] or resp.status_code != 200:
+            result["stock_status"] = "unknown"
+            return result
+
+        text = resp.text
+        # Explicit bot/CAPTCHA detection
+        if any(p.search(text[:80000]) for p in CAPTCHA_PATTERNS):
+            result["stock_status"] = "unknown"
+            return result
+
+        # Check stock status
+        oos_matched = any(p.search(text[:80000]) for p in AMAZON_OOS_INDICATORS)
+        buyable = bool(re.search(r"add to cart|buy now|(?<!back )in stock", text[:80000], re.IGNORECASE))
+        if oos_matched and not buyable:
+            result["stock_status"] = "out_of_stock"
+            return result
+        elif buyable:
+            result["stock_status"] = "in_stock"
+        else:
+            result["stock_status"] = "unknown"
+
+        # 1. Live Price
+        from dealbot.models import parse_rupees
+        price_patterns = [
+            r'class="a-price-whole"[^>]*>([\d,]+)',
+            r'class="priceToPay"[^>]*>.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'class="apexPriceToPay"[^>]*>.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'id="corePriceDisplay_desktop_feature_div".*?class="a-price-whole"[^>]*>([\d,]+)',
+            r'id="priceblock_dealprice"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'id="priceblock_ourprice"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+        ]
+        for pattern in price_patterns:
+            m = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+            if m:
+                p = parse_rupees(m.group(1))
+                if p and p > 0:
+                    result["live_price"] = p
+                    break
+
+        # 2. MRP / Original Price
+        mrp_patterns = [
+            r'class="basisPrice"[^>]*>.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'class="a-price a-text-price"[^>]*>.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'id="corePriceDisplay_desktop_feature_div".*?class="a-text-price"[^>]*>.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+            r'M\.R\.P\.:.*?class="a-offscreen"[^>]*>₹?\s*([\d,]+(?:\.\d+)?)',
+        ]
+        for pattern in mrp_patterns:
+            m = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+            if m:
+                p = parse_rupees(m.group(1))
+                if p and p > 0:
+                    result["mrp"] = p
+                    break
+
+        # 3. Customer Rating
+        rating_match = re.search(r'(?:id="acrPopover"[^>]*title="|class="a-icon-alt"[^>]*>)\s*([\d\.]+)\s*(?:out of 5|stars)', text, re.IGNORECASE)
+        if rating_match:
+            try:
+                r_val = float(rating_match.group(1))
+                if 1.0 <= r_val <= 5.0:
+                    result["rating"] = round(r_val, 1)
+            except ValueError:
+                pass
+
+        # 4. Review Count
+        review_match = re.search(r'(?:id="acrCustomerReviewText"[^>]*>|id="averageCustomerReviews"[^>]*>[\s\S]*?>)\s*([\d,]+)\s*(?:ratings|reviews|customer reviews)', text, re.IGNORECASE)
+        if review_match:
+            try:
+                result["review_count"] = int(review_match.group(1).replace(",", ""))
+            except ValueError:
+                pass
+
+        # 5. On-page Coupons
+        coupon_patterns = [
+            r'Apply\s*(?:₹|Rs\.?)\s*(\d+)\s*coupon',
+            r'Save\s*(?:₹|Rs\.?)\s*(\d+)\s*(?:with|at checkout|coupon)',
+            r'Save\s*(\d+)\s*%\s*(?:with|at checkout|coupon)',
+            r'id="couponBadge"[^>]*>([^<]+)',
+        ]
+        for pattern in coupon_patterns:
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                raw_c = m.group(0).strip()
+                clean_c = re.sub(r"\s+", " ", raw_c)
+                if len(clean_c) <= 40:
+                    result["coupon"] = clean_c
+                    break
+
+        # 6. Bank Offers
+        bank_match = re.search(r'(?:Instant Discount up to ₹?[\d,]+ on [A-Za-z0-9 ]+|Bank Offer: [^<]{5,80}|10% Instant Discount on [A-Za-z0-9 ]+)', text, re.IGNORECASE)
+        if bank_match:
+            result["bank_offer"] = re.sub(r"\s+", " ", bank_match.group(0).strip())[:80]
+
+        # 7. High-Res Image
+        hires_match = re.search(r'data-old-hires="([^"]+)"', text)
+        if hires_match and hires_match.group(1).startswith("http"):
+            result["hi_res_image"] = hires_match.group(1)
+        else:
+            dyn_match = re.search(r'data-a-dynamic-image=\'({[^}]+})\'', text)
+            if dyn_match:
+                try:
+                    import json
+                    img_dict = json.loads(dyn_match.group(1))
+                    if isinstance(img_dict, dict) and img_dict:
+                        best_img = max(img_dict.items(), key=lambda kv: kv[1][0] * kv[1][1] if isinstance(kv[1], list) and len(kv[1]) >= 2 else 0)
+                        if best_img[0].startswith("http"):
+                            result["hi_res_image"] = best_img[0]
+                except Exception:
+                    pass
+
+        return result
+    except requests.RequestException as e:
+        logger.warning(f"Enrichment request failed for {url}: {e}")
+        return result
+
+
+def mark_telegram_deal_price_spike(
+    token: str,
+    chat_id: str,
+    message_id: int,
+    original_caption: str,
+    new_price: int,
+    is_photo: bool = True,
+) -> bool:
+    """
+    Update a previously posted Telegram message to prepend:
+    ⚠️ [DEAL ENDED — PRICE INCREASED TO ₹{new_price:,}]
+    """
+    if not token or not chat_id or not message_id:
+        return False
+
+    spike_prefix = f"⚠️ <b>[DEAL ENDED — PRICE INCREASED TO ₹{new_price:,}]</b>\n\n"
+    cleaned_caption = re.sub(
+        r"^(?:❌\s*<b>\[OFFER EXPIRED / OUT OF STOCK\]</b>|⚠️\s*<b>\[DEAL ENDED[^\]]*\]</b>)\s*",
+        "",
+        original_caption,
+        flags=re.IGNORECASE,
+    ).strip()
+    spike_caption = f"{spike_prefix}{cleaned_caption}"
+    if len(spike_caption) > 1024:
+        spike_caption = spike_caption[:1020] + "..."
+
+    endpoint = (
+        f"https://api.telegram.org/bot{token}/editMessageCaption"
+        if is_photo
+        else f"https://api.telegram.org/bot{token}/editMessageText"
+    )
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "parse_mode": "HTML",
+    }
+    if is_photo:
+        payload["caption"] = spike_caption
+    else:
+        payload["text"] = spike_caption
+
+    try:
+        from dealbot.publisher import safe_telegram_post
+        r = safe_telegram_post(endpoint, payload=payload, timeout=10)
+        if r.status_code == 200:
+            logger.info(f"Successfully updated Telegram message {message_id} as PRICE SPIKE (₹{new_price:,}).")
+            return True
+        else:
+            logger.warning(f"Telegram edit message failed ({r.status_code}): {r.text}")
+            return False
+    except requests.RequestException as e:
+        logger.error(f"Error calling Telegram edit message: {e}")
+        return False
+
+
 def mark_telegram_deal_expired(token: str, chat_id: str, message_id: int, original_caption: str, is_photo: bool = True) -> bool:
     """
     Update a previously posted Telegram message to prepend [OFFER EXPIRED / OUT OF STOCK].
