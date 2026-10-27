@@ -110,3 +110,4 @@ def test_export_web_feed(tmp_path):
         stats = json.load(f)
     assert stats["total_live_deals"] == 3
     assert stats["max_discount_pct"] >= 40
+

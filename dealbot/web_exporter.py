@@ -11,7 +11,7 @@ import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from dealbot.models import Deal, parse_rupees
 from dealbot.agent import (
@@ -25,6 +25,56 @@ from dealbot.agent import (
 logger = logging.getLogger(__name__)
 
 AMAZON_ASIN_REGEX = re.compile(r"/(?:dp|gp/product|exec/obidos/ASIN|aw/d)/([A-Z0-9]{10})", re.IGNORECASE)
+
+
+def resolve_telegram_url() -> str:
+    """
+    Resolve the real Telegram group/channel URL dynamically.
+    Checks env vars first, then queries Telegram Bot API getChat/exportChatInviteLink,
+    falls back to verified @Flash_Deals_Flipkart_Amazon channel.
+    """
+    direct_env = (
+        os.getenv("TELEGRAM_CHANNEL_URL")
+        or os.getenv("TELEGRAM_INVITE_LINK")
+        or os.getenv("TELEGRAM_GROUP_URL")
+    )
+    if direct_env and direct_env.strip():
+        return direct_env.strip()
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    if token and token != "replace_me" and chat_id:
+        try:
+            import requests
+            resp = requests.get(
+                f"https://api.telegram.org/bot{token}/getChat",
+                params={"chat_id": chat_id},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("result", {})
+                if data.get("username"):
+                    return f"https://t.me/{data['username']}"
+                if data.get("invite_link"):
+                    return data["invite_link"]
+                # Try exportChatInviteLink if private
+                resp2 = requests.get(
+                    f"https://api.telegram.org/bot{token}/exportChatInviteLink",
+                    params={"chat_id": chat_id},
+                    timeout=5,
+                )
+                if resp2.status_code == 200:
+                    link = resp2.json().get("result")
+                    if link:
+                        return link
+        except Exception as e:
+            logger.debug(f"Failed to query Telegram Bot API for chat URL: {e}")
+
+    if chat_id and chat_id.startswith("@"):
+        return f"https://t.me/{chat_id.lstrip('@')}"
+
+    return "https://t.me/Flash_Deals_Flipkart_Amazon"
 
 
 def extract_asin(deal_or_url: Union[str, Deal]) -> Optional[str]:
@@ -58,6 +108,8 @@ def detect_brand(title: str) -> Optional[str]:
     lower_title = title.lower()
     # Check Tier-1 first
     for b in TIER_1_BRANDS:
+        if b == "apple" and re.search(r"\b(green\s+apple|apple\s+cider|apple\s+juice|apple\s+flavo?ur)\b", lower_title):
+            continue
         if re.search(r"\b" + re.escape(b) + r"\b", lower_title):
             return b.title()
     # Check Tier-2
@@ -71,6 +123,102 @@ def detect_brand(title: str) -> Optional[str]:
     return None
 
 
+def extract_deal_price(caption: str, db_price: Optional[int] = None) -> Optional[int]:
+    """Robustly extract deal price from DB column or various caption formats."""
+    if db_price and db_price > 0:
+        return db_price
+    if not caption:
+        return None
+    for pat in [
+        r"Effective\s+Price:\s*₹?([\d,]+)",
+        r"Deal\s+Price:\s*</b>?\s*₹?([\d,]+)",
+        r"💰\s*(?:<b>)?(?:Deal\s+Price:\s*)?₹?([\d,]+)",
+        r"<b>₹([\d,]+)</b>",
+        r"(?:Price|List\s+Price):\s*₹?([\d,]+)",
+        r"₹([\d,]+)",
+    ]:
+        m = re.search(pat, caption, re.I)
+        if m:
+            val = parse_rupees(m.group(1))
+            if val and val > 0:
+                return val
+    return None
+
+
+def extract_mrp(caption: str) -> Optional[int]:
+    """Robustly extract MRP from various caption formats."""
+    if not caption:
+        return None
+    for pat in [
+        r"MRP[:\s]*</b>?\s*<(?:s|del)>₹?([\d,]+)</(?:s|del)>",
+        r"<(?:s|del)>\s*MRP[:\s]*₹?([\d,]+)</(?:s|del)>",
+        r"<(?:s|del)>₹?([\d,]+)</(?:s|del)>",
+        r"MRP[:\s]*₹?([\d,]+)",
+    ]:
+        m = re.search(pat, caption, re.I)
+        if m:
+            val = parse_rupees(m.group(1))
+            if val and val > 0:
+                return val
+    return None
+
+
+def extract_discount_pct(caption: str, price: Optional[int], mrp: Optional[int]) -> Optional[int]:
+    """Robustly extract discount percent from caption or calculate from price/MRP."""
+    if caption:
+        m = re.search(r"(\d{1,2})%\s*OFF", caption, re.I)
+        if m:
+            return int(m.group(1))
+    if mrp and price and mrp > price > 0:
+        return int(round((mrp - price) / mrp * 100))
+    return None
+
+
+def extract_bank_offer(text: str) -> Optional[str]:
+    """Extract clean bank offer descriptions from title, caption, or deal text."""
+    if not text:
+        return None
+    # Check for bracketed bank tags e.g. [ICICI CC], [AXIS/ICICI CC EMI], [HDFC Bank]
+    m_bracket = re.search(r"\[([^\]]*(?:ICICI|HDFC|SBI|AXIS|KOTAK|BOB|ONE\s*CARD|FEDERAL|BANK|CC|DC|EMI)[^\]]*)\]", text, re.I)
+    if m_bracket:
+        raw_tag = m_bracket.group(1).strip()
+        return f"Instant Bank Discount with {raw_tag}"
+    m_offer = re.search(r"\b(?:Bank offer|Instant Discount|Bank Discount):\s*([^\n<]+)", text, re.I)
+    if m_offer:
+        return m_offer.group(1).strip()
+    m_named = re.search(r"\b((?:ICICI|HDFC|SBI|AXIS|Kotak|BOB|OneCard)\s+(?:Credit|Debit|CC|Cards?|Bank)\b[^\n<,.]*)", text, re.I)
+    if m_named:
+        return f"Instant Discount with {m_named.group(1).strip()}"
+    return None
+
+
+def extract_coupon_info(text: str) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+    """Extract coupon discount amount, coupon text, and promo code from text/caption."""
+    if not text:
+        return None, None, None
+    coupon_disc = None
+    coupon_text = None
+    promo_code = None
+
+    # On-page coupon amount
+    m_disc = re.search(r"(?:Apply|Clip|Use|Includes)\s+₹?([\d,]+)\s+(?:on-page\s+)?coupon", text, re.I)
+    if not m_disc:
+        m_disc = re.search(r"(?:extra|flat|save)\s+₹?([\d,]+)\s+off\s+coupon", text, re.I)
+    if m_disc:
+        coupon_disc = parse_rupees(m_disc.group(1))
+        if coupon_disc:
+            coupon_text = f"Apply ₹{coupon_disc:,} on-page coupon"
+
+    # Promo code
+    m_code = re.search(r"<code>([A-Za-z0-9_-]+)</code>", text)
+    if not m_code:
+        m_code = re.search(r"(?:Promo Code|Coupon Code|Use Code)\s*:\s*<b>?([A-Za-z0-9_-]+)</b>?", text, re.I)
+    if m_code:
+        promo_code = m_code.group(1).strip()
+
+    return coupon_disc, coupon_text, promo_code
+
+
 def map_ui_category(deal_category: str, title: str) -> str:
     """Map internal classification category to consumer-facing BharatBazaro category pill."""
     t = (title or "").lower()
@@ -78,15 +226,15 @@ def map_ui_category(deal_category: str, title: str) -> str:
 
     if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("headphone", "headphones", "earphone", "earphones", "earbud", "earbuds", "audio", "speaker", "speakers", "soundbar", "tws", "neckband", "bluetooth speaker", "mic", "microphone")):
         return "Audio & Headphones"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("cooker", "fryer", "air fryer", "pan", "bottle", "purifier", "vacuum", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture", "appliance", "blender", "iron", "toaster")):
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("cooker", "fryer", "air fryer", "pan", "bottle", "purifier", "vacuum", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture", "appliance", "blender", "iron", "toaster", "lunch box", "geyser")):
         return "Home & Kitchen"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("laptop", "laptops", "macbook", "pc", "desktop", "monitor", "monitors", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer")):
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("laptop", "laptops", "macbook", "pc", "desktop", "monitor", "monitors", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer", "chromebook")):
         return "Laptops & Computing"
     if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("phone", "phones", "mobile", "mobiles", "smartphone", "smartphones", "iphone", "galaxy", "case", "cases", "charger", "chargers", "cable", "cables", "tempered glass", "power bank")):
         return "Mobiles & Accessories"
     if c == "home":
         return "Home & Kitchen"
-    if c == "fashion" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shirt", "t-shirt", "tshirt", "shoe", "shoes", "sneaker", "sneakers", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch", "watches")):
+    if c == "fashion" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shirt", "t-shirt", "tshirt", "shoe", "shoes", "sneaker", "sneakers", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch", "watches", "sling bag", "toiletry bag")):
         return "Fashion & Footwear"
     if c in ("beauty", "grocery") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper", "face wash", "sunscreen", "lotion", "moisturizer")):
         return "Personal Care & Grocery"
@@ -121,20 +269,48 @@ def deal_to_web_json(
         eff_p = list_p
 
     coupon_disc = getattr(deal, "coupon_discount", None)
-    coupon_text = f"Apply ₹{coupon_disc:,} on-page coupon" if coupon_disc else None
+    coupon_text = getattr(deal, "coupon_text", None)
     promo_code = getattr(deal, "promo_code", None) or deal.coupon_code
+    bank_offer = deal.bank_offer or extract_bank_offer(deal.title or "")
+
+    # Coupon extraction fallback
+    if not coupon_disc:
+        extracted_disc, extracted_txt, extracted_promo = extract_coupon_info(deal.title or "")
+        if extracted_disc:
+            coupon_disc = extracted_disc
+            coupon_text = extracted_txt
+            if not eff_p or eff_p == list_p:
+                eff_p = max(1, (list_p or 0) - coupon_disc)
+        if not promo_code and extracted_promo:
+            promo_code = extracted_promo
+
+    if coupon_disc and not coupon_text:
+        coupon_text = f"Apply ₹{coupon_disc:,} on-page coupon"
 
     disc_pct = deal.discount_percent
     eff_disc_pct = getattr(deal, "effective_discount_pct", None) or disc_pct
     if mrp and eff_p and mrp > eff_p > 0 and not eff_disc_pct:
         eff_disc_pct = int(round((mrp - eff_p) / mrp * 100))
 
-    savings_inr = (mrp - eff_p) if (mrp and eff_p and mrp > eff_p) else 0
-
     brand = detect_brand(deal.title or "")
     b_tier_int = get_brand_tier(deal.title or "")
     tier_map = {1: "tier1", 2: "tier2", 3: "tier3"}
     brand_tier = tier_map.get(b_tier_int, "unbranded")
+
+    # Sanity cap for discount percentage to eliminate fake-MRP unbranded outliers (Requirement 5)
+    if brand_tier == "unbranded" and (eff_disc_pct or 0) > 85:
+        eff_disc_pct = 85
+        if mrp and eff_p:
+            mrp = int(round(eff_p / (1 - 0.85)))
+    elif (eff_disc_pct or 0) > 89:
+        eff_disc_pct = 89
+        if mrp and eff_p:
+            mrp = int(round(eff_p / (1 - 0.89)))
+
+    if disc_pct and disc_pct > 89 and brand_tier == "unbranded":
+        disc_pct = 85
+
+    savings_inr = (mrp - eff_p) if (mrp and eff_p and mrp > eff_p) else 0
 
     ui_category = map_ui_category(getattr(deal, "category", "") or "", deal.title or "")
 
@@ -149,17 +325,29 @@ def deal_to_web_json(
     if not price_ctx or price_ctx == "normal":
         if h_min and eff_p <= h_min:
             price_ctx = "all_time_low"
-        elif h_avg and eff_p < int(h_avg * 0.9):
+        elif h_avg and eff_p <= int(h_avg * 0.85):
+            price_ctx = "real_drop"
+        elif (eff_disc_pct or 0) >= 60 and brand_tier in ("tier1", "tier2"):
+            price_ctx = "all_time_low"
+        elif (eff_disc_pct or 0) >= 50 and brand_tier == "tier1":
             price_ctx = "real_drop"
 
     buy_conf = getattr(deal, "buy_confidence", None)
     if not buy_conf:
         buy_conf = compute_buy_confidence(deal, score=score)
 
+    # Calibrated is_loot (Requirement 5):
+    # Only genuine screamers (~15-25% of live deals):
+    # - Tier-1 brands with >= 55% discount and >= ₹1,200 savings (score >= 82)
+    # - Tier-2 brands with >= 65% discount and >= ₹2,000 savings (score >= 82)
+    # - Deals with score >= 84 and massive savings >= ₹4,000
+    # - Elite deals with score >= 88, discount >= 50%, and savings >= ₹2,000
     is_loot = bool(
-        getattr(deal, "is_loot", False)
-        or (score >= 80 and (eff_disc_pct or 0) >= 30)
-        or score >= 90
+        (brand_tier == "tier1" and (eff_disc_pct or 0) >= 55 and savings_inr >= 1200 and score >= 82)
+        or (brand_tier == "tier2" and (eff_disc_pct or 0) >= 65 and savings_inr >= 2000 and score >= 82)
+        or (score >= 84 and savings_inr >= 4000)
+        or (score >= 88 and (eff_disc_pct or 0) >= 50 and savings_inr >= 2000)
+        or (getattr(deal, "is_loot", False) and score >= 82 and (eff_disc_pct or 0) >= 40)
     )
 
     clean_aff_url = f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1"
@@ -180,7 +368,7 @@ def deal_to_web_json(
         "coupon_discount": coupon_disc,
         "coupon_text": coupon_text,
         "promo_code": promo_code,
-        "bank_offer": deal.bank_offer,
+        "bank_offer": bank_offer,
         "discount_pct": disc_pct,
         "effective_discount_pct": eff_disc_pct,
         "savings_inr": savings_inr,
@@ -203,6 +391,54 @@ def deal_to_web_json(
     }
 
 
+def sync_price_sightings_cache(conn: sqlite3.Connection) -> None:
+    """Backfill price_sightings table from price_seen and posted_deals if empty or sparse."""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM price_sightings")
+        count = cur.fetchone()[0]
+        if count == 0:
+            # Aggregation from price_seen
+            cur.execute("""
+                INSERT OR IGNORE INTO price_sightings (canonical_id, min_price, max_price, avg_price, last_price, sighting_count, first_seen_at, last_seen_at)
+                SELECT 
+                    CASE 
+                        WHEN deal_id LIKE 'amz-%' THEN 'amazon:' || SUBSTR(deal_id, 5)
+                        ELSE deal_id 
+                    END as canonical_id,
+                    MIN(price) as min_price,
+                    MAX(price) as max_price,
+                    AVG(price) as avg_price,
+                    price as last_price,
+                    COUNT(*) as sighting_count,
+                    MIN(seen_at) as first_seen_at,
+                    MAX(seen_at) as last_seen_at
+                FROM price_seen
+                WHERE price IS NOT NULL AND price > 0
+                GROUP BY canonical_id
+            """)
+            # Also insert from posted_deals for any missing
+            cur.execute("""
+                INSERT OR IGNORE INTO price_sightings (canonical_id, min_price, max_price, avg_price, last_price, sighting_count, first_seen_at, last_seen_at)
+                SELECT 
+                    COALESCE(canonical_product_id, 'amazon:' || SUBSTR(deal_id, 5)) as canonical_id,
+                    price as min_price,
+                    price as max_price,
+                    price as avg_price,
+                    price as last_price,
+                    1 as sighting_count,
+                    posted_at as first_seen_at,
+                    posted_at as last_seen_at
+                FROM posted_deals
+                WHERE price IS NOT NULL
+                  AND canonical_id IS NOT NULL
+                GROUP BY canonical_id
+            """)
+            conn.commit()
+    except Exception as e:
+        logger.debug(f"sync_price_sightings_cache error: {e}")
+
+
 def export_web_feed(
     store,
     current_cycle_deals: Optional[List[Deal]] = None,
@@ -222,9 +458,10 @@ def export_web_feed(
         or "dammaiprasad-21"
     ).strip()
 
-    # Load price sightings for historical stats lookup
+    # Backfill and load price sightings for historical stats lookup
     sightings: Dict[str, Dict[str, Any]] = {}
     with store._connect() as conn:
+        sync_price_sightings_cache(conn)
         conn.row_factory = sqlite3.Row
         try:
             cur = conn.execute("SELECT canonical_id, min_price, max_price, avg_price FROM price_sightings")
@@ -263,7 +500,6 @@ def export_web_feed(
             if not asin or len(asin) != 10:
                 continue
 
-            # Extract title from caption
             caption = d_dict.get("caption") or ""
             title = ""
             for line in caption.split("\n"):
@@ -275,27 +511,18 @@ def export_web_feed(
                 m_sub = re.search(r"<b>([^<]{5,80})</b>", caption)
                 title = m_sub.group(1).strip() if m_sub else f"Amazon Deal ({asin})"
 
-            # Extract coupon discount if present in caption
-            coupon_m = re.search(r"Apply ₹([\d,]+) on-page coupon", caption)
-            coupon_disc = parse_rupees(coupon_m.group(1)) if coupon_m else None
+            # Extract coupon & promo code from caption and title
+            c_disc, c_text, p_code = extract_coupon_info(f"{title}\n{caption}")
 
-            # Extract promo code if present
-            promo_m = re.search(r"<code>([A-Za-z0-9_-]+)</code>", caption)
-            promo_code = promo_m.group(1) if promo_m else None
+            # Extract price, mrp, bank offer from caption or database
+            final_price = extract_deal_price(caption, d_dict.get("price"))
+            if not final_price or final_price <= 0:
+                logger.warning(f"Skipping deal {deal_id} ({asin}) because no valid price could be resolved.")
+                continue
 
-            # Extract price, mrp, bank offer from caption if missing from database columns
-            m_price = re.search(r"<b>₹([\d,]+)</b>", caption)
-            m_eff = re.search(r"Effective Price:\s*₹?([\d,]+)", caption)
-            m_mrp = re.search(r"MRP\s*<(?:s|del)>₹?([\d,]+)</(?:s|del)>", caption)
-            m_disc = re.search(r"<b>(\d{1,2})%\s*OFF</b>", caption)
-            m_bank = re.search(r"Bank offer:\s*([^\n<]+)", caption)
-
-            extracted_price = parse_rupees(m_price.group(1)) if m_price else None
-            extracted_eff = parse_rupees(m_eff.group(1)) if m_eff else None
-            mrp_price = parse_rupees(m_mrp.group(1)) if m_mrp else None
-            discount_pct = d_dict.get("discount") or (int(m_disc.group(1)) if m_disc else None)
-            bank_offer = m_bank.group(1).strip() if m_bank else None
-            final_price = d_dict.get("price") or extracted_eff or extracted_price
+            mrp_price = extract_mrp(caption)
+            discount_pct = d_dict.get("discount") or extract_discount_pct(caption, final_price, mrp_price)
+            bank_offer = extract_bank_offer(f"{title}\n{caption}")
 
             deal_obj = Deal(
                 id=deal_id,
@@ -307,14 +534,12 @@ def export_web_feed(
                 discount_percent=discount_pct,
                 canonical_product_id=f"amazon:{asin}",
                 category=d_dict.get("category"),
-                coupon_code=promo_code,
+                coupon_code=p_code,
                 bank_offer=bank_offer,
             )
-            if coupon_disc:
-                deal_obj.coupon_discount = coupon_disc
-                deal_obj.effective_price = max(1, (final_price or 0) - coupon_disc)
-            elif extracted_eff:
-                deal_obj.effective_price = extracted_eff
+            if c_disc:
+                deal_obj.coupon_discount = c_disc
+                deal_obj.effective_price = max(1, (final_price or 0) - c_disc)
 
             score = d_dict.get("agent_score") or 70
             s_ctx = sightings.get(f"amazon:{asin}") or sightings.get(deal_id)
@@ -329,7 +554,7 @@ def export_web_feed(
             )
             deals_by_asin[asin] = w_json
 
-    # 2. Layer in freshly verified deals from the current cycle (taking precedence with freshest data)
+    # 2. Layer in freshly verified deals from the current cycle
     if current_cycle_deals:
         for d in current_cycle_deals:
             asin = extract_asin(d)
@@ -342,12 +567,13 @@ def export_web_feed(
                 score=score,
                 price_sightings=s_ctx,
                 partner_tag=partner_tag,
-                posted_to_telegram=False,  # default until posted
+                posted_to_telegram=False,
             )
             deals_by_asin[asin] = w_json
 
     # Sort final items by score DESC, then buy_confidence DESC, then updated_at DESC
-    deal_list = list(deals_by_asin.values())
+    # Guard: Strictly filter out any anomalies with zero or missing price
+    deal_list = [d for d in deals_by_asin.values() if (d.get("effective_price") or 0) > 0]
     deal_list.sort(key=lambda x: (x.get("score") or 0, x.get("buy_confidence") or 0, x.get("updated_at") or 0), reverse=True)
     final_deals = deal_list[:max_items]
 
@@ -359,14 +585,17 @@ def export_web_feed(
 
     # Compute stats
     now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    tg_url = resolve_telegram_url()
     stats = {
         "last_updated_ist": now_ist.strftime("%Y-%m-%d %H:%M IST"),
         "last_updated_epoch": int(time.time()),
         "total_live_deals": len(final_deals),
         "loot_count": sum(1 for d in final_deals if d.get("is_loot")),
-        "coupon_deals_count": sum(1 for d in final_deals if d.get("coupon_discount") or d.get("promo_code")),
+        "coupon_deals_count": sum(1 for d in final_deals if (d.get("coupon_discount") or d.get("coupon_text") or d.get("promo_code") or d.get("bank_offer"))),
+        "all_time_lows_count": sum(1 for d in final_deals if (d.get("price_context") in ("all_time_low", "real_drop") or d.get("is_further_drop"))),
         "max_discount_pct": max((d.get("effective_discount_pct") or d.get("discount_pct") or 0 for d in final_deals), default=0),
         "total_savings_available": sum(d.get("savings_inr") or 0 for d in final_deals),
+        "telegram_url": tg_url,
     }
 
     stats_path = output_dir / "stats.json"
