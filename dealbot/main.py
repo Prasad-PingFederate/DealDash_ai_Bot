@@ -556,12 +556,13 @@ def run_once() -> int:
             store.checkpoint()
             logger.info("Sent and pinned nightly Top Live Mega-Deals Digest for %s.", today_str)
 
-    # 24/7 Web Feed Export to data/live_deals.json & data/stats.json
-    try:
-        from dealbot.web_exporter import export_web_feed
-        export_web_feed(store, current_cycle_deals=verified_candidates)
-    except Exception as e:
-        logger.warning(f"Error exporting web feed: {e}")
+    # 24/7 Web Feed Export to data/live_deals.json & data/stats.json (skip during pytest)
+    if not os.getenv("PYTEST_CURRENT_TEST"):
+        try:
+            from dealbot.web_exporter import export_web_feed
+            export_web_feed(store, current_cycle_deals=verified_candidates)
+        except Exception as e:
+            logger.warning(f"Error exporting web feed: {e}")
 
     logger.info(f"Cycle complete. Posted {posted_count} new deal(s) (dry_run={dry_run}, agent={agent_mode}).")
     return posted_count

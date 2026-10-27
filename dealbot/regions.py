@@ -14,8 +14,8 @@ REGIONS: Dict[str, Dict[str, Any]] = {
         "currency_code": "INR",
         "keepa_domain": 10,
         "tz": "Asia/Kolkata",
-        "price_history_provider": "PriceHistory",
-        "price_history_url": "https://pricehistoryapp.com/product/{asin}",
+        "price_history_provider": "BharatBazaro",
+        "price_history_url": "https://bharatbazaro.com/?asin={asin}",
         "impulse_tiers": [
             (49, 99),
             (149, 199),

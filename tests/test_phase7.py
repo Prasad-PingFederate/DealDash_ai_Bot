@@ -268,11 +268,11 @@ def test_dual_price_verification_inline_keyboard(monkeypatch):
         assert keyboard[1][0]["url"] == "https://keepa.com/#!product/10-B0BS1QCFHX"
 
         assert "BharatBazaro.com" in keyboard[1][1]["text"]
-        assert keyboard[1][1]["url"] == "https://bharatbazaro.com/?asin=B0BS1QCFHX"
+        assert keyboard[1][1]["url"] == "https://bharatbazaro.com"
 
         # Row 3: Price History
         assert "Price History Check" in keyboard[2][0]["text"]
-        assert keyboard[2][0]["url"] == "https://pricehistoryapp.com/product/B0BS1QCFHX"
+        assert keyboard[2][0]["url"] == "https://bharatbazaro.com/?asin=B0BS1QCFHX"
 
         # Row 4: Social feedback
         assert "Worth it" in keyboard[3][0]["text"]
@@ -344,7 +344,7 @@ def test_global_multi_region_architecture(monkeypatch):
     assert get_currency_symbol() == "₹"
     assert get_region_config()["domain"] == "amazon.in"
     assert get_keepa_url("B0TESTASIN1") == "https://keepa.com/#!product/10-B0TESTASIN1"
-    assert get_price_history_url("B0TESTASIN1") == "https://pricehistoryapp.com/product/B0TESTASIN1"
+    assert get_price_history_url("B0TESTASIN1") == "https://bharatbazaro.com/?asin=B0TESTASIN1"
 
     # US Profile
     monkeypatch.setenv("MARKET_REGION", "US")
