@@ -457,19 +457,89 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     return ScoredDeal(deal=deal, score=final_score, category=category, reason="; ".join(reasons))
 
 
-def _extract_json(text: str) -> Dict[str, Any]:
-    cleaned = text.strip()
-    cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
-    cleaned = re.sub(r"```$", "", cleaned).strip()
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start < 0 or end <= start:
-        raise ValueError("no json object")
-    data = json.loads(cleaned[start : end + 1])
-    if not isinstance(data, dict):
-        raise ValueError("json was not an object")
-    return data
+def validate_typesafe_ai_batch(raw_input: Any) -> List[Dict[str, Any]]:
+    """
+    Safely parse and validate batched deal recommendations from any LLM.
+    Handles:
+    - Raw strings with markdown code blocks (```json ... ```)
+    - Top-level JSON lists: [{"id": "...", "why": "...", "copy": "..."}, ...]
+    - Top-level JSON dicts: {"posts": [...]} or {"deals": [...]} or {"items": [...]} or {"results": [...]}
+    - Safely coerces each field to str, avoiding any TypeError/KeyError/AttributeError.
+    """
+    if raw_input is None:
+        return []
 
+    data = raw_input
+    if isinstance(raw_input, str):
+        cleaned = raw_input.strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+
+        first_brace = cleaned.find("{")
+        first_bracket = cleaned.find("[")
+
+        target_json = cleaned
+        if first_bracket >= 0 and (first_brace < 0 or first_bracket < first_brace):
+            last_bracket = cleaned.rfind("]")
+            if last_bracket > first_bracket:
+                target_json = cleaned[first_bracket : last_bracket + 1]
+        elif first_brace >= 0:
+            last_brace = cleaned.rfind("}")
+            if last_brace > first_brace:
+                target_json = cleaned[first_brace : last_brace + 1]
+
+        try:
+            data = json.loads(target_json)
+        except Exception as exc:
+            logger.debug(f"validate_typesafe_ai_batch JSON parse error: {exc}")
+            return []
+
+    items_list = []
+    if isinstance(data, list):
+        items_list = data
+    elif isinstance(data, dict):
+        for candidate_key in ("posts", "deals", "items", "results", "data", "candidates", "picks"):
+            val = data.get(candidate_key)
+            if isinstance(val, list):
+                items_list = val
+                break
+        if not items_list:
+            if data.get("id") or data.get("deal_id"):
+                items_list = [data]
+
+    if not isinstance(items_list, list):
+        return []
+
+    valid_results = []
+    for entry in items_list:
+        if not isinstance(entry, dict):
+            if isinstance(entry, str) and entry.strip():
+                valid_results.append({"id": entry.strip(), "why": "", "copy": ""})
+            continue
+
+        deal_id = entry.get("id") or entry.get("deal_id") or entry.get("canonical_id")
+        if not deal_id or not isinstance(deal_id, (str, int)):
+            continue
+        deal_id_str = str(deal_id).strip()
+        if not deal_id_str:
+            continue
+
+        why = entry.get("why") or entry.get("reason") or entry.get("notes") or ""
+        copy = entry.get("copy") or entry.get("caption") or entry.get("text") or ""
+
+        valid_results.append({
+            "id": deal_id_str,
+            "why": str(why).strip() if why is not None else "",
+            "copy": str(copy).strip() if copy is not None else "",
+        })
+
+    return valid_results
+
+
+def _extract_json(text: str) -> Dict[str, Any]:
+    """Compatibility wrapper that returns a dict with 'posts' list."""
+    posts = validate_typesafe_ai_batch(text)
+    return {"posts": posts}
 
 class DealAgent:
     def __init__(self, copywriter=None, min_score: Optional[int] = None):
@@ -642,11 +712,11 @@ class DealAgent:
             raw = self.copywriter.generate_text(
                 prompt,
                 system_prompt="You only output JSON. Never invent deal ids.",
+                response_json=True,
             )
             if not raw:
                 return []
-            data = _extract_json(raw)
-            posts = data.get("posts") or []
+            posts = validate_typesafe_ai_batch(raw)
             ids = []
             by_id = {item.deal.id: item.deal for item in shortlist}
             for entry in posts:

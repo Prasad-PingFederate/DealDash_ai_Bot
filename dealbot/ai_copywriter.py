@@ -64,39 +64,56 @@ def gemini_quota_failure(status: int, body: str) -> bool:
     )
     return any(marker in blob for marker in markers)
 
-def sanitize_telegram_html(text: str) -> str:
+def ensure_valid_telegram_html(text: str) -> str:
     """
-    Sanitize text to ensure it adheres strictly to Telegram HTML parse_mode constraints.
-    Prevents 400 Bad Request: can't parse entities errors from unescaped brackets or unbalanced tags.
+    Sanitize and balance HTML tags to adhere strictly to Telegram parse_mode='HTML' constraints.
+    - Replaces <br>, <p>, <div> with newlines/whitespace.
+    - Strips unsupported tags (<span>, <font>, <h1>, etc.) while preserving inner text.
+    - Validates and balances allowed Telegram tags (<b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <code>, <pre>, <a>, <blockquote>).
+    - Escapes unescaped naked brackets (<, >) and ampersands (&) and malicious tags (<script> -> &lt;script&gt;).
+    - Auto-closes any unclosed tags at the end of the text.
     """
     if not text:
         return ""
 
-    # Replace markdown bold **text** or *text* with <b>text</b> if LLM outputs markdown
-    text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", text)
-    # Replace markdown bullets '- ' or '* ' at start of lines with '• '
-    text = re.sub(r"^[*-]\s+", "• ", text, flags=re.MULTILINE)
+    # 1. Normalize linebreaks and common LLM block tags
+    t = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    t = re.sub(r"</?p\s*>", "\n\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"</?div\s*>", "\n", t, flags=re.IGNORECASE)
+    t = re.sub(r"</?span(?:\s+[^>]*)?>", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"</?h[1-6]\s*>", "", t, flags=re.IGNORECASE)
 
-    # Protect valid HTML tags by tokenizing
-    tag_pattern = re.compile(r"""(</?(?:b|i|s|u|code|pre|a)(?:\s+href=['"][^'"]*['"])?>)""", re.IGNORECASE)
-    tokens = tag_pattern.split(text)
+    # 2. Markdown conversions (bold, italics, bullets)
+    t = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", t)
+    t = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", t)
+    t = re.sub(r"^[*-]\s+", "• ", t, flags=re.MULTILINE)
 
+    # 3. Tokenize by allowed Telegram tags
+    allowed_tag_pattern = re.compile(
+        r"""(</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|a|blockquote)(?:\s+href=['"][^'"]*['"])?>)""",
+        re.IGNORECASE,
+    )
+    tokens = allowed_tag_pattern.split(t)
     sanitized_parts = []
     open_tags = []
 
     for token in tokens:
-        match = tag_pattern.fullmatch(token)
+        match = allowed_tag_pattern.fullmatch(token)
         if match:
             tag_str = match.group(1)
             is_closing = tag_str.startswith("</")
             tag_name_match = re.search(r"</?([a-zA-Z]+)", tag_str)
-            tag_name = tag_name_match.group(1).lower() if tag_name_match else ""
+            raw_tag_name = tag_name_match.group(1).lower() if tag_name_match else ""
+            tag_map = {"strong": "b", "em": "i", "strike": "s", "del": "s", "ins": "u"}
+            tag_name = tag_map.get(raw_tag_name, raw_tag_name)
 
             if is_closing:
-                if open_tags and open_tags[-1] == tag_name:
-                    open_tags.pop()
-                    sanitized_parts.append(f"</{tag_name}>")
+                if tag_name in open_tags:
+                    while open_tags and open_tags[-1] != tag_name:
+                        sanitized_parts.append(f"</{open_tags.pop()}>")
+                    if open_tags and open_tags[-1] == tag_name:
+                        open_tags.pop()
+                        sanitized_parts.append(f"</{tag_name}>")
             else:
                 open_tags.append(tag_name)
                 if tag_name == "a":
@@ -106,15 +123,17 @@ def sanitize_telegram_html(text: str) -> str:
                 else:
                     sanitized_parts.append(f"<{tag_name}>")
         else:
-            escaped_text = html.escape(token, quote=False)
-            sanitized_parts.append(escaped_text)
+            sanitized_parts.append(html.escape(token, quote=False))
 
-    # Close any unclosed tags
+    # 4. Auto-close remaining open tags in reverse order
     while open_tags:
         closing = open_tags.pop()
         sanitized_parts.append(f"</{closing}>")
 
-    return "".join(sanitized_parts)
+    result = "".join(sanitized_parts)
+    return result
+
+sanitize_telegram_html = ensure_valid_telegram_html
 
 def validate_critic(copy_text: str, deal: Deal) -> bool:
     """
@@ -123,6 +142,12 @@ def validate_critic(copy_text: str, deal: Deal) -> bool:
     Normalizes Indian number formatting (₹1,24,999) and decimals (.00).
     """
     if not copy_text:
+        return False
+
+    # Validate that Telegram HTML parses and is balanced
+    valid_html = ensure_valid_telegram_html(copy_text)
+    if not valid_html:
+        logger.info("Critic rejected AI copy: invalid or empty Telegram HTML.")
         return False
 
     from dealbot.models import parse_rupees
@@ -287,7 +312,9 @@ class AICopywriter:
             )
         return ""
 
-    def generate_text(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def generate_text(
+        self, prompt: str, system_prompt: Optional[str] = None, response_json: bool = False
+    ) -> Optional[str]:
         """Smart rate-limit & fallback chain: Gemini (primary) -> Groq (secondary) -> OpenRouter Hermes (tertiary)."""
         if not self.is_configured():
             return None
@@ -297,7 +324,7 @@ class AICopywriter:
 
         # 1. Primary: Gemini
         if self._gemini_ready():
-            text = self._call_gemini(prompt, system_prompt)
+            text = self._call_gemini(prompt, system_prompt, response_json=response_json)
             if text:
                 self.last_engine = "gemini"
                 return text
@@ -351,16 +378,22 @@ class AICopywriter:
             logger.warning(f"Groq API call failed: {e}")
         return None
 
-    def _call_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def _call_gemini(
+        self, prompt: str, system_prompt: Optional[str] = None, response_json: bool = False
+    ) -> Optional[str]:
         full_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
         url = f"{GEMINI_API_BASE}/{self.model}:generateContent?key={self.api_key}"
+        gen_config = {
+            "temperature": 0.2 if response_json else 0.3,
+            "maxOutputTokens": 1024,
+            "thinkingConfig": {"thinkingBudget": 0},
+        }
+        if response_json:
+            gen_config["responseMimeType"] = "application/json"
+
         payload = {
             "contents": [{"parts": [{"text": full_text}]}],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 1000,
-                "thinkingConfig": {"thinkingBudget": 0}
-            }
+            "generationConfig": gen_config,
         }
 
         try:
@@ -368,8 +401,21 @@ class AICopywriter:
                 url,
                 headers={"Content-Type": "application/json"},
                 json=payload,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
+            # If 400 Bad Request, retry without thinkingConfig/responseMimeType
+            if resp.status_code == 400 and ("thinkingConfig" in gen_config or "responseMimeType" in gen_config):
+                logger.info("Retrying Gemini without thinkingConfig/responseMimeType.")
+                gen_config.pop("thinkingConfig", None)
+                gen_config.pop("responseMimeType", None)
+                payload["generationConfig"] = gen_config
+                resp = requests.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json=payload,
+                    timeout=self.timeout,
+                )
+
             if resp.status_code != 200:
                 body = resp.text[:500]
                 if gemini_quota_failure(resp.status_code, body):
@@ -401,50 +447,70 @@ class AICopywriter:
             "Authorization": f"Bearer {self.hermes_api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/Prasad-PingFederate/DealDash_ai_Bot",
-            "X-Title": "DealDash AI Bot (Nous Hermes Engine)",
+            "X-Title": "DealDash AI Bot",
         }
 
         sys_msg = system_prompt or "You are a concise deals editor. Reply with only what was asked."
-        payload = {
-            "model": self.hermes_model,
-            "messages": [
-                {"role": "system", "content": sys_msg},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.3,
-            "max_tokens": 1000,
-        }
-        # Thinking tokens eat the 12s budget before the JSON pick is written.
-        if "gemma" in self.hermes_model.lower():
-            payload["reasoning"] = {"effort": "none", "exclude": True}
+        
+        # Multi-model fallback sequence for OpenRouter
+        candidate_models = []
+        for m in [
+            self.hermes_model,
+            "google/gemma-3-27b-it:free",
+            "nousresearch/hermes-3-llama-3.1-405b:free",
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "openrouter/free",
+        ]:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
 
-        try:
-            resp = requests.post(
-                self.hermes_endpoint,
-                headers=headers,
-                json=payload,
-                timeout=self.timeout
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Nous Hermes API returned status {resp.status_code}: {resp.text[:200]}")
-                return None
+        for model_name in candidate_models:
+            payload = {
+                "model": model_name,
+                "models": candidate_models,  # OpenRouter multi-model fallback array
+                "messages": [
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1000,
+            }
+            if "gemma" in model_name.lower():
+                payload["reasoning"] = {"effort": "none", "exclude": True}
 
-            data = resp.json()
-            choices = data.get("choices", [])
-            if not choices:
-                return None
+            try:
+                resp = requests.post(
+                    self.hermes_endpoint,
+                    headers=headers,
+                    json=payload,
+                    timeout=self.timeout,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        out = choices[0].get("message", {}).get("content", "").strip()
+                        if out:
+                            logger.info(f"OpenRouter answered successfully via model: {model_name}")
+                            return out
+                elif resp.status_code in (429, 404, 500, 502, 503, 504):
+                    logger.warning(
+                        f"OpenRouter model {model_name} failed ({resp.status_code}), attempting next fallback model..."
+                    )
+                    continue
+                else:
+                    logger.warning(f"OpenRouter API returned status {resp.status_code}: {resp.text[:200]}")
+            except requests.Timeout:
+                logger.warning(f"OpenRouter model {model_name} timed out, trying next fallback model...")
+                continue
+            except requests.RequestException as e:
+                logger.warning(f"OpenRouter request error on {model_name}: {e}")
+                continue
+            except Exception as e:
+                logger.error(f"Unexpected error on {model_name}: {e}")
+                continue
 
-            return choices[0].get("message", {}).get("content", "").strip()
-
-        except requests.Timeout:
-            logger.warning("Nous Hermes API call timed out.")
-            return None
-        except requests.RequestException as e:
-            logger.warning(f"Nous Hermes API request failed: {e}.")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error in Hermes AICopywriter: {e}.")
-            return None
+        return None
 
     def craft_deal_copy(self, deal: Deal) -> Optional[str]:
         """

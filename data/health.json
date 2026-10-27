@@ -1,0 +1,72 @@
+{
+  "timestamp_ist": "2026-10-27 19:27:59 IST",
+  "timestamp_epoch": 1793109479,
+  "overall_status": "DEGRADED",
+  "checks": [
+    {
+      "name": "Gemini API",
+      "status": "skipped",
+      "model": "gemini-2.5-flash",
+      "latency_ms": null,
+      "detail": "GEMINI_API_KEY not configured"
+    },
+    {
+      "name": "Groq API",
+      "status": "skipped",
+      "model": "llama-3.3-70b-versatile",
+      "latency_ms": null,
+      "detail": "GROQ_API_KEY not configured"
+    },
+    {
+      "name": "OpenRouter Fallback",
+      "status": "skipped",
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "latency_ms": null,
+      "detail": "HERMES_API_KEY not configured"
+    },
+    {
+      "name": "Typesafe Critic & Sanitizer",
+      "status": "ok",
+      "assertions_passed": "4/4",
+      "latency_ms": 1,
+      "detail": "All 4 safety assertions passed (Anti-hallucination + Tag Auto-Repair)"
+    },
+    {
+      "name": "Deal Discovery Feeds",
+      "status": "ok",
+      "candidate_count": 32,
+      "latency_ms": 3099,
+      "detail": "Discovered 32 candidates across live feeds"
+    },
+    {
+      "name": "Amazon.in Scraper",
+      "status": "warning",
+      "stock_status": "unknown",
+      "live_price": "N/A",
+      "latency_ms": 325,
+      "detail": "Status: unknown, Price: \u20b9N/A"
+    },
+    {
+      "name": "SQLite Integrity",
+      "status": "ok",
+      "active_deals": 87,
+      "integrity": "ok",
+      "latency_ms": 9,
+      "detail": "PRAGMA: ok, Active Deals: 87"
+    },
+    {
+      "name": "BharatBazaro Live",
+      "status": "ok",
+      "live_deals": 59,
+      "feed_age_min": 26,
+      "latency_ms": 78,
+      "detail": "59 live deals online (synced 26m ago)"
+    },
+    {
+      "name": "Telegram Bot API",
+      "status": "skipped",
+      "latency_ms": null,
+      "detail": "TELEGRAM_BOT_TOKEN not configured"
+    }
+  ]
+}

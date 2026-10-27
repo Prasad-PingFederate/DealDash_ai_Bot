@@ -1,0 +1,50 @@
+name: Daily AI & System Health Check
+
+on:
+  schedule:
+    # Runs daily at 08:30 IST (03:00 UTC) before peak daytime deal hours
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Full AI & System Health Check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'llama-3.3-70b-versatile' }}
+          HERMES_API_KEY: ${{ secrets.HERMES_API_KEY || secrets.OPENROUTER_API_KEY || secrets.DEALS_AGENT_OPENROUTER }}
+          HERMES_MODEL: ${{ vars.HERMES_MODEL || 'google/gemma-4-26b-a4b-it:free' }}
+        run: python scripts/health_check.py --notify-admin
+
+      - name: Sync health.json
+        if: always()
+        run: |
+          if [ -f data/health.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/health.json
+            git diff --cached --quiet || (git pull --rebase -X theirs origin main || true && git commit -m "chore(health): update daily system health report [skip ci]" && git push origin main || true)
+          fi
