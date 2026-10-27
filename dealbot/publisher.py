@@ -437,18 +437,77 @@ class StateStore:
                 conn.execute("DELETE FROM price_seen WHERE id = ?", (row[0],))
             return previous, lowest_before
 
-    def record_price_sighting(self, canonical_id: str, price: int) -> None:
-        """Track running price stats (min, max, avg, last, sighting_count) for canonical product IDs."""
+    def record_price_sighting(self, canonical_id: str, price: int) -> dict:
+        """
+        Track running price stats (min, max, avg, last, sighting_count) for canonical product IDs.
+        Returns the price context evaluated BEFORE mutating price_sightings.
+        
+        To prevent 30-minute polling dilution:
+        - If price changed by < 1% AND less than 12 hours (43,200 seconds) have elapsed since last_seen_at:
+          Only updates last_seen_at; does NOT increment sighting_count or dilute avg_price.
+        - Only increments sighting_count and updates avg_price if >= 12h elapsed OR price changed by >= 1%.
+        """
+        default_res = {
+            "status": "normal",
+            "score_adj": 0,
+            "min_price": None,
+            "avg_price": None,
+            "sighting_count": 0,
+        }
         if not canonical_id or price is None or price <= 0:
-            return
+            return default_res
+
         with self._connect() as conn:
             cur = conn.execute(
-                "SELECT min_price, max_price, avg_price, sighting_count FROM price_sightings WHERE canonical_id = ?",
+                """
+                SELECT min_price, max_price, avg_price, last_price, sighting_count,
+                       (strftime('%s', 'now') - strftime('%s', last_seen_at)) as elapsed_sec
+                FROM price_sightings WHERE canonical_id = ?
+                """,
                 (canonical_id,),
             )
             row = cur.fetchone()
-            if row:
-                min_p, max_p, avg_p, count = row
+            if not row:
+                conn.execute(
+                    """
+                    INSERT INTO price_sightings (canonical_id, min_price, max_price, avg_price, last_price, sighting_count, first_seen_at, last_seen_at)
+                    VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """,
+                    (canonical_id, price, price, float(price), price),
+                )
+                return default_res
+
+            min_p, max_p, avg_p, last_p, count, elapsed_sec = row
+
+            # Evaluate context BEFORE updating min_price / avg_price
+            prior_context = {
+                "status": "normal",
+                "score_adj": 0,
+                "min_price": min_p,
+                "avg_price": avg_p,
+                "sighting_count": count,
+            }
+            if count >= 3 and price < min_p:
+                prior_context["status"] = "all_time_low"
+                prior_context["score_adj"] = 10
+            elif count >= 2 and price <= int(avg_p * 0.82):
+                prior_context["status"] = "real_drop"
+                prior_context["score_adj"] = 18
+            elif count >= 4 and price >= int(avg_p * 0.98):
+                prior_context["status"] = "stagnant"
+                prior_context["score_adj"] = -10
+
+            # Polling dilution guard:
+            price_change_pct = abs(price - last_p) / max(last_p, 1)
+            is_same_price = price_change_pct < 0.01
+            is_recent = elapsed_sec is not None and elapsed_sec < 43200
+
+            if is_same_price and is_recent:
+                conn.execute(
+                    "UPDATE price_sightings SET last_seen_at = CURRENT_TIMESTAMP WHERE canonical_id = ?",
+                    (canonical_id,),
+                )
+            else:
                 new_count = count + 1
                 new_avg = ((avg_p * count) + price) / new_count
                 new_min = min(min_p, price)
@@ -462,14 +521,8 @@ class StateStore:
                     """,
                     (new_min, new_max, new_avg, price, new_count, canonical_id),
                 )
-            else:
-                conn.execute(
-                    """
-                    INSERT INTO price_sightings (canonical_id, min_price, max_price, avg_price, last_price, sighting_count, first_seen_at, last_seen_at)
-                    VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    """,
-                    (canonical_id, price, price, float(price), price),
-                )
+
+            return prior_context
 
     def get_price_context(self, canonical_id: str, current_price: int) -> dict:
         """

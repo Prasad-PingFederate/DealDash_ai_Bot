@@ -155,23 +155,23 @@ def test_price_sightings_running_average_and_context(tmp_path):
     assert ctx1["min_price"] == 1000
     assert ctx1["avg_price"] == 1000.0
 
-    # Sighting 2: ₹1,000
-    store.record_price_sighting(canon_id, 1000)
-    # Check drop to ₹800 (which is <= 1000 * 0.82)
+    # Sighting 2 with price fluctuation >= 1% (₹1,020) -> count increments to 2
+    store.record_price_sighting(canon_id, 1020)
+    # Check drop to ₹800 (which is <= 1010 * 0.82)
     ctx2 = store.get_price_context(canon_id, 800)
     assert ctx2["status"] == "real_drop"
     assert ctx2["score_adj"] == 18
 
-    # Sighting 3: ₹1,000
-    store.record_price_sighting(canon_id, 1000)
-    # Check all-time low (price < 1000 with count >= 3)
+    # Sighting 3 with price fluctuation (₹1,050) -> count increments to 3
+    store.record_price_sighting(canon_id, 1050)
+    # Check all-time low (price 750 < min 1000 with count >= 3)
     ctx3 = store.get_price_context(canon_id, 750)
     assert ctx3["status"] == "all_time_low"
     assert ctx3["score_adj"] == 10
 
-    # Sighting 4: ₹1,000
-    store.record_price_sighting(canon_id, 1000)
-    # Check stagnant price (current price ₹1,000 >= avg ₹1,000 * 0.98 with count >= 4)
+    # Sighting 4 with price fluctuation (₹980) -> count increments to 4
+    store.record_price_sighting(canon_id, 980)
+    # Check stagnant price (current price ₹1,000 >= avg ~1,005 * 0.98 with count >= 4)
     ctx4 = store.get_price_context(canon_id, 1000)
     assert ctx4["status"] == "stagnant"
     assert ctx4["score_adj"] == -10
@@ -314,10 +314,12 @@ def test_fetch_amazon_movers_and_shakers_handles_gracefully():
 def test_run_once_two_stage_funnel_end_to_end(tmp_path, monkeypatch):
     db_file = tmp_path / "e2e_state.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db_file))
-    monkeypatch.setenv("DRY_RUN", "true")
+    monkeypatch.setenv("DRY_RUN", "false")
     monkeypatch.setenv("MAX_POSTS_PER_CYCLE", "2")
     monkeypatch.setenv("AGENT_MODE", "true")
     monkeypatch.setenv("AGENT_LLM", "false")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "mock_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100123456")
 
     sample_deals = [
         Deal(
@@ -340,10 +342,40 @@ def test_run_once_two_stage_funnel_end_to_end(tmp_path, monkeypatch):
         ),
     ]
 
-    with patch("dealbot.main.collect_all_deals", return_value=sample_deals):
+    def mock_enrich(url):
+        if "B000000001" in url:
+            return {
+                "stock_status": "in_stock",
+                "live_price": 19999,
+                "mrp": 29999,
+                "rating": 4.5,
+                "review_count": 500,
+                "coupon": None,
+                "coupon_discount": None,
+                "effective_price": None,
+                "bank_offer": None,
+                "hi_res_image": None,
+            }
+        return {
+            "stock_status": "in_stock",
+            "live_price": 6999,
+            "mrp": 12995,
+            "rating": 4.5,
+            "review_count": 500,
+            "coupon": None,
+            "coupon_discount": None,
+            "effective_price": None,
+            "bank_offer": None,
+            "hi_res_image": None,
+        }
+
+    with patch("dealbot.main.collect_all_deals", return_value=sample_deals), \
+         patch("dealbot.main.inspect_stock", return_value="in_stock"), \
+         patch("dealbot.main.enrich_amazon_deal", side_effect=mock_enrich), \
+         patch("dealbot.main.send_telegram_deal", return_value=(True, 999, "caption")):
         posted = run_once()
         assert posted == 2
         store = StateStore(str(db_file))
-        # Sightings should have been recorded
+        # Verified price sightings should have been recorded
         ctx = store.get_price_context("amz-deal-1", 19999)
         assert ctx["sighting_count"] >= 1

@@ -194,8 +194,25 @@ def _prices_from_text(text: str) -> tuple:
     match = re.search(r"(\d{1,2})\s*%", text or "")
     if match:
         percent = int(match.group(1))
+
+    # Strip discount/coupon phrases like "Get ₹2,000 Off", "Save ₹500", "Flat Rs. 1000 Discount", "₹2,000 coupon"
+    # so discount amounts are never confused with the deal price or MRP.
+    cleaned_text = text or ""
+    cleaned_text = re.sub(
+        r"(?:save|flat|get|apply)\s*(?:₹|Rs\.?)\s*[\d,]+(?:\.\d+)?",
+        "",
+        cleaned_text,
+        flags=re.IGNORECASE,
+    )
+    cleaned_text = re.sub(
+        r"(?:₹|Rs\.?)\s*[\d,]+(?:\.\d+)?\s*(?:off|discount|cashback|coupon|save|instant)\b",
+        "",
+        cleaned_text,
+        flags=re.IGNORECASE,
+    )
+
     amounts = []
-    for raw in re.findall(r"(?:₹|Rs\.?)\s*[\d,]+(?:\.\d+)?", text or "", flags=re.IGNORECASE):
+    for raw in re.findall(r"(?:₹|Rs\.?)\s*[\d,]+(?:\.\d+)?", cleaned_text, flags=re.IGNORECASE):
         amount = parse_rupees(raw)
         if amount:
             amounts.append(amount)
@@ -409,7 +426,19 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
                     asin=asin,
                     min_discount=min_discount,
                 )
+                if not deal and asin and target_url:
+                    clean_url, deal_id, retailer = expand_and_convert_url(target_url)
+                    deal = Deal(
+                        id=f"amz-reddit-{asin}",
+                        retailer=retailer,
+                        title=clean_title(title),
+                        url=clean_url,
+                        canonical_product_id=f"amazon:{asin}",
+                        category="reddit",
+                        image_url=_amazon_image(asin),
+                    )
                 if deal and deal.is_valid():
+                    deal.category = "reddit"
                     deals.append(deal)
         except Exception as exc:
             logger.debug(f"Failed to fetch Reddit deals from {feed_url}: {exc}")

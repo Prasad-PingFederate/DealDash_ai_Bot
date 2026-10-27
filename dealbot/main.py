@@ -64,23 +64,24 @@ def sweep_expired_deals(store: StateStore, dry_run: bool = True):
                 logger.info(f"Deal {deal_id} first OOS signal detected. Awaiting 2nd confirmation before editing Telegram.")
         elif stock_status == "in_stock":
             store.reset_oos_count(deal_id)
-            # In-Stock Price Spike detection: if price increased >= 25% while item remains in stock
+            # In-Stock Price Spike detection: if effective price increased >= 25% while item remains in stock
             if "amazon." in url.lower():
                 enrichment = enrich_amazon_deal(url)
                 live_price = enrichment.get("live_price")
-                if live_price and posted_price and posted_price > 0 and live_price >= int(posted_price * 1.25):
+                live_effective = enrichment.get("effective_price") or live_price
+                if live_effective and posted_price and posted_price > 0 and live_effective >= int(posted_price * 1.25):
                     spikes = store.increment_spike_count(deal_id)
                     if spikes >= 2:
                         logger.info(
-                            f"Deal {deal_id} confirmed PRICE SPIKE from ₹{posted_price:,} to ₹{live_price:,} "
+                            f"Deal {deal_id} confirmed PRICE SPIKE from ₹{posted_price:,} to ₹{live_effective:,} "
                             f"({spikes} consecutive checks). Updating Telegram message..."
                         )
                         if not dry_run and token:
-                            mark_telegram_deal_price_spike(token, chat_id, msg_id, caption, live_price)
+                            mark_telegram_deal_price_spike(token, chat_id, msg_id, caption, live_effective)
                         store.mark_expired(deal_id)
                     else:
                         logger.info(
-                            f"Deal {deal_id} first price spike signal (₹{posted_price:,} -> ₹{live_price:,}). "
+                            f"Deal {deal_id} first price spike signal (₹{posted_price:,} -> ₹{live_effective:,}). "
                             f"Awaiting 2nd confirmation."
                         )
                 else:
@@ -114,18 +115,20 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
             enrichment = enrich_amazon_deal(deal.url)
             live_price = enrichment.get("live_price")
             feed_price = parse_rupees(deal.current_price)
-            if live_price and feed_price:
+            is_unverified_source = (
+                getattr(deal, "category", "") == "reddit"
+                or (deal.id and "reddit" in deal.id.lower())
+                or not feed_price
+            )
+            if live_price and feed_price and not is_unverified_source:
                 if live_price > int(feed_price * 1.20):
                     logger.info(
                         f"Skipping {deal.id}: price jumped from ₹{feed_price} to ₹{live_price} (>20% increase)."
                     )
                     store.record_event(deal.id, "skipped_price_jumped")
                     return False
+            if live_price:
                 deal.current_price = f"₹{live_price:,}"
-                canon_id = getattr(deal, "canonical_product_id", None) or deal.id
-                store.record_price_sighting(canon_id, live_price)
-                ctx = store.get_price_context(canon_id, live_price)
-                deal.price_context = ctx.get("status")
 
             live_mrp = enrichment.get("mrp")
             if live_mrp and not deal.original_price:
@@ -151,6 +154,13 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore) -> bool:
                 deal.bank_offer = enrichment["bank_offer"]
             if enrichment.get("hi_res_image"):
                 deal.image_url = enrichment["hi_res_image"]
+
+            # Record verified price sighting into historical tracker
+            canon_id = getattr(deal, "canonical_product_id", None) or deal.id
+            verified_price = deal.effective_price if deal.effective_price is not None else live_price
+            if verified_price:
+                ctx = store.record_price_sighting(canon_id, verified_price)
+                deal.price_context = ctx.get("status")
         return True
     else:
         store.record_event(deal.id, "stock_unknown")
@@ -197,7 +207,6 @@ def run_once() -> int:
         previous, lowest_before = store.note_price(deal.id, seen)
         deal.price_note = price_note_for(previous, lowest_before, seen)
         canon_id = getattr(deal, "canonical_product_id", None) or deal.id
-        store.record_price_sighting(canon_id, seen)
         ctx = store.get_price_context(canon_id, seen)
         deal.price_context = ctx.get("status")
 

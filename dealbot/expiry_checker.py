@@ -235,7 +235,8 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
                         try:
                             pct = float(m.group(1))
                             if 0 < pct < 100 and result.get("live_price"):
-                                result["coupon_discount"] = int(round(result["live_price"] * pct / 100))
+                                pct_disc = int(round(result["live_price"] * pct / 100))
+                                result["coupon_discount"] = min(pct_disc, 2000)
                         except (ValueError, IndexError):
                             pass
                     elif kind == "badge":
@@ -249,7 +250,8 @@ def enrich_amazon_deal(url: str, timeout: int = 8) -> dict:
                                 pass
                         elif pct_m and result.get("live_price"):
                             try:
-                                result["coupon_discount"] = int(round(result["live_price"] * float(pct_m.group(1)) / 100))
+                                pct_disc = int(round(result["live_price"] * float(pct_m.group(1)) / 100))
+                                result["coupon_discount"] = min(pct_disc, 2000)
                             except ValueError:
                                 pass
                     break

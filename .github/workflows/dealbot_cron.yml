@@ -77,16 +77,19 @@ jobs:
         if: always()
         run: |
           python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
-          rm -f data/state.sqlite3-wal data/state.sqlite3-shm || true
+          rm -f data/*.sqlite3-wal data/*.sqlite3-shm data/*.db-wal data/*.db-shm || true
+          mkdir -p /tmp/dealbot_state_bak
+          cp -f data/*.* /tmp/dealbot_state_bak/ 2>/dev/null || true
           bash -c '
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git fetch origin main || true
-            git pull --rebase -X theirs origin main || true
-            if [ -f data/state.sqlite3 ]; then
-              git add -f data/state.sqlite3
+            git reset --hard origin/main || true
+            cp -f /tmp/dealbot_state_bak/*.* data/ 2>/dev/null || true
+            if [ -d data ]; then
+              git add data/
               if ! git diff --staged --quiet; then
-                git commit -m "chore(bot): sync dealbot sqlite state [skip ci]" || true
+                git commit -m "chore(state): sync dealbot sqlite state [skip ci]" || true
                 git push origin HEAD:main || true
               fi
             fi

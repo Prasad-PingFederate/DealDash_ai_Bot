@@ -94,13 +94,36 @@ def extract_narrow_type(title: str) -> Optional[str]:
             return nt
     return None
 
+ACCESSORY_PREPOSITIONS_PATTERN = re.compile(
+    r"\b(for|compatible\s+with|fits|designed\s+for|case\s+for|cover\s+for|strap\s+for|protector\s+for|glass\s+for|adapter\s+for|replacement\s+for)\b",
+    re.IGNORECASE,
+)
+
 def get_brand_tier(title: str) -> int:
-    blob = (title or "").lower()
+    blob = (title or "").lower().strip()
+    if not blob:
+        return 0
+
+    # Strip accessory compatibility phrases and everything after them
+    primary_segment = ACCESSORY_PREPOSITIONS_PATTERN.split(blob)[0].strip()
+    if not primary_segment:
+        return 0
+
+    def match_brand_in_lead(brand: str, text: str, max_lead_words: int = 3) -> bool:
+        pattern = r"\b" + re.escape(brand) + r"\b"
+        m = re.search(pattern, text)
+        if not m:
+            return False
+        # Count words before match start
+        prefix = text[:m.start()].strip()
+        lead_words = len(prefix.split()) if prefix else 0
+        return lead_words < max_lead_words
+
     for b in TIER_1_BRANDS:
-        if re.search(r"\b" + re.escape(b) + r"\b", blob):
+        if match_brand_in_lead(b, primary_segment):
             return 1
     for b in TIER_2_BRANDS:
-        if re.search(r"\b" + re.escape(b) + r"\b", blob):
+        if match_brand_in_lead(b, primary_segment):
             return 2
     return 0
 
@@ -312,15 +335,18 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
     # Loot Detection Flag (Strictly gated)
     is_loot = False
     deal_rating = getattr(deal, "rating", None)
-    rating_ok = deal_rating is None or deal_rating >= 4.0
+    deal_reviews = getattr(deal, "review_count", None) or 0
+    # Must have verified rating >= 4.0 with >= 15 reviews, OR a verified historical drop
+    verified_quality = deal_rating is not None and deal_rating >= 4.0 and deal_reviews >= 15
+    has_historical_drop = is_historical_drop or getattr(deal, "is_further_price_drop", False)
 
-    if brand_tier == 1 and discount >= 60 and rating_ok:
+    if brand_tier == 1 and discount >= 60 and (verified_quality or has_historical_drop):
         is_loot = True
-    elif brand_tier in (1, 2) and savings is not None and savings >= 5000 and discount >= 40 and rating_ok:
+    elif brand_tier in (1, 2) and savings is not None and savings >= 5000 and discount >= 40 and (verified_quality or has_historical_drop):
         is_loot = True
-    elif (getattr(deal, "is_further_price_drop", False) or is_historical_drop) and discount >= 30:
+    elif has_historical_drop and discount >= 30:
         is_loot = True
-    elif price is not None and price < 99 and discount >= 50 and brand_tier >= 1:
+    elif price is not None and price < 99 and discount >= 50 and brand_tier >= 1 and (verified_quality or has_historical_drop):
         is_loot = True
 
     if is_loot:

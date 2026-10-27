@@ -269,6 +269,8 @@ def test_social_proof_and_loot_alert_boost():
         current_price="₹2,999",
         original_price="₹9,999",
         discount_percent=70,
+        rating=4.5,
+        review_count=350,
     )
     scored_loot = score_deal(sony_loot, recent_categories=[])
     assert sony_loot.is_loot is True
