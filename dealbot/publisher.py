@@ -931,19 +931,23 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         asin = deal.canonical_product_id.replace("amazon:", "").strip().upper()
 
     row2 = []
+    row3 = []
     if asin and len(asin) == 10:
         row2.append({"text": "📈 Keepa Chart", "url": get_keepa_url(asin)})
+        row2.append({"text": "🌐 All Deals on BharatBazaro.com", "url": f"https://bharatbazaro.com/?asin={asin}"})
         ph_url = get_price_history_url(asin)
         if ph_url:
             provider_label = "Price History Check" if get_market_region() == "IN" else "CamelCamelCamel"
-            row2.append({"text": f"🔍 {provider_label}", "url": ph_url})
+            row3.append({"text": f"🔍 {provider_label}", "url": ph_url})
 
-    row3 = [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}]
+    row_worth = [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}]
 
     inline_rows = [primary_row]
     if row2:
         inline_rows.append(row2)
-    inline_rows.append(row3)
+    if row3:
+        inline_rows.append(row3)
+    inline_rows.append(row_worth)
     reply_markup = {"inline_keyboard": inline_rows}
 
     # Guard against Telegram length limits (4096 char limit for text)

@@ -413,10 +413,45 @@ def run_once() -> int:
         queue = verified_candidates[:max_posts]
         reasons = {}
 
+    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    ist_mins = now_ist.hour * 60 + now_ist.minute
+    post_24x7 = os.getenv("TELEGRAM_24X7", "false").lower() == "true"
+    is_daytime = post_24x7 or (510 <= ist_mins <= 1410)
+
     posted_count = 0
     for deal in queue:
         if posted_count >= max_posts:
             break
+        picked = reasons.get(deal.id)
+        deal_score = picked.score if picked else (getattr(deal, "agent_score", None) or 50)
+        is_loot = bool(getattr(deal, "is_loot", False) or (deal_score >= 85 and (getattr(deal, "effective_discount_pct", None) or deal.discount_percent or 0) >= 40))
+
+        # Check if Telegram posting is allowed (daytime OR verified midnight loot alert)
+        allow_telegram = is_daytime or is_loot
+        if not allow_telegram:
+            logger.info(
+                f"Quiet hours (23:30-08:30 IST): Skipping Telegram post for {deal.id} "
+                f"(score={deal_score}, loot={is_loot}). Deal will be available on BharatBazaro.com."
+            )
+            if not dry_run:
+                post_price = parse_rupees(deal.current_price)
+                eff_price = getattr(deal, "effective_price", None)
+                store.mark_posted(
+                    deal.id,
+                    deal.retailer,
+                    chat_id=None,
+                    message_id=None,
+                    caption=None,
+                    category=picked.category if picked else classify_category(deal),
+                    discount=deal.discount_percent,
+                    agent_score=deal_score,
+                    agent_reason=picked.reason if picked else None,
+                    canonical_product_id=getattr(deal, "canonical_product_id", None),
+                    price=post_price,
+                    effective_price=eff_price,
+                )
+            continue
+
         success, msg_id, caption = send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
         if success:
             posted_count += 1
@@ -501,6 +536,13 @@ def run_once() -> int:
             store.set_meta("last_daily_digest_date", today_str)
             store.checkpoint()
             logger.info("Sent and pinned nightly Top Live Mega-Deals Digest for %s.", today_str)
+
+    # 24/7 Web Feed Export to data/live_deals.json & data/stats.json
+    try:
+        from dealbot.web_exporter import export_web_feed
+        export_web_feed(store, current_cycle_deals=verified_candidates)
+    except Exception as e:
+        logger.warning(f"Error exporting web feed: {e}")
 
     logger.info(f"Cycle complete. Posted {posted_count} new deal(s) (dry_run={dry_run}, agent={agent_mode}).")
     return posted_count

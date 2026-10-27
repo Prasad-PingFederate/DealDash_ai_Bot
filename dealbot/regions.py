@@ -127,3 +127,4 @@ def get_price_history_url(asin: str, region: Optional[str] = None) -> Optional[s
 def get_impulse_tiers(region: Optional[str] = None) -> List[Tuple[int, int]]:
     cfg = get_region_config(region)
     return list(cfg.get("impulse_tiers", []))
+

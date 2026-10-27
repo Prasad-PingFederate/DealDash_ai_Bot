@@ -257,22 +257,26 @@ def test_dual_price_verification_inline_keyboard(monkeypatch):
 
         sent_payload = mock_post.call_args[1]["payload"]
         keyboard = sent_payload["reply_markup"]["inline_keyboard"]
-        assert len(keyboard) == 3
+        assert len(keyboard) == 4
 
         # Row 1: Primary CTA
         assert "Grab Deal @ ₹29,999 (25% OFF)" in keyboard[0][0]["text"]
         assert keyboard[0][0]["url"] == deal.url
 
-        # Row 2: Verification tools
+        # Row 2: Verification tools & BharatBazaro web portal
         assert "Keepa Chart" in keyboard[1][0]["text"]
         assert keyboard[1][0]["url"] == "https://keepa.com/#!product/10-B0BS1QCFHX"
 
-        assert "Price History Check" in keyboard[1][1]["text"]
-        assert keyboard[1][1]["url"] == "https://pricehistoryapp.com/product/B0BS1QCFHX"
+        assert "BharatBazaro.com" in keyboard[1][1]["text"]
+        assert keyboard[1][1]["url"] == "https://bharatbazaro.com/?asin=B0BS1QCFHX"
 
-        # Row 3: Social feedback
-        assert "Worth it" in keyboard[2][0]["text"]
-        assert keyboard[2][0]["callback_data"] == "worth:amz-B0BS1QCFHX"
+        # Row 3: Price History
+        assert "Price History Check" in keyboard[2][0]["text"]
+        assert keyboard[2][0]["url"] == "https://pricehistoryapp.com/product/B0BS1QCFHX"
+
+        # Row 4: Social feedback
+        assert "Worth it" in keyboard[3][0]["text"]
+        assert keyboard[3][0]["callback_data"] == "worth:amz-B0BS1QCFHX"
 
 
 # ── 5. AUTOMATED NIGHTLY TOP-5 LIVE MEGA-DEALS DIGEST ────────────────────────
