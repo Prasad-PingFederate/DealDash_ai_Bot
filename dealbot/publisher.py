@@ -17,8 +17,14 @@ class StateStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        return conn
+
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS posted_deals (
                     deal_id TEXT PRIMARY KEY,
@@ -83,16 +89,71 @@ class StateStore:
                 "discount INTEGER",
                 "agent_score INTEGER",
                 "agent_reason TEXT",
+                "canonical_product_id TEXT",
+                "price INTEGER",
+                "consecutive_oos_count INTEGER DEFAULT 0",
             ]:
                 try:
                     conn.execute(f"ALTER TABLE posted_deals ADD COLUMN {col}")
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
-    def is_posted(self, deal_id: str) -> bool:
-        with sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("SELECT 1 FROM posted_deals WHERE deal_id = ?", (deal_id,))
-            return cur.fetchone() is not None
+    def is_posted(
+        self,
+        deal_id: str,
+        canonical_product_id: Optional[str] = None,
+        current_price: Optional[int] = None,
+        window_hours: int = 48,
+    ) -> bool:
+        """
+        Check if a deal or canonical product ID has been posted within window_hours.
+        Allows re-triggering ONLY if the new numeric price is >= 15% lower than
+        the previously posted price (Price-Drop Exception).
+        """
+        with self._connect() as conn:
+            # 1. Check direct match on deal_id
+            cur = conn.execute(
+                """
+                SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff
+                FROM posted_deals
+                WHERE deal_id = ?
+                ORDER BY posted_at DESC LIMIT 1
+                """,
+                (f"-{window_hours} hours", deal_id),
+            )
+            row = cur.fetchone()
+
+            # 2. Check canonical_product_id within deduplication window
+            if not row and canonical_product_id:
+                cur = conn.execute(
+                    """
+                    SELECT deal_id, price, posted_at, datetime('now', ?) as cutoff
+                    FROM posted_deals
+                    WHERE canonical_product_id = ? AND posted_at >= datetime('now', ?)
+                    ORDER BY posted_at DESC LIMIT 1
+                    """,
+                    (f"-{window_hours} hours", canonical_product_id, f"-{window_hours} hours"),
+                )
+                row = cur.fetchone()
+
+            if not row:
+                return False
+
+            prev_deal_id, prev_price, posted_at, cutoff = row
+            # If posted older than window, allow re-posting
+            if posted_at and cutoff and posted_at < cutoff:
+                return False
+
+            # Price-Drop Exception: allow if new price is at least 15% lower
+            if current_price is not None and prev_price is not None and prev_price > 0:
+                if current_price <= int(prev_price * 0.85):
+                    logger.info(
+                        f"Price-drop exception for {canonical_product_id or deal_id}: "
+                        f"new price ₹{current_price} is >=15% lower than previous ₹{prev_price}"
+                    )
+                    return False
+
+            return True
 
     def mark_posted(
         self,
@@ -105,15 +166,18 @@ class StateStore:
         discount: Optional[int] = None,
         agent_score: Optional[int] = None,
         agent_reason: Optional[str] = None,
+        canonical_product_id: Optional[str] = None,
+        price: Optional[int] = None,
     ):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO posted_deals (
                     deal_id, retailer, chat_id, message_id, caption, status,
-                    category, discount, agent_score, agent_reason
+                    category, discount, agent_score, agent_reason,
+                    canonical_product_id, price
                 )
-                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(deal_id) DO UPDATE SET
                     retailer=excluded.retailer,
                     chat_id=excluded.chat_id,
@@ -122,7 +186,10 @@ class StateStore:
                     category=excluded.category,
                     discount=excluded.discount,
                     agent_score=excluded.agent_score,
-                    agent_reason=excluded.agent_reason
+                    agent_reason=excluded.agent_reason,
+                    canonical_product_id=COALESCE(excluded.canonical_product_id, posted_deals.canonical_product_id),
+                    price=COALESCE(excluded.price, posted_deals.price),
+                    consecutive_oos_count=0
                 """,
                 (
                     deal_id,
@@ -134,11 +201,37 @@ class StateStore:
                     discount,
                     agent_score,
                     agent_reason,
+                    canonical_product_id,
+                    price,
                 ),
             )
 
+    def increment_oos_count(self, deal_id: str) -> int:
+        """Increment consecutive OOS count for a deal and return the updated count."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE posted_deals
+                SET consecutive_oos_count = COALESCE(consecutive_oos_count, 0) + 1,
+                    last_checked_at = CURRENT_TIMESTAMP
+                WHERE deal_id = ?
+                """,
+                (deal_id,),
+            )
+            cur = conn.execute("SELECT consecutive_oos_count FROM posted_deals WHERE deal_id = ?", (deal_id,))
+            row = cur.fetchone()
+            return int(row[0]) if row and row[0] is not None else 1
+
+    def reset_oos_count(self, deal_id: str):
+        """Reset consecutive OOS count when item is verified back in stock."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE posted_deals SET consecutive_oos_count = 0, last_checked_at = CURRENT_TIMESTAMP WHERE deal_id = ?",
+                (deal_id,),
+            )
+
     def get_recent_active_deals(self, limit: int = 15) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
                 """
@@ -152,7 +245,7 @@ class StateStore:
             return [dict(row) for row in cur.fetchall()]
 
     def get_recent_context(self, limit: int = 8) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
                 """
@@ -168,7 +261,7 @@ class StateStore:
     def record_decisions(self, rows: List[Dict[str, Any]]) -> None:
         if not rows:
             return
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.executemany(
                 """
                 INSERT INTO agent_decisions (deal_id, action, score, category, reason)
@@ -191,12 +284,12 @@ class StateStore:
             )
 
     def mark_expired(self, deal_id: str):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute("UPDATE posted_deals SET status = 'expired' WHERE deal_id = ?", (deal_id,))
 
     def note_price(self, product_id: str, price: int) -> Tuple[Optional[int], Optional[int]]:
         """Remember a price. Returns the previous price and the lowest price before this one."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             latest = conn.execute(
                 "SELECT price FROM price_seen WHERE product_id = ? ORDER BY id DESC LIMIT 1",
                 (product_id,),
@@ -221,7 +314,7 @@ class StateStore:
             return previous, lowest_before
 
     def record_event(self, deal_id: str, outcome: str, detail: str = "") -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 "INSERT INTO cycle_events (deal_id, outcome, detail) VALUES (?, ?, ?)",
                 (deal_id, outcome, detail[:200]),
@@ -238,7 +331,7 @@ class StateStore:
             )
 
     def recent_events(self, limit: int = 20) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.execute(
                 "SELECT deal_id, outcome, detail FROM cycle_events ORDER BY id DESC LIMIT ?",
@@ -247,19 +340,19 @@ class StateStore:
             return [dict(row) for row in cur.fetchall()]
 
     def get_meta(self, key: str) -> Optional[str]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute("SELECT value FROM bot_meta WHERE key = ?", (key,)).fetchone()
             return row[0] if row else None
 
     def set_meta(self, key: str, value: str) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 "INSERT INTO bot_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
 
     def add_worth_tap(self, deal_id: str) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO engagement (deal_id, worth_taps, reaction_count) VALUES (?, 1, 0)
@@ -269,7 +362,7 @@ class StateStore:
             )
 
     def set_reaction_count(self, deal_id: str, total: int) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO engagement (deal_id, worth_taps, reaction_count) VALUES (?, 0, ?)
@@ -279,7 +372,7 @@ class StateStore:
             )
 
     def deal_id_for_message(self, message_id: int) -> Optional[str]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute(
                 "SELECT deal_id FROM posted_deals WHERE message_id = ? ORDER BY posted_at DESC LIMIT 1",
                 (message_id,),
@@ -287,7 +380,7 @@ class StateStore:
             return row[0] if row else None
 
     def engagement_line(self) -> str:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute(
                 "SELECT COALESCE(SUM(worth_taps), 0), COALESCE(SUM(reaction_count), 0) FROM engagement"
             ).fetchone()
@@ -330,14 +423,32 @@ def offer_percent(deal: Deal) -> Optional[int]:
     return implied
 
 
+def safe_telegram_post(endpoint: str, payload: dict, timeout: int = 20) -> requests.Response:
+    """Execute a Telegram API POST with automatic HTTP 429 Too Many Requests retry."""
+    import time
+    resp = requests.post(endpoint, json=payload, timeout=timeout)
+    if resp.status_code == 429:
+        try:
+            data = resp.json()
+            retry_after = int(data.get("parameters", {}).get("retry_after", 3))
+        except Exception:
+            retry_after = 3
+        wait_secs = min(max(retry_after + 1, 1), 60)
+        logger.warning(f"Telegram returned 429 Too Many Requests. Sleeping for {wait_secs}s before retry...")
+        time.sleep(wait_secs)
+        resp = requests.post(endpoint, json=payload, timeout=timeout)
+    return resp
+
+
 def deal_badge(deal: Deal) -> str:
     """LOOT for a steep drop, including a product under ₹99. Otherwise DEAL."""
+    if getattr(deal, "is_further_price_drop", False):
+        return "FURTHER PRICE DROP"
     percent = offer_percent(deal) or 0
     price = parse_rupees(deal.current_price)
     if percent >= 50 or (price is not None and price < 100 and percent >= 20):
         return "LOOT"
     return "DEAL"
-
 
 def _coupon_code(deal: Deal) -> Optional[str]:
     raw = (deal.coupon_code or "").strip()
@@ -428,9 +539,9 @@ def send_admin_note(text: str, dry_run: bool = True) -> bool:
         logger.info("[agent briefing]\n%s", text)
         return False
     try:
-        resp = requests.post(
+        resp = safe_telegram_post(
             f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": admin_id, "text": text[:3500], "disable_web_page_preview": True},
+            payload={"chat_id": admin_id, "text": text[:3500], "disable_web_page_preview": True},
             timeout=15,
         )
         if resp.status_code != 200:
@@ -455,12 +566,23 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         logger.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in .env")
         return False, None, caption
 
-    reply_markup = {
-        "inline_keyboard": [
-            [{"text": f"🛒 Buy Now on {deal.retailer}", "url": deal.url}],
-            [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}],
-        ]
-    }
+    # Upgraded High-CTR inline keyboard
+    buy_text = f"🛒 Grab Deal @ {deal.current_price}" if deal.current_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
+    primary_row = [{"text": buy_text, "url": deal.url or "#"}]
+
+    # Extract Amazon ASIN for Price History button (Keepa)
+    asin = None
+    if deal.id and deal.id.startswith("amz-"):
+        asin = deal.id.replace("amz-", "").strip().upper()
+    elif getattr(deal, "canonical_product_id", None) and deal.canonical_product_id.startswith("amazon:"):
+        asin = deal.canonical_product_id.replace("amazon:", "").strip().upper()
+
+    row2 = []
+    if asin and len(asin) == 10:
+        row2.append({"text": "📊 Price History", "url": f"https://keepa.com/#!product/10-{asin}"})
+    row2.append({"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"})
+
+    reply_markup = {"inline_keyboard": [primary_row, row2]}
 
     # Guard against Telegram length limits (4096 char limit for text)
     if len(caption) > 4000:
@@ -477,14 +599,17 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
                 "parse_mode": "HTML",
                 "reply_markup": reply_markup,
             }
-            resp = requests.post(endpoint, json=payload, timeout=20)
-            if resp.status_code == 200:
-                data = resp.json()
-                msg_id = data.get("result", {}).get("message_id")
-                logger.info(f"Successfully posted deal with photo: {deal.id} (message_id={msg_id})")
-                return True, msg_id, caption
-            else:
-                logger.warning(f"sendPhoto failed ({resp.status_code}: {resp.text}). Falling back to text message...")
+            try:
+                resp = safe_telegram_post(endpoint, payload=payload, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    msg_id = data.get("result", {}).get("message_id")
+                    logger.info(f"Successfully posted deal with photo: {deal.id} (message_id={msg_id})")
+                    return True, msg_id, caption
+                else:
+                    logger.warning(f"sendPhoto failed ({resp.status_code}: {resp.text}). Falling back to text message...")
+            except requests.RequestException as photo_err:
+                logger.warning(f"sendPhoto request error: {photo_err}. Falling back to text message...")
 
         # Fallback or text-only sendMessage
         endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -495,7 +620,7 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
             "disable_web_page_preview": False,
             "reply_markup": reply_markup,
         }
-        resp = requests.post(endpoint, json=payload, timeout=20)
+        resp = safe_telegram_post(endpoint, payload=payload, timeout=20)
         if resp.status_code == 200:
             data = resp.json()
             msg_id = data.get("result", {}).get("message_id")

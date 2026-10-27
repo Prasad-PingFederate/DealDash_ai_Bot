@@ -38,13 +38,22 @@ run_cycle() {
   persist || echo "State push failed. The next cycle will try again."
 }
 
+# Graceful signal handling: ensure state is persisted if runner is cancelled or stopped
+cleanup() {
+  echo "Caught termination signal. Persisting state before exit..."
+  persist || true
+  exit 0
+}
+trap cleanup SIGTERM SIGINT
+
 if [ "${MANUAL:-false}" = "true" ]; then
   echo "Manual run: posting once even if the channel window is closed."
   run_cycle
 fi
 
 export SESSION_DEADLINE
-SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(hours=5, minutes=15)).isoformat())')"
+# Session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next 3-hour cron
+SESSION_DEADLINE="$(python -c 'from datetime import datetime, timedelta; from dealbot.session import IST; print((datetime.now(IST) + timedelta(hours=2, minutes=40)).isoformat())')"
 echo "Runner stays up until ${SESSION_DEADLINE} or 23:20 IST, whichever is first."
 
 while true; do

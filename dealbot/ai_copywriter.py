@@ -116,6 +116,58 @@ def sanitize_telegram_html(text: str) -> str:
 
     return "".join(sanitized_parts)
 
+def validate_critic(copy_text: str, deal: Deal) -> bool:
+    """
+    Strict Critic: verify that the LLM did not hallucinate a price,
+    discount percentage, or coupon code absent from deal metadata.
+    """
+    if not copy_text:
+        return False
+
+    # 1. Price check: deal price digits must be present
+    if deal.current_price:
+        deal_digits = re.sub(r"\D", "", deal.current_price)
+        if len(deal_digits) >= 2 and deal_digits not in re.sub(r"\D", "", copy_text):
+            logger.info("Critic rejected AI copy: real deal price digits missing.")
+            return False
+
+    # Extract all prices mentioned in copy (e.g. ₹999 or Rs. 999)
+    mentioned_prices = []
+    for match in re.findall(r"(?:₹|Rs\.?)\s*([\d,]+)", copy_text, re.IGNORECASE):
+        try:
+            val = int(match.replace(",", ""))
+            mentioned_prices.append(val)
+        except ValueError:
+            pass
+
+    if mentioned_prices:
+        from dealbot.models import parse_rupees
+        cur_p = parse_rupees(deal.current_price)
+        org_p = parse_rupees(deal.original_price)
+        sav_p = deal.savings_rupees()
+        valid_prices = {p for p in (cur_p, org_p, sav_p) if p is not None}
+        for p in mentioned_prices:
+            if valid_prices and not any(abs(p - vp) <= 2 for vp in valid_prices):
+                logger.info(f"Critic rejected AI copy: hallucinated price ₹{p} (valid: {valid_prices})")
+                return False
+
+    # 2. Discount check: reject wild discount hallucination
+    stated_discount = deal.discount_percent
+    for disc_match in re.findall(r"(\d{1,2})\s*%\s*(?:off|discount)?", copy_text, re.IGNORECASE):
+        disc_val = int(disc_match)
+        if stated_discount and abs(disc_val - stated_discount) > 15:
+            logger.info(f"Critic rejected AI copy: hallucinated discount {disc_val}% vs stated {stated_discount}%")
+            return False
+
+    # 3. Coupon check: reject fake coupon codes
+    coupon_matches = re.findall(r"\b(?:coupon|promo\s*code|code)\s*[:=]?\s*['\"]?([A-Za-z0-9_-]{3,20})['\"]?", copy_text, re.IGNORECASE)
+    for c_code in coupon_matches:
+        if not deal.coupon_code or c_code.upper() != deal.coupon_code.upper():
+            logger.info(f"Critic rejected AI copy: hallucinated coupon '{c_code}'")
+            return False
+
+    return True
+
 class AICopywriter:
     """
     Gemini first. If that key is empty or the quota is dead, the same call
@@ -144,6 +196,10 @@ class AICopywriter:
             hermes_endpoint or os.getenv("HERMES_ENDPOINT", DEFAULT_HERMES_ENDPOINT)
         ).strip()
 
+        self.groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+        self.groq_endpoint = os.getenv("GROQ_ENDPOINT", "https://api.groq.com/openai/v1/chat/completions").strip()
+
         self.timeout = float(os.getenv("AI_TIMEOUT_SECONDS", "12"))
         self.sale_mode = os.getenv("SALE_MODE", "").strip().lower()
         self.last_engine = None
@@ -155,13 +211,14 @@ class AICopywriter:
     def _hermes_ready(self) -> bool:
         return _usable_key(self.hermes_api_key)
 
+    def _groq_ready(self) -> bool:
+        return _usable_key(self.groq_api_key)
+
     def _uses_hermes_only(self) -> bool:
         return self.provider in HERMES_PROVIDERS
 
     def is_configured(self) -> bool:
-        if self._uses_hermes_only():
-            return self._hermes_ready() or self._gemini_ready()
-        return self._gemini_ready() or self._hermes_ready()
+        return self._gemini_ready() or self._groq_ready() or self._hermes_ready()
 
     def describe(self) -> str:
         parts = []
@@ -202,34 +259,67 @@ class AICopywriter:
         return ""
 
     def generate_text(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
-        """Gemini first. Gemma on OpenRouter only after the Gemini key or quota fails."""
+        """Smart rate-limit & fallback chain: Gemini (primary) -> Groq (secondary) -> OpenRouter Hermes (tertiary)."""
         if not self.is_configured():
             return None
 
         self.last_engine = None
         self._gemini_quota_dead = False
+
+        # 1. Primary: Gemini
         if self._gemini_ready():
             text = self._call_gemini(prompt, system_prompt)
             if text:
                 self.last_engine = "gemini"
                 return text
-            # A timeout or 5xx is not a dead quota. Keep the free daily cap
-            # unless Gemini itself was turned off or this run is Hermes-only.
-            if not self._gemini_quota_dead and not self._uses_hermes_only():
+            if not self._gemini_quota_dead and not self._uses_hermes_only() and not self._groq_ready():
                 return None
-            if self._gemini_quota_dead and self._hermes_ready():
-                logger.warning(
-                    "Gemini key is empty or out of quota. Using Gemma backup %s.",
-                    self.hermes_model,
-                )
-        elif self._hermes_ready():
-            logger.warning("Gemini key is empty. Using Gemma backup %s.", self.hermes_model)
 
+        # 2. Secondary: Groq (if provided)
+        if self._groq_ready():
+            logger.info("Using secondary LLM provider: Groq (%s)", self.groq_model)
+            text = self._call_groq(prompt, system_prompt)
+            if text:
+                self.last_engine = "groq"
+                return text
+
+        # 3. Tertiary: OpenRouter (Hermes / Gemma)
         if self._hermes_ready():
+            logger.info("Using tertiary LLM provider: OpenRouter (%s)", self.hermes_model)
             text = self._call_hermes(prompt, system_prompt)
             if text:
                 self.last_engine = "gemma"
-            return text
+                return text
+
+        # 4. Final Fallback: Returns None so caller falls back to deterministic heuristic template
+        return None
+
+    def _call_groq(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+        headers = {
+            "Authorization": f"Bearer {self.groq_api_key}",
+            "Content-Type": "application/json",
+        }
+        sys_msg = system_prompt or "You are a concise deals editor. Reply with only what was asked."
+        payload = {
+            "model": self.groq_model,
+            "messages": [
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1000,
+        }
+        try:
+            resp = requests.post(self.groq_endpoint, headers=headers, json=payload, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", "").strip()
+            else:
+                logger.warning(f"Groq API returned status {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.warning(f"Groq API call failed: {e}")
         return None
 
     def _call_gemini(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
@@ -329,9 +419,13 @@ class AICopywriter:
 
     def craft_deal_copy(self, deal: Deal) -> Optional[str]:
         """
-        Generate high-converting, punchy Telegram deal copy using Gemini or Nous Hermes.
-        Returns None on any error or if unconfigured, triggering automatic template fallback.
+        Generate high-converting, punchy Telegram deal copy.
+        Returns cached batched copy if available, or calls LLM with Critic validation.
         """
+        cached = getattr(deal, "_cached_ai_copy", None)
+        if cached and validate_critic(cached, deal):
+            return sanitize_telegram_html(cached)
+
         if not self.is_configured():
             return None
 
@@ -357,6 +451,10 @@ class AICopywriter:
 
         raw_text = self.generate_text(prompt=user_prompt, system_prompt=system_prompt)
         if not raw_text:
+            return None
+
+        if not validate_critic(raw_text, deal):
+            logger.info("Critic rejected crafted copy due to hallucinated price/discount/coupon.")
             return None
 
         cleaned = sanitize_telegram_html(raw_text)

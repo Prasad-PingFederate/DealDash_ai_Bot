@@ -186,7 +186,7 @@ def test_expand_and_convert_url_break_attempts(monkeypatch):
 
     # Missing http/https prefix
     url, did, ret = expand_and_convert_url("amazon.in/dp/B0CYLJR6MF")
-    assert "https://amazon.in/dp/B0CYLJR6MF?tag=mytesttag-21" == url
+    assert "https://www.amazon.in/dp/B0CYLJR6MF?tag=mytesttag-21&linkCode=ll1" == url
     assert did == "amz-B0CYLJR6MF"
     assert ret == "Amazon"
 

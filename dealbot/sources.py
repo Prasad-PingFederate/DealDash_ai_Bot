@@ -33,10 +33,70 @@ def clean_title(title: Optional[str]) -> str:
     t = re.sub(r"\s*-\s*(Amazon|Flipkart|Myntra|Ajio)$", "", t, flags=re.IGNORECASE)
     return t.strip() or "Special Deal"
 
+SHORTLINK_DOMAINS = (
+    "amzn.to", "amzn.in", "fkrt.it", "bitli.in", "extp.in",
+    "wishlink.com", "bit.ly", "cutt.ly", "tinyurl.com", "t.co", "vurl.com"
+)
+SHORTLINK_CACHE: Dict[str, str] = {}
+AMAZON_ASIN_REGEX = re.compile(
+    r"/(?:dp|gp/product|exec/obidos/ASIN|aw/d)/([A-Z0-9]{10})",
+    re.IGNORECASE,
+)
+FLIPKART_STRIP_PARAMS = {
+    "affid", "affextparam1", "affextparam2", "cmpid", "otracker",
+    "ssid", "gclid", "fbclid", "ref_", "semcmpid"
+}
+
+def unroll_shortlink(url: str, timeout: int = 6) -> str:
+    """
+    Detect shortened URLs and resolve redirect chain (HEAD with fallback to GET).
+    Caches resolved destination URLs in memory.
+    """
+    if not url:
+        return ""
+    if url in SHORTLINK_CACHE:
+        return SHORTLINK_CACHE[url]
+
+    parsed = urllib.parse.urlparse(url)
+    domain = parsed.netloc.lower()
+    is_short = any(s in domain for s in SHORTLINK_DOMAINS)
+    if not is_short:
+        return url
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    target = url
+    try:
+        resp = requests.head(url, allow_redirects=True, timeout=timeout, headers=headers)
+        if resp.url and resp.url != url and resp.status_code in (200, 301, 302, 307, 308):
+            target = resp.url
+        elif resp.status_code in (400, 403, 405) or resp.url == url:
+            resp_get = requests.get(url, allow_redirects=True, timeout=timeout, headers=headers, stream=True)
+            if resp_get.url:
+                target = resp_get.url
+            resp_get.close()
+    except requests.RequestException as e:
+        logger.warning(f"Could not unroll shortlink {url}: {e}")
+
+    SHORTLINK_CACHE[url] = target
+    return target
+
+
 def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
     """Extract ASIN or PID and automatically inject user affiliate tracking parameters."""
-    amazon_tag = os.getenv("AMAZON_PARTNER_TAG", "").strip()
-    flipkart_id = os.getenv("FLIPKART_AFFILIATE_ID", "").strip()
+    amazon_tag = (
+        os.getenv("AMAZON_AFFILIATE_TAG")
+        or os.getenv("AMAZON_PARTNER_TAG")
+        or "dammaiprasad-21"
+    ).strip()
+    flipkart_id = (
+        os.getenv("FLIPKART_AFFILIATE_ID")
+        or os.getenv("FLIPKART_AFFID")
+        or ""
+    ).strip()
 
     if not raw_url or not isinstance(raw_url, str):
         return "", "deal-invalid", "Online Store"
@@ -48,39 +108,45 @@ def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
     if not url.lower().startswith(("http://", "https://")):
         url = "https://" + url
 
-    if any(short in url for short in ["amzn.to", "amzn.in", "fkrt.it", "bit.ly"]):
-        try:
-            resp = requests.head(url, allow_redirects=True, timeout=10, headers={"User-Agent": USER_AGENT})
-            url = resp.url
-        except requests.RequestException as e:
-            logger.warning(f"Could not expand short link {url}: {e}")
+    # Unroll shortened URLs
+    url = unroll_shortlink(url)
 
     parsed = urllib.parse.urlparse(url)
     domain = parsed.netloc.lower()
 
+    # 1. Amazon.in Canonicalization
     if "amazon." in domain:
-        asin_match = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", parsed.path, re.IGNORECASE)
+        asin_match = AMAZON_ASIN_REGEX.search(parsed.path)
+        if not asin_match:
+            asin_match = re.search(r"[?&]asin=([A-Z0-9]{10})", url, re.IGNORECASE)
         if asin_match:
             asin = asin_match.group(1).upper()
-            clean_url = f"https://{parsed.netloc}/dp/{asin}"
-            if amazon_tag:
-                clean_url += f"?tag={amazon_tag}"
+            clean_url = f"https://www.amazon.in/dp/{asin}?tag={amazon_tag}&linkCode=ll1"
             return clean_url, f"amz-{asin}", "Amazon"
 
+    # 2. Flipkart Canonicalization
     if "flipkart.com" in domain:
         qs = urllib.parse.parse_qs(parsed.query)
         pid = qs.get("pid", [None])[0]
-        new_qs = {}
+        if not pid:
+            pid_match = re.search(r"/p/(itm[a-zA-Z0-9]+)", parsed.path)
+            if pid_match:
+                pid = pid_match.group(1)
+
+        # Strip noisy parameters
+        clean_qs = {k: v for k, v in qs.items() if k.lower() not in FLIPKART_STRIP_PARAMS}
         if pid:
-            new_qs["pid"] = pid
+            clean_qs["pid"] = [pid]
         if flipkart_id:
-            new_qs["affid"] = flipkart_id
-        query_str = urllib.parse.urlencode(new_qs)
+            clean_qs["affid"] = [flipkart_id]
+
+        query_str = urllib.parse.urlencode(clean_qs, doseq=True)
         clean_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", query_str, ""))
         deal_id = f"fk-{pid}" if pid else f"fk-{abs(hash(parsed.path))}"
         return clean_url, deal_id, "Flipkart"
 
     return url, f"deal-{abs(hash(url))}", "Online Store"
+
 
 def worth_posting_discount(discount_percent: int, original_price: str, deal_price: str, min_discount: int) -> bool:
     """Keep the usual percent, and also a smaller percent at any price. No rupee minimum."""
@@ -159,6 +225,7 @@ def _deal_from_fields(
     image = image_url if image_url.lower().startswith("https://") else None
     if not image and retailer == "Amazon":
         image = _amazon_image(asin)
+    canon_id = f"amazon:{deal_id[4:]}" if deal_id.startswith("amz-") else (f"flipkart:{deal_id[3:]}" if deal_id.startswith("fk-") else f"store:{deal_id}")
     deal = Deal(
         id=deal_id,
         retailer=retailer,
@@ -170,6 +237,7 @@ def _deal_from_fields(
         image_url=image,
         coupon_code=_clean_code(coupon),
         bank_offer=bank[:90] if bank else None,
+        canonical_product_id=canon_id,
     )
     return deal if deal.is_valid() else None
 

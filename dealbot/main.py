@@ -20,7 +20,7 @@ def setup_logging():
     )
 
 def sweep_expired_deals(store: StateStore, dry_run: bool = True):
-    """Periodically check posted active deals and mark expired/OOS ones on Telegram."""
+    """Periodically check posted active deals and mark expired/OOS ones on Telegram after consecutive confirmation."""
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     active_deals = store.get_recent_active_deals(limit=10)
     if not active_deals:
@@ -33,16 +33,30 @@ def sweep_expired_deals(store: StateStore, dry_run: bool = True):
         msg_id = row["message_id"]
         caption = row.get("caption") or ""
 
-        # Only check Amazon/Flipkart URLs
+        url = None
         if deal_id.startswith("amz-"):
             asin = deal_id.replace("amz-", "")
             url = f"https://www.amazon.in/dp/{asin}"
-            is_active = check_deal_is_active(url)
-            if not is_active:
-                logger.info(f"Deal {deal_id} is OUT OF STOCK. Updating Telegram message...")
+        elif deal_id.startswith("fk-"):
+            pid = deal_id.replace("fk-", "")
+            url = f"https://www.flipkart.com/p/itm?pid={pid}"
+
+        if not url:
+            continue
+
+        stock_status = inspect_stock(url)
+        if stock_status == "out_of_stock":
+            consecutive = store.increment_oos_count(deal_id)
+            # Require 2 consecutive checks to prevent transient page glitches
+            if consecutive >= 2:
+                logger.info(f"Deal {deal_id} confirmed OUT OF STOCK ({consecutive} consecutive checks). Updating Telegram message...")
                 if not dry_run and token:
                     mark_telegram_deal_expired(token, chat_id, msg_id, caption)
                 store.mark_expired(deal_id)
+            else:
+                logger.info(f"Deal {deal_id} first OOS signal detected. Awaiting 2nd confirmation before editing Telegram.")
+        elif stock_status == "in_stock":
+            store.reset_oos_count(deal_id)
 
 def _recent_categories(store: StateStore) -> list:
     categories = []
@@ -96,7 +110,14 @@ def run_once() -> int:
             continue
         previous, lowest_before = store.note_price(deal.id, seen)
         deal.price_note = price_note_for(previous, lowest_before, seen)
-    fresh = [deal for deal in deals if deal.is_valid() and not store.is_posted(deal.id)]
+    fresh = []
+    for deal in deals:
+        if not deal.is_valid():
+            continue
+        price_num = parse_rupees(deal.current_price)
+        canon_id = getattr(deal, "canonical_product_id", None) or deal.id
+        if not store.is_posted(deal.id, canonical_product_id=canon_id, current_price=price_num):
+            fresh.append(deal)
 
     plan = None
     if agent_mode:
@@ -141,6 +162,8 @@ def run_once() -> int:
                     discount=deal.discount_percent,
                     agent_score=picked.score if picked else None,
                     agent_reason=picked.reason if picked else None,
+                    canonical_product_id=getattr(deal, "canonical_product_id", None),
+                    price=parse_rupees(deal.current_price),
                 )
                 time.sleep(post_delay)
                 store.record_event(deal.id, "posted", "checked" if deal.checked else "unverified")

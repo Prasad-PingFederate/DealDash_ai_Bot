@@ -19,8 +19,8 @@ on:
 # Dealbot and the weekly advisor both push main. One at a time, and do not
 # cancel a run that has already posted to Telegram.
 concurrency:
-  group: dealdash-git
-  cancel-in-progress: false
+  group: dealdash-bot-runner
+  cancel-in-progress: true
 
 permissions:
   contents: write

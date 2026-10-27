@@ -379,7 +379,7 @@ class DealAgent:
             "Do not skip a deal because the price or the rupee saving is small. "
             "Skip coupon-only or refurbished listings, and do not pick two near-duplicate products.\n"
             "Reply with JSON only, no markdown:\n"
-            '{"posts":[{"id":"<id from the list>","why":"short reason"}]}\n\n'
+            '{"posts":[{"id":"<id from the list>","why":"short reason","copy":"punchy one-sentence caption with deal price digits"}]}\n\n'
             f"CANDIDATES:\n{json.dumps(cards, ensure_ascii=False)}"
         )
         try:
@@ -392,11 +392,18 @@ class DealAgent:
             data = _extract_json(raw)
             posts = data.get("posts") or []
             ids = []
+            by_id = {item.deal.id: item.deal for item in shortlist}
             for entry in posts:
                 deal_id = entry.get("id") if isinstance(entry, dict) else entry
                 why = entry.get("why", "") if isinstance(entry, dict) else ""
+                copy = entry.get("copy", "") if isinstance(entry, dict) else ""
                 if isinstance(deal_id, str) and deal_id in allowed and deal_id not in [row[0] for row in ids]:
                     ids.append((deal_id, str(why)[:180]))
+                    deal_obj = by_id.get(deal_id)
+                    if deal_obj and copy:
+                        from dealbot.ai_copywriter import validate_critic
+                        if validate_critic(copy, deal_obj):
+                            deal_obj._cached_ai_copy = copy
                 if len(ids) >= max_posts:
                     break
             return ids

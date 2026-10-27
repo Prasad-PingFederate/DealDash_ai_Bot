@@ -34,7 +34,7 @@ def test_clean_title_removes_noise():
 def test_expand_and_convert_url_amazon(monkeypatch):
     monkeypatch.setenv("AMAZON_PARTNER_TAG", "testtag-21")
     url, deal_id, retailer = expand_and_convert_url("https://www.amazon.in/dp/B0BS1QCFHX")
-    assert url == "https://www.amazon.in/dp/B0BS1QCFHX?tag=testtag-21"
+    assert url == "https://www.amazon.in/dp/B0BS1QCFHX?tag=testtag-21&linkCode=ll1"
     assert deal_id == "amz-B0BS1QCFHX"
     assert retailer == "Amazon"
 

@@ -92,7 +92,8 @@ def main() -> int:
     if raw:
         deadline = datetime.fromisoformat(raw)
     else:
-        deadline = datetime.now(IST) + timedelta(hours=5, minutes=10)
+        # Default session duration: 2h 40m (~2.6 hours) so runs finish cleanly before next 3-hour cron
+        deadline = datetime.now(IST) + timedelta(hours=2, minutes=40)
     action, wait = plan(datetime.now(IST), load_last_cycle(), deadline)
     if action == "sleep":
         print(f"sleep {wait}")
