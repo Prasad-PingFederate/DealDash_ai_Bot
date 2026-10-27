@@ -111,3 +111,29 @@ def test_export_web_feed(tmp_path):
     assert stats["total_live_deals"] == 3
     assert stats["max_discount_pct"] >= 40
 
+
+def test_freshness_time_decay_and_pruning():
+    deal = Deal(
+        id="amz-B09TEST001",
+        retailer="Amazon",
+        title="Puma Running Shoes",
+        url="https://amazon.in/dp/B09TEST001",
+        current_price="₹1,999",
+        original_price="₹4,999",
+        discount_percent=60,
+        effective_price=1999,
+    )
+    import time
+    now_epoch = int(time.time())
+
+    # Fresh deal (0h old): age_hours=0, decay=0, is_new=True
+    w_fresh = deal_to_web_json(deal, score=80, posted_epoch=now_epoch)
+    assert w_fresh["is_new"] is True
+    assert w_fresh["age_hours"] == 0.0
+    assert w_fresh["trending_score"] == 80.0
+
+    # 10h old deal: age_hours=10, decay=(10-2)*2.5 = 20.0, trending_score = 60.0
+    w_older = deal_to_web_json(deal, score=80, posted_epoch=now_epoch - 36000)
+    assert w_older["is_new"] is False
+    assert w_older["age_hours"] == 10.0
+    assert w_older["trending_score"] == 60.0

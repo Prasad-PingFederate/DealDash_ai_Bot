@@ -244,6 +244,27 @@ def map_ui_category(deal_category: str, title: str) -> str:
     return "Electronics & Audio"
 
 
+def parse_posted_epoch(posted_at: Union[str, int, float, None]) -> int:
+    """Safely convert SQLite datetime string or epoch timestamp to epoch seconds."""
+    if not posted_at:
+        return int(time.time())
+    if isinstance(posted_at, (int, float)):
+        return int(posted_at)
+    val = str(posted_at).strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+        try:
+            dt = datetime.strptime(val, fmt)
+            return int(dt.replace(tzinfo=timezone.utc).timestamp())
+        except Exception:
+            pass
+    try:
+        dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+        return int(dt.timestamp())
+    except Exception:
+        pass
+    return int(time.time())
+
+
 def deal_to_web_json(
     deal: Deal,
     score: int = 70,
@@ -252,6 +273,7 @@ def deal_to_web_json(
     posted_to_telegram: bool = True,
     expired: bool = False,
     price_spiked: bool = False,
+    posted_epoch: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Transform an internal Deal object into the standard BharatBazaro live_deals.json item."""
     asin = extract_asin(deal)
@@ -261,6 +283,14 @@ def deal_to_web_json(
     now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     updated_at_epoch = int(time.time())
     updated_at_ist = now_ist.strftime("%Y-%m-%d %H:%M IST")
+
+    # Time-decay freshness ranking (Requirement 2)
+    now_epoch = updated_at_epoch
+    post_time = posted_epoch or updated_at_epoch
+    age_hours = round(max(0.0, (now_epoch - post_time) / 3600.0), 1)
+    decay = max(0.0, (age_hours - 2.0) * 2.5)
+    trending_score = round(max(10.0, float(score or 70) - decay), 1)
+    is_new = bool(age_hours <= 2.0)
 
     mrp = parse_rupees(deal.original_price)
     list_p = parse_rupees(deal.current_price)
@@ -386,6 +416,10 @@ def deal_to_web_json(
         "expired": expired,
         "price_spiked": price_spiked,
         "posted_to_telegram": posted_to_telegram,
+        "posted_at_epoch": post_time,
+        "age_hours": age_hours,
+        "trending_score": trending_score,
+        "is_new": is_new,
         "updated_at": updated_at_epoch,
         "updated_at_ist": updated_at_ist,
     }
@@ -524,6 +558,13 @@ def export_web_feed(
             discount_pct = d_dict.get("discount") or extract_discount_pct(caption, final_price, mrp_price)
             bank_offer = extract_bank_offer(f"{title}\n{caption}")
 
+            # Time-decay check: drop unverified deals older than 48h
+            post_epoch = parse_posted_epoch(d_dict.get("posted_at"))
+            now_epoch = int(time.time())
+            age_hours = round(max(0.0, (now_epoch - post_epoch) / 3600.0), 1)
+            if age_hours > 48.0:
+                continue
+
             deal_obj = Deal(
                 id=deal_id,
                 retailer="Amazon",
@@ -551,6 +592,7 @@ def export_web_feed(
                 posted_to_telegram=bool(d_dict.get("message_id")),
                 expired=(d_dict.get("status") == "expired"),
                 price_spiked=(d_dict.get("status") == "price_spiked"),
+                posted_epoch=post_epoch,
             )
             deals_by_asin[asin] = w_json
 
@@ -568,13 +610,14 @@ def export_web_feed(
                 price_sightings=s_ctx,
                 partner_tag=partner_tag,
                 posted_to_telegram=False,
+                posted_epoch=int(time.time()),
             )
             deals_by_asin[asin] = w_json
 
-    # Sort final items by score DESC, then buy_confidence DESC, then updated_at DESC
+    # Sort final items by trending_score DESC, then buy_confidence DESC, then updated_at DESC
     # Guard: Strictly filter out any anomalies with zero or missing price
     deal_list = [d for d in deals_by_asin.values() if (d.get("effective_price") or 0) > 0]
-    deal_list.sort(key=lambda x: (x.get("score") or 0, x.get("buy_confidence") or 0, x.get("updated_at") or 0), reverse=True)
+    deal_list.sort(key=lambda x: (x.get("trending_score") or x.get("score") or 0, x.get("buy_confidence") or 0, x.get("updated_at") or 0), reverse=True)
     final_deals = deal_list[:max_items]
 
     # Write data/live_deals.json

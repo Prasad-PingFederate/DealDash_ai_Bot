@@ -12,8 +12,9 @@ from dealbot.main import verify_and_enrich_deal, run_once
 
 # ── 1. ADAPTIVE SOFT-FLOOR BACKFILL TESTS ─────────────────────────────────────
 
-def test_soft_floor_backfill_when_all_scores_between_16_and_31():
+def test_soft_floor_backfill_when_all_scores_between_16_and_31(monkeypatch):
     """When all candidates score between 16 and 31, soft-floor guarantees at least 1-2 deals."""
+    monkeypatch.setattr("dealbot.agent.current_slot", lambda: "night")
     deals = [
         Deal(
             id="cand-1",
@@ -94,8 +95,9 @@ def test_soft_floor_backfill_does_not_trigger_when_qualified_exist():
     assert len(plan_result.posts) == 2
 
 
-def test_soft_floor_backfill_rejects_poorly_rated_items():
+def test_soft_floor_backfill_rejects_poorly_rated_items(monkeypatch):
     """Soft-floor backfill never selects items explicitly rated < 3.6★."""
+    monkeypatch.setattr("dealbot.agent.current_slot", lambda: "night")
     deals = [
         Deal(
             id="low-rated-1",

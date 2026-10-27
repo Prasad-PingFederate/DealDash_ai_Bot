@@ -482,9 +482,13 @@ class DealAgent:
         scored = [score_deal(deal, recent_categories, slot=slot) for deal in deals]
         scored.sort(key=lambda item: item.score, reverse=True)
 
-        # Pass 1: Strict Quality Gate
-        qualified = [item for item in scored if item.score >= self.min_score]
-        rejected = [item for item in scored if item.score < self.min_score]
+        # Pass 1: Strict Quality Gate (rating must be >= 3.6 if rated)
+        qualified = [
+            item for item in scored
+            if item.score >= self.min_score
+            and (getattr(item.deal, "rating", None) is None or getattr(item.deal, "rating", None) >= 3.6)
+        ]
+        rejected = [item for item in scored if item not in qualified]
 
         soft_floor_used = False
         target_deals = min(max_posts, 2)
