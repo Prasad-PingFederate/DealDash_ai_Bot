@@ -60,6 +60,11 @@ jobs:
           AI_TIMEOUT_SECONDS: '12'
           SALE_MODE: ${{ secrets.SALE_MODE || '' }}
           AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+          AMAZON_AFFILIATE_TAG: ${{ vars.AMAZON_AFFILIATE_TAG || secrets.AMAZON_AFFILIATE_TAG || 'dammaiprasad-21' }}
+          TELEGRAM_CHANNEL_LINK: ${{ vars.TELEGRAM_CHANNEL_LINK || 'https://t.me/Flash_Deals_Flipkart_Amazon' }}
+          WHATSAPP_CHANNEL_LINK: ${{ vars.WHATSAPP_CHANNEL_LINK || 'https://chat.whatsapp.com/GspHsCGTRm29orUszbuvh3?s=cl&p=a&mlu=4&ilr=4&iam=2' }}
+          X_ACCOUNT_LINK: ${{ vars.X_ACCOUNT_LINK || 'https://x.com/PrasadDammai' }}
+          REDDIT_COMMUNITY_LINK: ${{ vars.REDDIT_COMMUNITY_LINK || 'https://www.reddit.com/r/Indiashopping/' }}
           DRY_RUN: 'false'
           CONTINUOUS: 'false'
           MAX_POSTS_PER_CYCLE: '3'
