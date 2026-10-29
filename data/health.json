@@ -1,14 +1,14 @@
 {
-  "timestamp_ist": "2026-10-28 14:40:32 IST",
-  "timestamp_epoch": 1793178632,
+  "timestamp_ist": "2026-10-29 14:39:40 IST",
+  "timestamp_epoch": 1793264980,
   "overall_status": "DEGRADED",
   "checks": [
     {
       "name": "Gemini API",
-      "status": "ok",
+      "status": "failed",
       "model": "gemini-2.5-flash",
-      "latency_ms": 455,
-      "detail": "HTTP 200 OK (Thinking tokens disabled)"
+      "latency_ms": 115,
+      "detail": "HTTP 403: {\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"Your API key was reported as leaked. Please use another API key.\",\n    \""
     },
     {
       "name": "Groq API",
@@ -21,7 +21,7 @@
       "name": "OpenRouter Fallback",
       "status": "failed",
       "model": "google/gemma-4-26b-a4b-it:free",
-      "latency_ms": 373,
+      "latency_ms": 359,
       "detail": "All candidate models in fallback chain failed"
     },
     {
@@ -34,39 +34,39 @@
     {
       "name": "Deal Discovery Feeds",
       "status": "ok",
-      "candidate_count": 31,
-      "latency_ms": 13183,
-      "detail": "Discovered 31 candidates across live feeds"
+      "candidate_count": 32,
+      "latency_ms": 9486,
+      "detail": "Discovered 32 candidates across live feeds"
     },
     {
       "name": "Amazon.in Scraper",
       "status": "warning",
       "stock_status": "unknown",
       "live_price": "N/A",
-      "latency_ms": 276,
+      "latency_ms": 278,
       "detail": "Status: unknown, Price: \u20b9N/A"
     },
     {
       "name": "SQLite Integrity",
       "status": "ok",
-      "active_deals": 108,
+      "active_deals": 128,
       "integrity": "ok",
-      "latency_ms": 4,
-      "detail": "PRAGMA: ok, Active Deals: 108"
+      "latency_ms": 3,
+      "detail": "PRAGMA: ok, Active Deals: 128"
     },
     {
       "name": "BharatBazaro Live",
       "status": "ok",
-      "live_deals": 59,
-      "feed_age_min": 48,
-      "latency_ms": 270,
-      "detail": "59 live deals online (synced 48m ago)"
+      "live_deals": 99,
+      "feed_age_min": 139,
+      "latency_ms": 175,
+      "detail": "99 live deals online (synced 139m ago)"
     },
     {
       "name": "Telegram Bot API",
       "status": "ok",
       "bot_username": "DealDash_ai_Bot",
-      "latency_ms": 789,
+      "latency_ms": 437,
       "detail": "@DealDash_ai_Bot -> Flash Deals 24/7"
     }
   ]
