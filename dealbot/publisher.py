@@ -871,6 +871,12 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     lines.append(f'🛒 <a href="{html.escape(deal.url or "#")}"><b>Buy Now on {retailer}</b></a>')
     lines.append("🔁 Forward this if it is still live")
     lines.append("")
+    tg_link = os.getenv("TELEGRAM_CHANNEL_LINK", "https://t.me/Flash_Deals_Flipkart_Amazon")
+    wa_link = os.getenv("WHATSAPP_CHANNEL_LINK", "https://chat.whatsapp.com/GspHsCGTRm29orUszbuvh3?s=cl&p=a&mlu=4&ilr=4&iam=2")
+    x_link = os.getenv("X_ACCOUNT_LINK", "https://x.com/PrasadDammai")
+    rd_link = os.getenv("REDDIT_COMMUNITY_LINK", "https://www.reddit.com/r/Indiashopping/")
+    lines.append(f'👉 <b>Follow DealDash AI:</b> <a href="{tg_link}">Telegram</a> · <a href="{wa_link}">WhatsApp</a> · <a href="{x_link}">X</a> · <a href="{rd_link}">Reddit</a>')
+    lines.append("")
     if "amazon" in (deal.retailer or "").lower():
         lines.append("<i>#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.</i>")
     else:
@@ -1071,6 +1077,14 @@ def send_top_live_deals_digest(
         disc_str = f"({discount}% OFF)" if discount else ""
         lines.append(f"{idx}. <b>{html.escape(title[:65], quote=False)}</b> — {price_str} {disc_str} — <a href=\"{html.escape(aff_url)}\"><b>Grab Here</b></a>")
 
+    lines.append("")
+    tg_link = os.getenv("TELEGRAM_CHANNEL_LINK", "https://t.me/Flash_Deals_Flipkart_Amazon")
+    wa_link = os.getenv("WHATSAPP_CHANNEL_LINK", "https://chat.whatsapp.com/GspHsCGTRm29orUszbuvh3?s=cl&p=a&mlu=4&ilr=4&iam=2")
+    x_link = os.getenv("X_ACCOUNT_LINK", "https://x.com/PrasadDammai")
+    rd_link = os.getenv("REDDIT_COMMUNITY_LINK", "https://www.reddit.com/r/Indiashopping/")
+    lines.append("👉 <b>Follow DealDash AI Everywhere:</b>")
+    lines.append(f'📲 <a href="{tg_link}">Telegram Channel</a> | 💬 <a href="{wa_link}">WhatsApp Group</a>')
+    lines.append(f'🐦 <a href="{x_link}">X (Twitter) Profile</a> | 🌐 <a href="{rd_link}">Reddit Community</a> | ⚡ <a href="https://bharatbazaro.com">Live 24x7 Radar</a>')
     lines.append("")
     lines.append("<i>⚡ Prices and coupons fluctuate rapidly. Forward to friends before these deals expire!</i>")
     digest_html = "\n".join(lines)
