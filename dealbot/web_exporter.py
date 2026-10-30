@@ -512,6 +512,7 @@ def deal_to_web_json(
     price_spiked: bool = False,
     posted_epoch: Optional[int] = None,
     last_verified_epoch: Optional[int] = None,
+    img_cache: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Transform an internal Deal object into the standard BharatBazaro live_deals.json item."""
     asin = extract_asin(deal)
@@ -670,12 +671,22 @@ def deal_to_web_json(
     claim_steps.append(f"🎉 Complete checkout at the effective deal price of ₹{eff_p:,}!")
 
     clean_aff_url = f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1&ascsubtag=bb-grid"
-    image_url = deal.image_url or f"https://m.media-amazon.com/images/P/{asin}.jpg"
+    image_url = deal.image_url
+    if not image_url or "/images/P/" in image_url:
+        if img_cache and asin in img_cache and img_cache[asin].get("image_url") and "/images/P/" not in img_cache[asin]["image_url"]:
+            image_url = img_cache[asin]["image_url"]
+        else:
+            image_url = image_url or f"https://m.media-amazon.com/images/P/{asin}.jpg"
+
+    resolved_title = deal.title or "Amazon Special Deal"
+    if not resolved_title or resolved_title.startswith("Amazon Deal") or resolved_title.startswith("Trending Amazon Deal"):
+        if img_cache and asin in img_cache and img_cache[asin].get("title"):
+            resolved_title = img_cache[asin]["title"]
 
     return {
         "id": f"amazon:{asin}",
         "asin": asin,
-        "title": html.unescape(deal.title or "Amazon Special Deal").strip(),
+        "title": html.unescape(resolved_title).strip(),
         "brand": brand,
         "brand_tier": brand_tier,
         "category": ui_category,
@@ -1033,6 +1044,7 @@ def export_web_feed(
                 price_spiked=(d_dict.get("status") == "price_spiked"),
                 posted_epoch=post_epoch,
                 last_verified_epoch=verif_epoch,
+                img_cache=img_cache,
             )
             deals_by_asin[asin] = w_json
 
@@ -1051,6 +1063,7 @@ def export_web_feed(
                 partner_tag=partner_tag,
                 posted_to_telegram=False,
                 posted_epoch=int(time.time()),
+                img_cache=img_cache,
             )
             deals_by_asin[asin] = w_json
 
@@ -1075,6 +1088,7 @@ def export_web_feed(
                         posted_to_telegram=False,
                         posted_epoch=int(time.time()),
                         last_verified_epoch=int(time.time()),
+                        img_cache=img_cache,
                     )
                     deals_by_asin[s_asin] = w_json
         except Exception as e:
