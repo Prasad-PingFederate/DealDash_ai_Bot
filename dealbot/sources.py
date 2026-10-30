@@ -21,6 +21,30 @@ _AMAZON_TOKEN_CACHE = {"token": None, "expires_at": 0.0}
 def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
+
+def extract_title_from_amazon_url_slug(url: Optional[str]) -> Optional[str]:
+    """
+    Extract readable product title from Amazon URL path slug before /dp/{ASIN}.
+    E.g. https://www.amazon.in/Havells-Ambrose-1200mm-Ceiling-Fan/dp/B0GK6PQ3W8 -> Havells Ambrose 1200mm Ceiling Fan
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        import urllib.parse
+        m = re.search(r"/([a-zA-Z0-9%_-]{5,120})/(?:dp|d|gp/product)/[A-Z0-9]{10}", url)
+        if m:
+            slug = m.group(1)
+            if slug.lower() in ("gp", "dp", "product", "buy", "deals", "electronics", "offer"):
+                return None
+            slug = urllib.parse.unquote(slug)
+            clean_words = slug.replace("-", " ").replace("_", " ").split()
+            title = " ".join(w.capitalize() if not w.isupper() else w for w in clean_words)
+            if len(title) >= 10:
+                return title
+    except Exception:
+        pass
+    return None
+
 def clean_title(title: Optional[str]) -> str:
     """Clean promotional noise, coupons, and trailing price/retailer tags from titles."""
     if not title or not isinstance(title, str):
@@ -228,11 +252,15 @@ def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
 
 
 def worth_posting_discount(discount_percent: int, original_price: str, deal_price: str, min_discount: int) -> bool:
-    """Keep the usual percent, and also a smaller percent at any price. No rupee minimum."""
-    if discount_percent >= min_discount:
-        return True
+    """Keep the usual percent, and also a smaller percent at any price, plus tiered support for high-ticket items."""
     price = parse_rupees(deal_price)
     mrp = parse_rupees(original_price)
+    # High-ticket items (>= 3000) allow lower percentage drops if savings are genuine
+    if price is not None and price >= 3000:
+        if discount_percent >= 20 or (mrp is not None and mrp - price >= 1500 and discount_percent >= 15):
+            return True
+    if discount_percent >= min_discount:
+        return True
     if price is None or mrp is None or mrp <= price:
         return False
     return discount_percent >= 15
@@ -625,10 +653,24 @@ def fetch_reddit_deals(min_discount: int = 25) -> List[Deal]:
     return deals
 
 
-AMAZON_MOVERS_URL = "https://www.amazon.in/gp/movers-and-shakers/electronics"
+AMAZON_CATEGORY_SEEDS = [
+    ("beauty", "https://www.amazon.in/gp/bestsellers/beauty", "beauty"),
+    ("personal_care", "https://www.amazon.in/gp/bestsellers/hpc", "grocery"),
+    ("grocery", "https://www.amazon.in/gp/bestsellers/grocery", "grocery"),
+    ("laundry_fmcg", "https://www.amazon.in/gp/bestsellers/hpc/1374523031", "grocery"),
+    ("electronics", "https://www.amazon.in/gp/movers-and-shakers/electronics", "electronics"),
+    ("mobiles", "https://www.amazon.in/gp/bestsellers/electronics/1389401031", "mobiles"),
+    ("mobile_accessories", "https://www.amazon.in/gp/bestsellers/electronics/1389409031", "mobiles"),
+    ("computers", "https://www.amazon.in/gp/bestsellers/computers", "laptops"),
+    ("audio", "https://www.amazon.in/gp/bestsellers/electronics/1388921031", "audio"),
+    ("kitchen", "https://www.amazon.in/gp/bestsellers/kitchen", "home"),
+    ("appliances", "https://www.amazon.in/gp/bestsellers/appliances", "home"),
+    ("fashion", "https://www.amazon.in/gp/bestsellers/apparel", "fashion"),
+    ("shoes", "https://www.amazon.in/gp/bestsellers/shoes", "fashion"),
+]
 
-def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
-    """Lightweight scraper for trending products from Amazon Movers & Shakers. Fails silently if blocked."""
+def fetch_amazon_movers_and_shakers(min_discount: int = 20) -> List[Deal]:
+    """Multi-category scraper for trending products across all 7 categories. Fails silently if blocked."""
     raw = os.getenv("AMAZON_MOVERS_ENABLED", "true").strip().lower()
     if raw in {"false", "off", "0", "no"}:
         return []
@@ -640,40 +682,45 @@ def fetch_amazon_movers_and_shakers(min_discount: int = 25) -> List[Deal]:
     }
     from dealbot.regions import get_region_config
     cfg = get_region_config()
-    movers_url = cfg.get("movers_url", AMAZON_MOVERS_URL)
     domain = cfg.get("domain", "amazon.in")
-    try:
-        resp = requests.get(movers_url, headers=headers, timeout=10)
-        if resp.status_code != 200:
-            return []
-        text = resp.text
-        if "validateCaptcha" in text or "Type the characters" in text:
-            return []
+    seen_asins = set()
 
-        asin_matches = re.findall(r'href="([^"]*/dp/([A-Z0-9]{10})[^"]*)"', text)
-        seen_asins = set()
-        for href, asin in asin_matches:
-            if asin in seen_asins:
+    for cat_key, seed_url, cat_name in AMAZON_CATEGORY_SEEDS:
+        try:
+            resp = requests.get(seed_url, headers=headers, timeout=6)
+            if resp.status_code != 200:
                 continue
-            seen_asins.add(asin)
-            url = f"https://www.{domain}/dp/{asin}"
-            clean_url, deal_id, retailer = expand_and_convert_url(url)
-            deal = Deal(
-                id=deal_id,
-                retailer=retailer,
-                title=f"Trending Deal: Amazon Movers & Shakers ({asin})",
-                url=clean_url,
-                canonical_product_id=f"amazon:{asin}",
-                image_url=_amazon_image(asin),
-                source_platform="amazon_movers",
-                matched_sources=["amazon_movers"],
-                source_count=1,
-            )
-            deals.append(deal)
-            if len(deals) >= 5:
-                break
-    except Exception as exc:
-        logger.debug(f"Amazon Movers & Shakers scraper exception: {exc}")
+            text = resp.text
+            if "validateCaptcha" in text or "Type the characters" in text:
+                continue
+
+            asin_matches = re.findall(r'href="([^"]*/(?:dp|gp/product)/([A-Z0-9]{10})[^"]*)"', text)
+            cat_deals_count = 0
+            for href, asin in asin_matches:
+                if asin in seen_asins:
+                    continue
+                seen_asins.add(asin)
+                url = f"https://www.{domain}/dp/{asin}"
+                clean_url, deal_id, retailer = expand_and_convert_url(url)
+                deal = Deal(
+                    id=deal_id,
+                    retailer=retailer,
+                    title=extract_title_from_amazon_url_slug(href) or f"Amazon {cat_name.title()} Deal ({asin})",
+                    url=clean_url,
+                    canonical_product_id=f"amazon:{asin}",
+                    category=cat_name,
+                    image_url=_amazon_image(asin),
+                    source_platform=f"amazon_{cat_key}",
+                    matched_sources=[f"amazon_{cat_key}"],
+                    source_count=1,
+                )
+                deals.append(deal)
+                cat_deals_count += 1
+                if cat_deals_count >= 3:
+                    break
+        except Exception as exc:
+            logger.debug(f"Amazon seed {seed_url} error: {exc}")
+
     return deals
 
 def get_amazon_creators_token(client_id: str, client_secret: str) -> Optional[str]:
@@ -787,6 +834,8 @@ def load_local_deals(filepath: Union[str, Path]) -> List[Deal]:
         if not item.get("title") or not item.get("url"):
             continue
         aff_url, auto_id, auto_retailer = expand_and_convert_url(item["url"])
+        asin_m = AMAZON_ASIN_REGEX.search(aff_url)
+        asin_clean = asin_m.group(1).upper() if asin_m else None
         deal = Deal(
             id=str(item.get("id") or auto_id),
             retailer=item.get("retailer") or auto_retailer,
@@ -801,6 +850,9 @@ def load_local_deals(filepath: Union[str, Path]) -> List[Deal]:
             expires_at=item.get("expires_at"),
             coupon_code=item.get("coupon_code") or item.get("coupon"),
             bank_offer=item.get("bank_offer"),
+            canonical_product_id=f"amazon:{asin_clean}" if asin_clean else None,
+            rating=item.get("rating"),
+            review_count=item.get("review_count"),
         )
         if deal.is_valid():
             deals.append(deal)
@@ -822,6 +874,12 @@ def collect_all_deals() -> List[Deal]:
             lambda: fetch_reddit_deals(min_discount=min_disc),
             lambda: fetch_amazon_movers_and_shakers(min_discount=min_disc),
         ]
+        if os.getenv("AI_WEB_SEARCH_ENABLED", "true").lower() == "true":
+            try:
+                from dealbot.ai_web_search import fetch_ai_web_search_deals
+                tasks.append(lambda: fetch_ai_web_search_deals(max_results=8))
+            except Exception as e:
+                logger.debug(f"Could not load AI Web Search engine: {e}")
         for rf in cfg.get("rss_feeds", []):
             tasks.append(lambda u=rf: _download_feed(u, min_discount=min_disc))
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:

@@ -105,6 +105,9 @@ class StateStore:
                 "price INTEGER",
                 "consecutive_oos_count INTEGER DEFAULT 0",
                 "consecutive_spike_count INTEGER DEFAULT 0",
+                "last_verified_at TIMESTAMP",
+                "rating REAL",
+                "review_count INTEGER",
             ]:
                 try:
                     conn.execute(f"ALTER TABLE posted_deals ADD COLUMN {col}")
@@ -255,6 +258,8 @@ class StateStore:
         canonical_product_id: Optional[str] = None,
         price: Optional[int] = None,
         effective_price: Optional[int] = None,
+        rating: Optional[float] = None,
+        review_count: Optional[int] = None,
     ):
         valid_prices = [p for p in (price, effective_price) if p is not None and p > 0]
         stored_price = min(valid_prices) if valid_prices else price
@@ -265,9 +270,10 @@ class StateStore:
                 INSERT INTO posted_deals (
                     deal_id, retailer, chat_id, message_id, caption, status,
                     category, discount, agent_score, agent_reason,
-                    canonical_product_id, price, posted_at, consecutive_oos_count, consecutive_spike_count
+                    canonical_product_id, price, posted_at, consecutive_oos_count, consecutive_spike_count, last_verified_at,
+                    rating, review_count
                 )
-                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0, 0)
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0, 0, CURRENT_TIMESTAMP, ?, ?)
                 ON CONFLICT(deal_id) DO UPDATE SET
                     retailer=excluded.retailer,
                     chat_id=excluded.chat_id,
@@ -281,8 +287,11 @@ class StateStore:
                     canonical_product_id=COALESCE(excluded.canonical_product_id, posted_deals.canonical_product_id),
                     price=COALESCE(excluded.price, posted_deals.price),
                     posted_at=CURRENT_TIMESTAMP,
+                    last_verified_at=CURRENT_TIMESTAMP,
                     consecutive_oos_count=0,
-                    consecutive_spike_count=0
+                    consecutive_spike_count=0,
+                    rating=COALESCE(excluded.rating, posted_deals.rating),
+                    review_count=COALESCE(excluded.review_count, posted_deals.review_count)
                 """,
                 (
                     deal_id,
@@ -296,6 +305,8 @@ class StateStore:
                     agent_reason,
                     canonical_product_id,
                     stored_price,
+                    rating,
+                    review_count,
                 ),
             )
             # When an item is re-posted, update the baseline price and posted_at for all records with the same canonical_product_id
@@ -436,6 +447,50 @@ class StateStore:
                 )
                 """
             )
+
+    def update_verified_deal(
+        self,
+        deal_id: str,
+        price: Optional[int] = None,
+        discount: Optional[int] = None,
+        status: str = "active",
+        rating: Optional[float] = None,
+        review_count: Optional[int] = None,
+    ) -> None:
+        """Update verified price, discount, status and mark last_verified_at / last_checked_at."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE posted_deals
+                SET price = COALESCE(?, price),
+                    discount = COALESCE(?, discount),
+                    status = ?,
+                    rating = COALESCE(?, rating),
+                    review_count = COALESCE(?, review_count),
+                    last_checked_at = CURRENT_TIMESTAMP,
+                    last_verified_at = CURRENT_TIMESTAMP
+                WHERE deal_id = ?
+                """,
+                (price, discount, status, rating, review_count, deal_id),
+            )
+
+    def get_deals_for_reverification(self, limit: int = 30) -> List[Dict[str, Any]]:
+        """Fetch active deals ordered by least recently verified."""
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                """
+                SELECT deal_id, retailer, chat_id, message_id, caption, status, posted_at,
+                       last_checked_at, last_verified_at, category, discount, agent_score,
+                       canonical_product_id, price, rating, review_count
+                FROM posted_deals
+                WHERE status = 'active'
+                ORDER BY COALESCE(last_verified_at, last_checked_at, posted_at) ASC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            return [dict(r) for r in cur.fetchall()]
 
     def mark_expired(self, deal_id: str):
         with self._connect() as conn:
@@ -784,6 +839,34 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
     if getattr(deal, "source_count", 1) >= 2:
         lines.append(f"🔥 Trending across {deal.source_count} deal communities")
 
+    # High-Converting Value-Pack / Quantity Hook (Requirement 4)
+    t_raw = deal.title or ""
+    t_lower = t_raw.lower()
+    value_hook = None
+    if any(k in t_lower for k in ("1l", "1 l", "1 litre", "1000ml", "1000 ml", "1 liter")):
+        value_hook = "🔥 1 LITRE LOOT!"
+    elif any(k in t_lower for k in ("2l", "2 l", "2 litre", "2000ml", "2 liter")):
+        value_hook = "🔥 2 LITRE MEGA LOOT!"
+    elif any(k in t_lower for k in ("5kg", "5 kg")):
+        value_hook = "🔥 5 KG MEGA VALUE PACK!"
+    elif "pack of 8" in t_lower or "pack of 10" in t_lower:
+        value_hook = "🔥 FAMILY PACK LOOT!"
+    elif "pack of 4" in t_lower:
+        value_hook = "🔥 PACK OF 4 COMBO LOOT!"
+    elif "pack of 3" in t_lower:
+        value_hook = "🔥 PACK OF 3 VALUE PACK!"
+    elif "pack of 2" in t_lower:
+        value_hook = "🔥 PACK OF 2 COMBO LOOT!"
+    elif "combo pack" in t_lower:
+        value_hook = "🔥 VALUE COMBO LOOT!"
+
+    curr_p_val = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
+    disc_val = offer_percent(deal) or deal.discount_percent or 0
+    if value_hook and curr_p_val and curr_p_val <= 499 and disc_val >= 35:
+        brand_name = getattr(deal, "brand", None) or ""
+        brand_str = f" {html.escape(brand_name)}" if brand_name else ""
+        lines.append(f"{value_hook}{brand_str} @ ₹{curr_p_val:,} ({disc_val}% OFF)")
+
     percent = offer_percent(deal)
     from dealbot.regions import get_currency_symbol
     curr_sym = get_currency_symbol()
@@ -868,7 +951,15 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
         lines.append(f"<i>{tagline}</i>")
 
     lines.append("")
-    lines.append(f'🛒 <a href="{html.escape(deal.url or "#")}"><b>Buy Now on {retailer}</b></a>')
+    buy_url = deal.url or "#"
+    asin_m = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})", buy_url)
+    if not asin_m and deal.id and deal.id.startswith("amz-"):
+        asin_c = deal.id.replace("amz-", "").strip().upper()
+        if len(asin_c) == 10:
+            buy_url = f"https://www.amazon.in/dp/{asin_c}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-telegram"
+    elif asin_m:
+        buy_url = f"https://www.amazon.in/dp/{asin_m.group(1).upper()}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-telegram"
+    lines.append(f'🛒 <a href="{html.escape(buy_url)}"><b>Buy Now on {retailer}</b></a>')
     lines.append("🔁 Forward this if it is still live")
     lines.append("")
     tg_link = os.getenv("TELEGRAM_CHANNEL_LINK", "https://t.me/Flash_Deals_Flipkart_Amazon")
@@ -932,19 +1023,22 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
         get_price_history_url,
         get_market_region,
     )
-    curr_sym = get_currency_symbol()
-    eff_p = getattr(deal, "effective_price", None)
-    disp_price = f"{curr_sym}{eff_p:,}" if eff_p else deal.current_price
-    disc_part = f" ({deal.discount_percent}% OFF)" if deal.discount_percent else ""
-    buy_text = f"🛒 Grab Deal @ {disp_price}{disc_part}" if disp_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
-    primary_row = [{"text": buy_text, "url": deal.url or "#"}]
-
     # Extract Amazon ASIN for Price Verification buttons (Keepa + PriceHistory/CamelCamelCamel)
     asin = None
     if deal.id and deal.id.startswith("amz-"):
         asin = deal.id.replace("amz-", "").strip().upper()
     elif getattr(deal, "canonical_product_id", None) and deal.canonical_product_id.startswith("amazon:"):
         asin = deal.canonical_product_id.replace("amazon:", "").strip().upper()
+
+    curr_sym = get_currency_symbol()
+    eff_p = getattr(deal, "effective_price", None)
+    disp_price = f"{curr_sym}{eff_p:,}" if eff_p else deal.current_price
+    disc_part = f" ({deal.discount_percent}% OFF)" if deal.discount_percent else ""
+    buy_text = f"🛒 Grab Deal @ {disp_price}{disc_part}" if disp_price else f"🛒 Buy Now on {deal.retailer or 'Store'}"
+    tg_url = deal.url or "#"
+    if (not tg_url or tg_url == "#" or "tag=" not in tg_url) and asin and len(asin) == 10:
+        tg_url = f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-telegram"
+    primary_row = [{"text": buy_text, "url": tg_url}]
 
     row2 = []
     row3 = []
