@@ -197,6 +197,19 @@ PAGE_CONFIGS = [
         "initial_max_price": None,
         "breadcrumb_name": "Personal Care & Grocery",
     },
+    {
+        "filename": "beauty.html",
+        "title": "Best Beauty, Skincare & Grooming Deals on Amazon India (Dove, Minimalist, Cetaphil, L'Oreal, Nivea, Colgate) | BharatBazaro",
+        "canonical": "https://bharatbazaro.com/beauty.html",
+        "meta_description": "Best beauty, skincare, and grooming deals on Amazon India. Live verified price drops and value pack steals on Dove, Minimalist, Cetaphil, L'Oreal, Nivea, and Colgate.",
+        "hero_title": 'Best Beauty, Skincare & <span class="gradient-text">Grooming Deals on Amazon India</span>',
+        "hero_subtitle": "Autonomous radar tracking verified discounts on Dove, Minimalist, Cetaphil, L'Oreal, Nivea, Colgate & top personal care brands.",
+        "category_slug": "beauty",
+        "initial_filter": None,
+        "initial_max_price": None,
+        "breadcrumb_name": "Beauty & Grooming",
+        "subtag": "bb-seo-beauty",
+    },
     # ── High-Intent Price Stores & Coupon Landing Pages ──
     {
         "filename": "under-99.html",
@@ -212,15 +225,16 @@ PAGE_CONFIGS = [
     },
     {
         "filename": "under-299.html",
-        "title": "Best Amazon India Deals Under ₹299 Today — Cables, Skincare, Kitchen & Home Loots | BharatBazaro",
+        "title": "Viral Daily Essentials & Value Pack Steals Under ₹299 on Amazon India | BharatBazaro",
         "canonical": "https://bharatbazaro.com/under-299.html",
-        "meta_description": "Best Amazon India deals under ₹299 today. Fast chargers, skincare essentials, kitchen gadgets, and home loots with verified price drops.",
-        "hero_title": 'Best Amazon Deals <span class="gradient-text">Under ₹299 Today</span>',
-        "hero_subtitle": "Unbeatable price drops on fast charging cables, skincare essentials, kitchen gadgets, and home loots under ₹299.",
+        "meta_description": "Viral daily essentials, FMCG value packs, skincare loots, and steals under ₹299 on Amazon India verified live 24/7 with BharatBazaro AI Deal Radar.",
+        "hero_title": 'Viral Daily Essentials & <span class="gradient-text">Steals Under ₹299</span>',
+        "hero_subtitle": "Unbeatable price drops and quantity value packs on skincare, personal care, cables, and home loots under ₹299.",
         "category_slug": None,
         "initial_filter": None,
         "initial_max_price": 299,
         "breadcrumb_name": "Deals Under ₹299",
+        "subtag": "bb-seo-under299",
     },
     {
         "filename": "under-499.html",
@@ -383,7 +397,7 @@ def ensure_og_banner(root_dir: Path) -> Path:
     return banner_path
 
 
-def render_deal_card_html(d: Dict[str, Any], card_index: int = 0) -> str:
+def render_deal_card_html(d: Dict[str, Any], card_index: int = 0, subtag: Optional[str] = None) -> str:
     """Render a semantic HTML article matching client-side createDealCardHtml in app.js."""
     asin = html_lib.escape(str(d.get("asin") or "B0UNKNOWN0"))
     title = html_lib.escape(html_lib.unescape(str(d.get("title") or "Amazon Deal")).strip())
@@ -396,12 +410,13 @@ def render_deal_card_html(d: Dict[str, Any], card_index: int = 0) -> str:
     buy_conf = d.get("buy_confidence") or 75
     brand_chip = html_lib.escape(str(d.get("brand") or d.get("category") or "Amazon"))
 
-    raw_aff = f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid"
+    card_subtag = subtag or "bb-grid"
+    raw_aff = f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={card_subtag}"
     aff_btn_url = html_lib.escape(raw_aff)
-    aff_img_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-card-img")
-    aff_title_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-card-title")
-    aff_price_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-card-price")
-    aff_coupon_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-coupon-pill")
+    aff_img_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={card_subtag}")
+    aff_title_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={card_subtag}")
+    aff_price_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={card_subtag}")
+    aff_coupon_url = html_lib.escape(f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={card_subtag}")
 
     image_url = html_lib.escape(str(d.get("image_url") or f"https://m.media-amazon.com/images/P/{asin}.jpg"))
     is_loot = bool(d.get("is_loot"))
@@ -566,7 +581,7 @@ def render_deal_card_html(d: Dict[str, Any], card_index: int = 0) -> str:
 
     loot_class = "is-loot" if is_loot else ""
 
-    svg_placeholder = "data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\' viewBox=\'0 0 200 200\'><rect width=\'100%\' height=\'100%\' fill=\'%23f1f5f9\'/><text x=\'50%\' y=\'45%\' font-size=\'48\' text-anchor=\'middle\' dominant-baseline=\'middle\'>⚡</text><text x=\'50%\' y=\'72%\' font-size=\'13\' font-weight=\'bold\' fill=\'%2364748b\' text-anchor=\'middle\' font-family=\'sans-serif\'>Amazon Verified Deal</text></svg>"
+    svg_placeholder = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgMzAwIDMwMCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJiZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2Y4ZmFmYyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2UyZThmMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYmcpIiByeD0iMTYiLz48Y2lyY2xlIGN4PSIxNTAiIGN5PSIxMjAiIHI9IjUwIiBmaWxsPSIjZmVmM2M3Ii8+PHRleHQgeD0iMTUwIiB5PSIxMzIiIGZvbnQtc2l6ZT0iNTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPvKaITwvdGV4dD48dGV4dCB4PSIxNTAiIHk9IjIwMCIgZm9udC1zaXplPSIxNSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBmMTcyYSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiPkFtYXpvbiBWZXJpZmllZCBEZWFsPC90ZXh0Pjx0ZXh0IHg9IjE1MCIgeT0iMjIyIiBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjNjQ3NDhiIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+Q2xpY2sgdG8gZmluZCBvbiBBbWF6b24g4oaXPC90ZXh0Pjwvc3ZnPg=="
     img_fallback = f"if(this.naturalWidth<=1||this.naturalHeight<=1){{this.onload=null;this.src='{svg_placeholder}';}}"
 
     if card_index < 3:
@@ -713,7 +728,8 @@ def build_structured_data(page_cfg: dict, page_deals: list) -> str:
         if eff_price <= 0:
             continue
         asin = d.get("asin") or ""
-        aff_url = d.get("affiliate_url") or f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1"
+        subtag = page_cfg.get("subtag") or "bb-grid"
+        aff_url = f"https://www.amazon.in/dp/{asin}?tag=dammaiprasad-21&linkCode=ll1&ascsubtag={subtag}"
         img_url = d.get("image_url") or f"https://m.media-amazon.com/images/P/{asin}.jpg"
         title = d.get("title") or "Amazon Deal"
         brand = d.get("brand") or "Amazon"
@@ -825,6 +841,9 @@ def filter_deals_for_page(page_cfg: dict, all_deals: List[Dict[str, Any]]) -> Li
                 matched.append(d)
         elif slug == "grocery":
             if any(c in cat for c in ("grocery", "personal care", "beauty")) or any(w in t for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper", "sunscreen", "lotion", "moisturizer")):
+                matched.append(d)
+        elif slug == "beauty":
+            if any(c in cat for c in ("beauty", "personal care", "grooming", "skincare", "haircare")) or any(w in t for w in ("body wash", "shampoo", "cream", "serum", "lotion", "moisturizer", "sunscreen", "cleanser", "facewash", "face wash", "perfume", "deodorant", "soap", "toothpaste", "colgate", "dove", "nivea", "cetaphil", "minimalist", "derma co", "cerave", "l'oreal", "garnier", "neutrogena", "pears", "plum", "lakme", "maybelline", "tresemme", "listerine", "dettol", "savlon", "gillette", "trimmer", "grooming")):
                 matched.append(d)
 
     # Backfill with top featured deals if category has fewer than 6 deals so Googlebot gets full indexable content
@@ -1091,6 +1110,7 @@ def generate_page_html(
         "home": "Home & Kitchen",
         "fashion": "Fashion & Footwear",
         "grocery": "Personal Care & Grocery",
+        "beauty": "Personal Care & Grocery",
     }
     target_cat = slug_to_cat.get(cat_slug, "all") if cat_slug else "all"
     html_out = html_out.replace(f'class="cat-pill" data-category="{target_cat}"', f'class="cat-pill active" data-category="{target_cat}"')
@@ -1111,7 +1131,8 @@ def generate_page_html(
         html_out = html_out.replace(f'class="price-pill" data-price="{init_max_price}"', f'class="price-pill active" data-price="{init_max_price}"')
 
     # 6. Inject deals inside #dealsGrid
-    cards_html = "\n".join(render_deal_card_html(d, idx) for idx, d in enumerate(page_deals))
+    page_subtag = page_cfg.get("subtag")
+    cards_html = "\n".join(render_deal_card_html(d, idx, subtag=page_subtag) for idx, d in enumerate(page_deals))
     html_out = re.sub(
         r'(<div\s+id=["\']dealsGrid["\'][^>]*>).*?(</div>\s*<!--\s*Empty State)',
         rf'\g<1>\n{cards_html}\n    \g<2>',
@@ -1184,6 +1205,11 @@ def generate_page_html(
         html_out = html_out.replace(
             '<a href="/mobiles.html" class="footer-link">📱 Mobiles</a>',
             '<a href="/mobiles.html" class="footer-link">📱 Mobiles</a>\n          <a href="/home.html" class="footer-link">🏠 Home & Kitchen</a>'
+        )
+    if '/beauty.html' not in html_out:
+        html_out = html_out.replace(
+            '<a href="/grocery.html" class="footer-link">🧴 Grocery</a>',
+            '<a href="/grocery.html" class="footer-link">🧴 Grocery</a>\n          <a href="/beauty.html" class="footer-link">💄 Beauty & Grooming</a>'
         )
 
     # 9. Clean any existing window.INITIAL_* scripts
@@ -1782,6 +1808,7 @@ def update_sitemap_xml(root_dir: Path, deal_asins: Optional[List[str]] = None):
         ("https://bharatbazaro.com/home.html", today, "daily", "0.9"),
         ("https://bharatbazaro.com/fashion.html", today, "daily", "0.9"),
         ("https://bharatbazaro.com/grocery.html", today, "daily", "0.9"),
+        ("https://bharatbazaro.com/beauty.html", today, "daily", "0.9"),
         # 3. High-Intent Price Stores & Coupons
         ("https://bharatbazaro.com/under-99.html", today, "daily", "0.9"),
         ("https://bharatbazaro.com/under-299.html", today, "daily", "0.9"),

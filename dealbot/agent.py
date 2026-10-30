@@ -72,7 +72,8 @@ TIER_1_BRANDS = (
     "dot & key", "maybelline", "lakme", "plum", "forest essentials", "kindle", "echo dot",
     "dove", "pears", "colgate", "tresemme", "vaseline", "beardo", "chemist at play",
     "dettol", "savlon", "listerine", "whisper", "surf excel", "ariel", "vim", "comfort",
-    "harpic", "lizol", "presto", "cadbury", "ferrero", "happilo", "tata sampann", "nescafe", "davidoff",
+    "harpic", "lizol", "presto", "cadbury", "ferrero", "ferrero rocher", "happilo", "tata sampann", "nescafe", "davidoff",
+    "cerave", "garnier", "oral-b", "oral b", "tide", "gillette",
 )
 
 TIER_2_BRANDS = (
@@ -479,6 +480,16 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score += 6
             reasons.append(f"psychological price point ({curr_sym}{eval_price}) (+6)")
 
+    # Value Pack / Combo Booster (+12 pts)
+    vp_boost_keywords = (
+        "1l", "1 l", "1 litre", "1000ml", "800ml", "1kg", "1 kg", "2kg", "2 kg", "5kg", "5 kg",
+        "pack of", "combo", "buy 1 get 1", "value pack", "refill"
+    )
+    if any(k in title_lower for k in vp_boost_keywords) and eff_eval_p is not None and eff_eval_p <= 499 and discount >= 35:
+        score += 12
+        deal.is_cookie_magnet = True
+        reasons.append("⚡ Value Pack / Combo Booster (+12)")
+
     # Cookie-Magnet Value Pack & FMCG Impulse Steals Bonus (+25 pts for 1L/Combo under ₹499)
     # Drives 81.4% of clicks and 92% of indirect cart conversions
     title_lower = (deal.title or "").lower()
@@ -690,11 +701,49 @@ class DealAgent:
                 source = "llm+heuristic"
 
         target_count = min(max_posts, len(qualified))
+
+        # Guaranteed Slot Allocation (Requirement 3):
+        # - At least 2 Cookie-Magnet deals (Beauty, Grooming, FMCG value packs under ₹499 with >=40% off)
+        # - At least 1-2 High-Ticket / High-Rupee-Savings deals (savings >= ₹1,000 or price >= ₹2,500)
+        def _is_cm(item: ScoredDeal) -> bool:
+            if getattr(item.deal, "is_cookie_magnet", False):
+                return True
+            cat = (item.category or "").lower()
+            p = getattr(item.deal, "effective_price", None) or parse_rupees(item.deal.current_price)
+            d = getattr(item.deal, "effective_discount_pct", None) or item.deal.discount_percent or 0
+            return (cat in ("beauty", "grocery", "home") and p is not None and p <= 499 and d >= 40)
+
+        def _is_hs(item: ScoredDeal) -> bool:
+            p = getattr(item.deal, "effective_price", None) or parse_rupees(item.deal.current_price)
+            m = parse_rupees(item.deal.original_price)
+            savings = (m - p) if (m and p and m > p) else 0
+            return savings >= 1000 or (p is not None and p >= 2500)
+
+        if target_count >= 3:
+            # Slot Allocation 1: Reserve 2 Cookie-Magnet slots
+            cm_needed = max(0, 2 - sum(1 for it in chosen if _is_cm(it)))
+            if cm_needed > 0:
+                cm_candidates = [it for it in qualified if it not in chosen and _is_cm(it)]
+                for it in cm_candidates[:cm_needed]:
+                    it.action = "post"
+                    it.reason = f"cookie-magnet slot allocation; {it.reason}"
+                    chosen.append(it)
+
+            # Slot Allocation 2: Reserve 1-2 High-Savings slots
+            hs_target = 2 if target_count >= 5 else 1
+            hs_needed = max(0, hs_target - sum(1 for it in chosen if _is_hs(it)))
+            if hs_needed > 0:
+                hs_candidates = [it for it in qualified if it not in chosen and _is_hs(it)]
+                for it in hs_candidates[:hs_needed]:
+                    it.action = "post"
+                    it.reason = f"high-savings slot allocation; {it.reason}"
+                    chosen.append(it)
+
         if len(chosen) < target_count:
             fill = self._greedy([item for item in qualified if item not in chosen], target_count - len(chosen))
             for item in fill:
                 item.action = "post"
-                if not item.reason.startswith("llm pick"):
+                if not item.reason.startswith("llm pick") and not item.reason.startswith("cookie-magnet") and not item.reason.startswith("high-savings"):
                     item.reason = f"heuristic pick; {item.reason}"
                 chosen.append(item)
 
