@@ -177,6 +177,12 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
     """Check stock and enrich Amazon deals with live price, MRP, ratings, coupons, and images.
     Returns True if valid for posting, False if rejected (OOS, price jumped >20%, or poor rating)."""
     logger = logging.getLogger("dealbot.main")
+    is_ai_web_deal = (
+        getattr(deal, "requires_live_verification", False)
+        or getattr(deal, "source_platform", "") == "AI Web Search"
+        or (deal.id and deal.id.startswith("aiweb:"))
+    )
+
     status = inspect_stock(deal.url)
     if status == "out_of_stock":
         logger.info(f"Skipping {deal.id}: out of stock or gone.")
@@ -185,11 +191,25 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
         deal._verify_skip_reason = "oos"
         store.record_event(deal.id, "skipped_oos")
         return False
+    if is_ai_web_deal and status != "in_stock":
+        logger.info(f"Skipping AI Web Search deal {deal.id}: not verified in stock (status={status}).")
+        if skip_tracker is not None:
+            skip_tracker["unverified_stock"] = skip_tracker.get("unverified_stock", 0) + 1
+        deal._verify_skip_reason = "unverified_stock"
+        store.record_event(deal.id, "skipped_aiweb_unverified_stock")
+        return False
     if status == "in_stock":
         deal.checked = True
         if "amazon." in (deal.url or "").lower():
             enrichment = enrich_amazon_deal(deal.url)
             live_price = enrichment.get("live_price")
+            if is_ai_web_deal and (not live_price or live_price <= 0):
+                logger.info(f"Skipping AI Web Search deal {deal.id}: missing verified live Amazon price.")
+                if skip_tracker is not None:
+                    skip_tracker["unverified_price"] = skip_tracker.get("unverified_price", 0) + 1
+                deal._verify_skip_reason = "unverified_price"
+                store.record_event(deal.id, "skipped_aiweb_unverified_price")
+                return False
             feed_price = parse_rupees(deal.current_price)
             feed_mrp = parse_rupees(deal.original_price)
             is_unverified_source = (
@@ -220,6 +240,23 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                     deal.current_price = f"₹{live_price:,}"
             elif live_price and is_unverified_source:
                 deal.current_price = f"₹{live_price:,}"
+
+            # Live title & image backfill
+            live_title = enrichment.get("live_title")
+            if live_title and (not deal.title or deal.title.startswith("Amazon Deal") or len(deal.title) < 15):
+                deal.title = live_title
+                try:
+                    from dealbot.enricher import detect_brand, detect_category
+                    deal.brand = detect_brand(deal.title)
+                    new_cat = detect_category(deal.title)
+                    if new_cat:
+                        deal.category = new_cat
+                except Exception:
+                    pass
+
+            hi_res_image = enrichment.get("hi_res_image")
+            if hi_res_image and (not getattr(deal, "image_url", None) or "/images/P/" in deal.image_url):
+                deal.image_url = hi_res_image
 
             live_mrp = enrichment.get("mrp")
             if live_mrp:
@@ -286,24 +323,45 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
             elif deal.discount_percent is not None:
                 deal.effective_discount_pct = deal.discount_percent
 
-            # Enforce minimum discount threshold after enrichment
-            min_disc_env = int(os.getenv("MIN_DISCOUNT_PERCENT", "30"))
-            from dealbot.agent import brand_tier
+            # Enforce tiered discount threshold after enrichment (Requirement 2)
+            from dealbot.agent import brand_tier, get_tiered_discount_requirement
             b_tier = brand_tier(deal.title)
-            required_disc = 25 if b_tier == 1 else min_disc_env
+            rating_val = getattr(deal, "rating", None) or enrichment.get("rating")
+            savings_val = deal.savings_rupees()
+            required_disc = get_tiered_discount_requirement(
+                eff_price,
+                brand_tier=b_tier,
+                rating=rating_val,
+                savings_inr=savings_val,
+            )
             eff_disc = getattr(deal, "effective_discount_pct", None)
             if eff_disc is None:
                 eff_disc = deal.discount_percent
             if eff_disc is not None and eff_disc < required_disc:
-                logger.info(
-                    f"Skipping {deal.id}: effective discount {eff_disc}% is below required {required_disc}% "
-                    f"(Tier-{b_tier} brand)."
-                )
-                if skip_tracker is not None:
-                    skip_tracker["low_discount"] = skip_tracker.get("low_discount", 0) + 1
-                deal._verify_skip_reason = "low_discount"
-                store.record_event(deal.id, "skipped_low_discount")
-                return False
+                # Also allow if significant absolute rupee drop (>= ₹1,500 savings on high-ticket)
+                if not (eff_price and eff_price >= 3000 and savings_val and savings_val >= 1500 and eff_disc >= 15):
+                    logger.info(
+                        f"Skipping {deal.id}: effective discount {eff_disc}% is below tiered requirement {required_disc}% "
+                        f"(Price: ₹{eff_price}, Tier-{b_tier} brand, Rating: {rating_val})."
+                    )
+                    if skip_tracker is not None:
+                        skip_tracker["low_discount"] = skip_tracker.get("low_discount", 0) + 1
+                    deal._verify_skip_reason = "low_discount"
+                    store.record_event(deal.id, "skipped_low_discount")
+                    return False
+
+            if is_ai_web_deal:
+                p_ctx = getattr(deal, "price_context", None)
+                is_hist_drop = p_ctx in ("real_drop", "all_time_low") or getattr(deal, "is_further_price_drop", False)
+                if (eff_disc is None or eff_disc < 25) and not is_hist_drop:
+                    logger.info(
+                        f"Skipping AI Web Search deal {deal.id}: effective discount {eff_disc}% is below required 25%."
+                    )
+                    if skip_tracker is not None:
+                        skip_tracker["low_discount"] = skip_tracker.get("low_discount", 0) + 1
+                    deal._verify_skip_reason = "low_discount"
+                    store.record_event(deal.id, "skipped_aiweb_low_discount")
+                    return False
 
             # Record verified price sighting into historical tracker
             canon_id = getattr(deal, "canonical_product_id", None) or deal.id
@@ -320,6 +378,13 @@ def verify_and_enrich_deal(deal: Deal, store: StateStore, skip_tracker: dict | N
                     deal.price_trend_text = f"📉 Price Trend: {curr_sym}{baseline:,} (Avg) ➔ {curr_sym}{verified_price:,} (Now!)"
         return True
     else:
+        if is_ai_web_deal:
+            logger.info(f"Skipping AI Web Search deal {deal.id}: stock unknown, strict verification failed.")
+            if skip_tracker is not None:
+                skip_tracker["unverified_stock"] = skip_tracker.get("unverified_stock", 0) + 1
+            deal._verify_skip_reason = "unverified_stock"
+            store.record_event(deal.id, "skipped_aiweb_unverified_stock")
+            return False
         store.record_event(deal.id, "stock_unknown")
         return True
 
@@ -437,6 +502,9 @@ def run_once() -> int:
     post_24x7 = os.getenv("TELEGRAM_24X7", "false").lower() == "true"
     is_daytime = post_24x7 or (510 <= ist_mins <= 1410)
 
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_enabled = bool(token and token != "replace_me" and chat_id)
+
     posted_count = 0
     for deal in queue:
         if posted_count >= max_posts:
@@ -444,6 +512,34 @@ def run_once() -> int:
         picked = reasons.get(deal.id)
         deal_score = picked.score if picked else (getattr(deal, "agent_score", None) or 50)
         is_loot = bool(getattr(deal, "is_loot", False) or (deal_score >= 85 and (getattr(deal, "effective_discount_pct", None) or deal.discount_percent or 0) >= 40))
+
+        # Check if Telegram publishing is configured
+        if not telegram_enabled:
+            logger.info(
+                f"Telegram publishing unconfigured/disabled. Recording {deal.id} "
+                f"(score={deal_score}, loot={is_loot}) for 24/7 web radar on BharatBazaro.com."
+            )
+            if not dry_run:
+                post_price = parse_rupees(deal.current_price)
+                eff_price = getattr(deal, "effective_price", None)
+                store.mark_posted(
+                    deal.id,
+                    deal.retailer,
+                    chat_id=None,
+                    message_id=None,
+                    caption=None,
+                    category=picked.category if picked else classify_category(deal),
+                    discount=deal.discount_percent,
+                    agent_score=deal_score,
+                    agent_reason=picked.reason if picked else None,
+                    canonical_product_id=getattr(deal, "canonical_product_id", None),
+                    price=post_price,
+                    effective_price=eff_price,
+                    rating=getattr(deal, "rating", None),
+                    review_count=getattr(deal, "review_count", None),
+                )
+                posted_count += 1
+            continue
 
         # Check if Telegram posting is allowed (daytime OR verified midnight loot alert)
         allow_telegram = is_daytime or is_loot
@@ -468,6 +564,8 @@ def run_once() -> int:
                     canonical_product_id=getattr(deal, "canonical_product_id", None),
                     price=post_price,
                     effective_price=eff_price,
+                    rating=getattr(deal, "rating", None),
+                    review_count=getattr(deal, "review_count", None),
                 )
             continue
 
@@ -491,6 +589,8 @@ def run_once() -> int:
                     canonical_product_id=getattr(deal, "canonical_product_id", None),
                     price=post_price,
                     effective_price=eff_price,
+                    rating=getattr(deal, "rating", None),
+                    review_count=getattr(deal, "review_count", None),
                 )
                 time.sleep(post_delay)
                 store.record_event(deal.id, "posted", "checked" if deal.checked else "unverified")
@@ -541,6 +641,13 @@ def run_once() -> int:
 
     # Sweep and update previously posted deals that may have gone Out of Stock
     sweep_expired_deals(store, dry_run=dry_run)
+
+    # Re-verify active existing deals against live Amazon prices & stock
+    try:
+        from dealbot.expiry_checker import reverify_active_deals
+        reverify_active_deals(store, max_checks=20, sleep_sec=0.5)
+    except Exception as e:
+        logger.warning(f"Error in reverify_active_deals: {e}")
 
     # Automated Nightly Top 5 Live Mega-Deals Digest (runs once per calendar day in 21:00-22:15 IST window)
     now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))

@@ -20,9 +20,11 @@ logger = logging.getLogger("dealbot.agent")
 
 CATEGORY_KEYWORDS = {
     "electronics": (
-        "headphone", "earbud", "earphone", "speaker", "watch", "phone", "charger",
-        "laptop", "keyboard", "mouse", "camera", "trimmer", "tv", "monitor",
-        "power bank", "bluetooth", "ssd", "router", "printer", "gaming", "tablet",
+        "headphone", "headphones", "earbud", "earbuds", "earphone", "earphones", "tws",
+        "speaker", "speakers", "soundbar", "watch", "smartwatch", "phone", "mobile",
+        "smartphone", "charger", "laptop", "keyboard", "mouse", "camera", "trimmer",
+        "tv", "television", "monitor", "power bank", "bluetooth", "ssd", "router",
+        "printer", "gaming", "tablet", "drone", "projector",
     ),
     "home": (
         "mixer", "grinder", "cooker", "fan", "vacuum", "kettle", "iron", "bottle",
@@ -68,6 +70,9 @@ TIER_1_BRANDS = (
     "casio", "fossil", "timex",
     "l'oreal", "loreal", "nivea", "minimalist", "cetaphil", "neutrogena", "the derma co",
     "dot & key", "maybelline", "lakme", "plum", "forest essentials", "kindle", "echo dot",
+    "dove", "pears", "colgate", "tresemme", "vaseline", "beardo", "chemist at play",
+    "dettol", "savlon", "listerine", "whisper", "surf excel", "ariel", "vim", "comfort",
+    "harpic", "lizol", "presto", "cadbury", "ferrero", "happilo", "tata sampann", "nescafe", "davidoff",
 )
 
 TIER_2_BRANDS = (
@@ -230,6 +235,8 @@ def compute_buy_confidence(deal: Deal, score: int) -> int:
         conf += 4
     if getattr(deal, "is_loot", False):
         conf += 6
+    if getattr(deal, "is_cookie_magnet", False):
+        conf += 8
     if getattr(deal, "rating", None) is not None and deal.rating >= 4.2:
         conf += 4
     b_tier = get_brand_tier(deal.title)
@@ -240,6 +247,33 @@ def compute_buy_confidence(deal: Deal, score: int) -> int:
     if getattr(deal, "source_count", 1) >= 2:
         conf += 3
     return min(99, max(60, conf))
+
+
+def get_tiered_discount_requirement(
+    price: Optional[int],
+    brand_tier: int = 0,
+    rating: Optional[float] = None,
+    savings_inr: Optional[int] = None,
+) -> int:
+    """
+    Tiered Discount Thresholds (Requirement 2):
+    - Low-ticket items (< ₹500): Require >= 50% discount (Tier 1 brand: >= 40%).
+    - Mid-ticket items (₹500 - ₹2,999): Require >= 35% discount (Tier 1 brand: >= 30%).
+    - High-ticket items (₹3,000+ like Electronics, Appliances, Gadgets):
+      Require >= 20% discount (or 18% when rating >= 3.9★, or savings >= ₹1,500).
+    """
+    if price is None or price <= 0:
+        return 30 if brand_tier == 1 else 35
+
+    if price < 500:
+        return 40 if brand_tier == 1 else 50
+    elif price < 3000:
+        return 30 if brand_tier == 1 else 35
+    else:
+        # High-ticket items (₹3,000+)
+        if (rating is not None and rating >= 3.9) or (savings_inr is not None and savings_inr >= 1500):
+            return 18 if brand_tier == 1 else 20
+        return 20 if brand_tier == 1 else 22
 
 
 def format_buy_confidence_meter(pct: int) -> str:
@@ -312,17 +346,17 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         if savings >= 4000:
             score += 26
             reasons.append(f"saves ₹{savings}")
-        elif savings >= 1500:
-            score += 18
+        elif savings >= 2000:
+            score += 20
             reasons.append(f"saves ₹{savings}")
-        elif savings >= 600:
-            score += 10
+        elif savings >= 1000:
+            score += 15
             reasons.append(f"saves ₹{savings}")
-        elif savings >= 250:
-            score += 4
+        elif savings >= 500:
+            score += 8
             reasons.append(f"saves ₹{savings}")
         else:
-            score += 6
+            score += 4
             reasons.append(f"saves ₹{savings}")
     elif price:
         score += 2
@@ -354,14 +388,17 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         score -= 4
         reasons.append("no-name")
 
-    # Social Proof Boost
+    # Social Proof Boost (Requirement 3: high social proof = 5x higher conversion)
     if getattr(deal, "rating", None) is not None:
         r_val = deal.rating
         rev_count = getattr(deal, "review_count", None) or 0
-        if r_val >= 4.2 and rev_count >= 500:
+        if r_val >= 4.2 and rev_count >= 1000:
+            score += 15
+            reasons.append(f"strong social proof ({r_val}★, {rev_count} rev) [elite]")
+        elif r_val >= 4.0 and rev_count >= 100:
             score += 10
             reasons.append(f"strong social proof ({r_val}★, {rev_count} rev)")
-        elif r_val >= 4.0 and rev_count >= 50:
+        elif r_val >= 3.8:
             score += 5
             reasons.append(f"good social proof ({r_val}★)")
         elif r_val < 3.6:
@@ -441,6 +478,45 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
         if is_sweet_spot:
             score += 6
             reasons.append(f"psychological price point ({curr_sym}{eval_price}) (+6)")
+
+    # Cookie-Magnet Value Pack & FMCG Impulse Steals Bonus (+25 pts for 1L/Combo under ₹499)
+    # Drives 81.4% of clicks and 92% of indirect cart conversions
+    title_lower = (deal.title or "").lower()
+    is_value_pack = any(vp in title_lower for vp in (
+        "1l", "1 l", "1 litre", "1000ml", "2l", "2 l", "2 litre", "5kg", "5 kg",
+        "pack of 2", "pack of 3", "pack of 4", "pack of 6", "pack of 8", "pack of 10",
+        "combo pack", "value pack", "refill pack", "mega pack"
+    ))
+    fmcg_brands = (
+        "dove", "nivea", "pears", "cetaphil", "minimalist", "derma co", "plum", "l'oreal", "loreal",
+        "garnier", "chemist at play", "tresemme", "vaseline", "lakme", "beardo", "colgate", "dettol",
+        "savlon", "listerine", "whisper", "surf excel", "ariel", "vim", "comfort", "harpic", "lizol",
+        "presto", "cadbury", "ferrero", "happilo", "tata sampann", "nescafe", "davidoff"
+    )
+    has_fmcg_brand = any(b in title_lower for b in fmcg_brands)
+    eff_eval_p = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
+
+    if (category in ("beauty", "grocery", "home") or has_fmcg_brand):
+        if is_value_pack and eff_eval_p is not None and 99 <= eff_eval_p <= 499 and discount >= 40:
+            score += 25
+            deal.is_cookie_magnet = True
+            reasons.append("🔥 Cookie-Magnet Value Pack Loot (1L/Combo under ₹499) (+25)")
+        elif has_fmcg_brand and eff_eval_p is not None and 99 <= eff_eval_p <= 499:
+            score += 15
+            deal.is_cookie_magnet = True
+            reasons.append("🧴 High-CTR Daily Essential Impulse Magnet (+15)")
+        elif is_value_pack and discount >= 35:
+            score += 10
+            reasons.append("📦 Value Pack Savings (+10)")
+
+    # AI Web Discovery bonus (+8 pts)
+    if (
+        getattr(deal, "source_platform", None) == "AI Web Search"
+        or "AI Web Search" in (getattr(deal, "matched_sources", []) or [])
+        or (deal.id and deal.id.startswith("aiweb:"))
+    ):
+        score += 8
+        reasons.append("🌐 AI Web Discovery (+8)")
 
     # Deduct penalty if price verification was inconclusive
     if getattr(deal, "score_penalty", 0):

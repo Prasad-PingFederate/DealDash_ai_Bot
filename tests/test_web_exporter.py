@@ -137,3 +137,18 @@ def test_freshness_time_decay_and_pruning():
     assert w_older["is_new"] is False
     assert w_older["age_hours"] == 10.0
     assert w_older["trending_score"] == 60.0
+
+
+def test_brand_detection_precision_and_lead_words():
+    """Ensure brand extractor inspects lead words only and ignores feature mentions like Google Assistant or HP Out."""
+    # Philips Smart Bulb mentioning Google Assistant -> Must be Philips, NOT Google
+    assert detect_brand("PHILIPS WiZ 10W E27 Wi-Fi & Bluetooth LED Smart Bulb with Google Assistant") == "Philips"
+    # LG Monitor mentioning HP Out -> Must be LG, NOT HP
+    assert detect_brand("LG 27-Inch Ultragear Gaming Monitor (HP Out)") == "LG"
+    # Strips leading bank tag like [ICICI CC]
+    assert detect_brand("[ICICI CC] PHILIPS WiZ Smart Bulb") == "Philips"
+    # Multi-word brand
+    assert detect_brand("U.S. Polo Assn Men Sneaker") == "U.S. Polo"
+    # Acronyms
+    assert detect_brand("HP Pavilion 15 Gaming Laptop") == "HP"
+    assert detect_brand("boAt Airdopes 141 Bluetooth Earbuds") == "boAt"

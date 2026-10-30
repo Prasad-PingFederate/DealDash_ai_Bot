@@ -1,3 +1,10 @@
+import html
+from dealbot.ssg_engine import (
+    ensure_og_banner,
+    pre_render_all_pages,
+    render_deal_card_html,
+    generate_page_html,
+)
 """
 Web Feed Exporter for BharatBazaro.com and DealDash AI.
 Exports high-value verified live deals and statistics to data/live_deals.json and data/stats.json.
@@ -77,6 +84,180 @@ def resolve_telegram_url() -> str:
     return "https://t.me/Flash_Deals_Flipkart_Amazon"
 
 
+def sync_telegram_deals_from_dealdash(root_dir: Optional[Path] = None, timeout: float = 6.0) -> int:
+    """
+    Download the latest public SQLite database from DealDash_ai_Bot on GitHub
+    (trying data/deals.db first, then falling back to data/state.sqlite3) with a 6s timeout,
+    failing silently if offline.
+    Merges newer rows from DealDash_ai_Bot's posted_deals and price_sightings tables
+    into bharatbazaro/data/deals.db and bharatbazaro/data/state.sqlite3.
+    """
+    import tempfile
+    import urllib.request
+
+    if root_dir is None:
+        root_dir = Path(__file__).resolve().parent.parent
+
+    urls = [
+        "https://raw.githubusercontent.com/Prasad-PingFederate/DealDash_ai_Bot/main/data/deals.db",
+        "https://raw.githubusercontent.com/Prasad-PingFederate/DealDash_ai_Bot/main/data/state.sqlite3",
+    ]
+    raw_bytes = None
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "BharatBazaro-Sync/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status == 200:
+                    raw_bytes = resp.read()
+                    if raw_bytes and len(raw_bytes) > 1024:
+                        logger.info(f"Downloaded {len(raw_bytes)} bytes from {url} for Telegram deal sync")
+                        break
+        except Exception as e:
+            logger.debug(f"Could not fetch {url}: {e}")
+
+    if not raw_bytes:
+        return 0
+
+    tmp_path = None
+    synced_deals_count = 0
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite3") as tmp:
+            tmp.write(raw_bytes)
+            tmp_path = tmp.name
+
+        src_conn = sqlite3.connect(tmp_path)
+        src_conn.row_factory = sqlite3.Row
+        src_cur = src_conn.cursor()
+
+        # Check if posted_deals exists in source
+        src_cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posted_deals'")
+        if not src_cur.fetchone():
+            src_conn.close()
+            return 0
+
+        src_cur.execute(
+            """
+            SELECT deal_id, retailer, chat_id, message_id, caption, status, posted_at,
+                   last_checked_at, category, discount, agent_score, agent_reason,
+                   canonical_product_id, price, consecutive_oos_count, consecutive_spike_count
+            FROM posted_deals
+            """
+        )
+        deals_rows = src_cur.fetchall()
+
+        # Check if price_sightings exists in source
+        src_cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='price_sightings'")
+        has_sightings = bool(src_cur.fetchone())
+        sightings_rows = []
+        if has_sightings:
+            src_cur.execute(
+                """
+                SELECT canonical_id, min_price, max_price, avg_price, last_price,
+                       sighting_count, first_seen_at, last_seen_at
+                FROM price_sightings
+                """
+            )
+            sightings_rows = src_cur.fetchall()
+        src_conn.close()
+
+        # Destination databases: data/deals.db and data/state.sqlite3
+        data_dir = root_dir / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        dest_dbs = [data_dir / "deals.db", data_dir / "state.sqlite3"]
+
+        ddl_posted_deals = """
+            CREATE TABLE IF NOT EXISTS posted_deals (
+                deal_id TEXT PRIMARY KEY,
+                retailer TEXT,
+                chat_id TEXT,
+                message_id INTEGER,
+                caption TEXT,
+                status TEXT DEFAULT 'active',
+                posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_checked_at TIMESTAMP,
+                category TEXT,
+                discount INTEGER,
+                agent_score INTEGER,
+                agent_reason TEXT,
+                canonical_product_id TEXT,
+                price INTEGER,
+                consecutive_oos_count INTEGER DEFAULT 0,
+                consecutive_spike_count INTEGER DEFAULT 0
+            )
+        """
+        ddl_sightings = """
+            CREATE TABLE IF NOT EXISTS price_sightings (
+                canonical_id TEXT PRIMARY KEY,
+                min_price INTEGER NOT NULL,
+                max_price INTEGER NOT NULL,
+                avg_price REAL NOT NULL,
+                last_price INTEGER NOT NULL,
+                sighting_count INTEGER NOT NULL DEFAULT 1,
+                first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+
+        for db_file in dest_dbs:
+            try:
+                with sqlite3.connect(db_file, timeout=10.0) as dst_conn:
+                    dst_cur = dst_conn.cursor()
+                    dst_cur.execute(ddl_posted_deals)
+                    dst_cur.execute(ddl_sightings)
+
+                    for r in deals_rows:
+                        dst_cur.execute(
+                            """
+                            INSERT INTO posted_deals (
+                                deal_id, retailer, chat_id, message_id, caption, status, posted_at,
+                                last_checked_at, category, discount, agent_score, agent_reason,
+                                canonical_product_id, price, consecutive_oos_count, consecutive_spike_count
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(deal_id) DO UPDATE SET
+                                status = excluded.status,
+                                last_checked_at = excluded.last_checked_at,
+                                price = COALESCE(excluded.price, posted_deals.price),
+                                message_id = COALESCE(excluded.message_id, posted_deals.message_id),
+                                chat_id = COALESCE(excluded.chat_id, posted_deals.chat_id)
+                            """,
+                            tuple(r),
+                        )
+
+                    for s in sightings_rows:
+                        dst_cur.execute(
+                            """
+                            INSERT INTO price_sightings (
+                                canonical_id, min_price, max_price, avg_price, last_price,
+                                sighting_count, first_seen_at, last_seen_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(canonical_id) DO UPDATE SET
+                                min_price = MIN(price_sightings.min_price, excluded.min_price),
+                                max_price = MAX(price_sightings.max_price, excluded.max_price),
+                                avg_price = (price_sightings.avg_price + excluded.avg_price) / 2.0,
+                                last_price = excluded.last_price,
+                                sighting_count = price_sightings.sighting_count + excluded.sighting_count,
+                                last_seen_at = MAX(price_sightings.last_seen_at, excluded.last_seen_at)
+                            """,
+                            tuple(s),
+                        )
+                    dst_conn.commit()
+            except Exception as e:
+                logger.warning(f"Error merging Telegram deals into {db_file}: {e}")
+
+        synced_deals_count = len(deals_rows)
+        logger.info(f"Successfully synced {synced_deals_count} Telegram deals from DealDash into BharatBazaro databases.")
+    except Exception as e:
+        logger.warning(f"Failed to sync DealDash SQLite deals: {e}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+    return synced_deals_count
+
+
 def extract_asin(deal_or_url: Union[str, Deal]) -> Optional[str]:
     """Extract clean 10-char uppercase Amazon ASIN."""
     if isinstance(deal_or_url, Deal):
@@ -101,25 +282,84 @@ def extract_asin(deal_or_url: Union[str, Deal]) -> Optional[str]:
     return None
 
 
+def strip_title_prefixes(title: str) -> str:
+    """Strip leading brackets [ICICI CC], (Offer), emojis, and promo prefixes."""
+    if not title:
+        return ""
+    t = title.strip()
+    while True:
+        m = re.match(r"^(?:\[[^\]]*\]|\([^\)]*\)|\{[^\}]*\}|【[^】]*】)\s*", t)
+        if m:
+            t = t[m.end():].strip()
+        else:
+            break
+    # Strip leading emoji or non-alphanumeric punctuation (except opening brackets)
+    t = re.sub(r"^[^\w\[\(\{]+", "", t).strip()
+    # Strip prefixes like "Deal:", "Loot:", "Hot Deal -", etc.
+    t = re.sub(r"^(?:deal|loot|hot\s+deal|steal\s+deal|special\s+deal|offer)\s*[:\-]\s*", "", t, flags=re.IGNORECASE).strip()
+    return t
+
+
 def detect_brand(title: str) -> Optional[str]:
-    """Extract brand name from product title."""
+    """
+    Extract brand name from product title.
+    Focuses strictly on the first 1-2 words of the product title
+    (after stripping bank tags like [ICICI CC], coupon brackets, and prefixes)
+    rather than scanning the entire title string, preventing false positive matches
+    from feature descriptions (e.g. 'Google Assistant' in Philips bulbs, or 'HP Out' in LG monitors).
+    """
     if not title:
         return None
-    lower_title = title.lower()
-    # Check Tier-1 first
-    for b in TIER_1_BRANDS:
-        if b == "apple" and re.search(r"\b(green\s+apple|apple\s+cider|apple\s+juice|apple\s+flavo?ur)\b", lower_title):
+    clean = strip_title_prefixes(title)
+    if not clean:
+        return None
+
+    raw_words = clean.split()
+    words = []
+    for w in raw_words:
+        cw = w.strip(" ,-:()[]{}\"'`")
+        if cw:
+            words.append(cw)
+    if not words:
+        return None
+
+    stop_words = {
+        "the", "new", "all", "deal", "loot", "best", "pack", "set", "combo",
+        "item", "unit", "buy", "save", "upto", "flat", "special", "super", "mega",
+    }
+    acronym_brands = {
+        "lg": "LG",
+        "hp": "HP",
+        "jbl": "JBL",
+        "ifb": "IFB",
+        "wd": "WD",
+        "dji": "DJI",
+        "boat": "boAt",
+        "u.s. polo": "U.S. Polo",
+        "us polo": "U.S. Polo",
+    }
+
+    start_idx = 1 if words[0].lower() in ("new", "all-new", "latest", "trending", "original", "genuine") and len(words) > 1 else 0
+    lead_words = words[start_idx : start_idx + 3]
+    lead_str = " ".join(lead_words).lower()
+    first_w = lead_words[0].lower().rstrip(".") if lead_words else ""
+
+    all_brands = sorted(list(set(TIER_1_BRANDS + TIER_2_BRANDS)), key=len, reverse=True)
+    for b in all_brands:
+        if b == "apple" and re.search(r"\b(green\s+apple|apple\s+cider|apple\s+juice|apple\s+flavo?ur)\b", lead_str):
             continue
-        if re.search(r"\b" + re.escape(b) + r"\b", lower_title):
-            return b.title()
-    # Check Tier-2
-    for b in TIER_2_BRANDS:
-        if re.search(r"\b" + re.escape(b) + r"\b", lower_title):
-            return b.title()
-    # Fallback: first word of title if alphabetic
-    first_word = title.split()[0].strip(",.-:()")
-    if len(first_word) >= 3 and first_word.isalpha():
-        return first_word.title()
+        if " " in b or "-" in b or "." in b:
+            if re.search(r"^\b" + re.escape(b) + r"\b", lead_str):
+                return acronym_brands.get(b, b.title())
+        else:
+            if first_w == b:
+                return acronym_brands.get(b, b.title())
+            if len(lead_words) > 1 and lead_words[1].lower().rstrip(".") == b and first_w in stop_words:
+                return acronym_brands.get(b, b.title())
+
+    # Fallback: first word of title if alphabetic and not a generic stop word
+    if len(first_w) >= 3 and first_w.isalpha() and first_w not in stop_words:
+        return first_w.title()
     return None
 
 
@@ -224,22 +464,19 @@ def map_ui_category(deal_category: str, title: str) -> str:
     t = (title or "").lower()
     c = (deal_category or "").lower()
 
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("headphone", "headphones", "earphone", "earphones", "earbud", "earbuds", "audio", "speaker", "speakers", "soundbar", "tws", "neckband", "bluetooth speaker", "mic", "microphone")):
-        return "Audio & Headphones"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("cooker", "fryer", "air fryer", "pan", "bottle", "purifier", "vacuum", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture", "appliance", "blender", "iron", "toaster", "lunch box", "geyser")):
-        return "Home & Kitchen"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("laptop", "laptops", "macbook", "pc", "desktop", "monitor", "monitors", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer", "chromebook")):
-        return "Laptops & Computing"
-    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("phone", "phones", "mobile", "mobiles", "smartphone", "smartphones", "iphone", "galaxy", "case", "cases", "charger", "chargers", "cable", "cables", "tempered glass", "power bank")):
+    if c in ("mobiles", "mobile", "smartphones", "smartphone") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("phone", "phones", "mobile", "mobiles", "smartphone", "smartphones", "iphone", "galaxy", "case", "cases", "charger", "chargers", "cable", "cables", "tempered glass", "power bank", "oneplus", "redmi", "realme", "iqoo", "poco", "motorola")):
         return "Mobiles & Accessories"
-    if c == "home":
+    if c in ("audio", "headphones") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("headphone", "headphones", "earphone", "earphones", "earbud", "earbuds", "audio", "speaker", "speakers", "soundbar", "tws", "neckband", "bluetooth speaker", "mic", "microphone")):
+        return "Audio & Headphones"
+    if c in ("computers", "laptops", "laptop") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("laptop", "laptops", "macbook", "pc", "desktop", "monitor", "monitors", "keyboard", "mouse", "ssd", "ram", "hard drive", "processor", "gpu", "printer", "chromebook", "nvme")):
+        return "Laptops & Computing"
+    if c in ("home", "kitchen", "appliances") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("cooker", "fryer", "air fryer", "pan", "bottle", "purifier", "vacuum", "mixer", "grinder", "kitchen", "kettle", "bedsheet", "curtain", "furniture", "appliance", "blender", "iron", "toaster", "lunch box", "geyser", "induction", "chimney")):
         return "Home & Kitchen"
-    if c == "fashion" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shirt", "t-shirt", "tshirt", "shoe", "shoes", "sneaker", "sneakers", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch", "watches", "sling bag", "toiletry bag")):
+    if c == "fashion" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shirt", "t-shirt", "tshirt", "shoe", "shoes", "sneaker", "sneakers", "jeans", "saree", "kurta", "jacket", "sandals", "wallet", "backpack", "watch", "watches", "sling bag", "toiletry bag", "dress")):
         return "Fashion & Footwear"
-    if c in ("beauty", "grocery") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper", "face wash", "sunscreen", "lotion", "moisturizer")):
+    if c in ("beauty", "grocery") or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("shampoo", "cream", "serum", "perfume", "soap", "tea", "coffee", "biscuit", "almond", "oil", "chocolate", "snack", "diaper", "face wash", "sunscreen", "lotion", "moisturizer", "cleanser", "ghee", "atta")):
         return "Personal Care & Grocery"
-
-    if c == "electronics":
+    if c == "electronics" or any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in ("tv", "television", "camera", "drone", "trimmer", "smartwatch", "gadget")):
         return "Electronics & Audio"
     return "Electronics & Audio"
 
@@ -274,23 +511,26 @@ def deal_to_web_json(
     expired: bool = False,
     price_spiked: bool = False,
     posted_epoch: Optional[int] = None,
+    last_verified_epoch: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Transform an internal Deal object into the standard BharatBazaro live_deals.json item."""
     asin = extract_asin(deal)
     if not asin:
         asin = "B0UNKNOWN0"
 
-    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
-    updated_at_epoch = int(time.time())
-    updated_at_ist = now_ist.strftime("%Y-%m-%d %H:%M IST")
-
-    # Time-decay freshness ranking (Requirement 2)
-    now_epoch = updated_at_epoch
-    post_time = posted_epoch or updated_at_epoch
-    age_hours = round(max(0.0, (now_epoch - post_time) / 3600.0), 1)
+    now_epoch = int(time.time())
+    post_time = posted_epoch or now_epoch
+    verified_time = last_verified_epoch or post_time
+    age_hours = round(max(0.0, (now_epoch - verified_time) / 3600.0), 1)
     decay = max(0.0, (age_hours - 2.0) * 2.5)
     trending_score = round(max(10.0, float(score or 70) - decay), 1)
     is_new = bool(age_hours <= 2.0)
+    is_fresh = bool(age_hours <= 24.0)
+
+    # Use verified timestamp for updated_at display
+    verif_dt = datetime.fromtimestamp(verified_time, tz=timezone(timedelta(hours=5, minutes=30)))
+    updated_at_ist = verif_dt.strftime("%Y-%m-%d %H:%M IST")
+    updated_at_epoch = verified_time
 
     mrp = parse_rupees(deal.original_price)
     list_p = parse_rupees(deal.current_price)
@@ -380,6 +620,34 @@ def deal_to_web_json(
         or (getattr(deal, "is_loot", False) and score >= 82 and (eff_disc_pct or 0) >= 40)
     )
 
+    # High-converting Diwali Steal check (Requirement 3):
+    is_diwali_steal = bool(
+        savings_inr >= 1000
+        or (eff_p >= 2500 and (eff_disc_pct or 0) >= 25)
+        or ((getattr(deal, "review_count", None) or 0) >= 1000 and (eff_disc_pct or 0) >= 30)
+        or is_loot
+    )
+
+    # Cookie-Magnet / Daily Essential Steal Identification (Requirement 1 & 3)
+    t_lower = (deal.title or "").lower()
+    is_vp = any(vp in t_lower for vp in (
+        "1l", "1 l", "1 litre", "1000ml", "2l", "2 l", "2 litre", "5kg", "5 kg",
+        "pack of 2", "pack of 3", "pack of 4", "pack of 6", "pack of 8", "pack of 10",
+        "combo pack", "value pack", "refill pack", "mega pack"
+    ))
+    fmcg_brands = (
+        "dove", "nivea", "pears", "cetaphil", "minimalist", "derma co", "plum", "l'oreal", "loreal",
+        "garnier", "chemist at play", "tresemme", "vaseline", "lakme", "beardo", "colgate", "dettol",
+        "savlon", "listerine", "whisper", "surf excel", "ariel", "vim", "comfort", "harpic", "lizol",
+        "presto", "cadbury", "ferrero", "happilo", "tata sampann", "nescafe", "davidoff"
+    )
+    is_fmcg = any(b in t_lower for b in fmcg_brands) or ui_category == "Personal Care & Grocery"
+    is_cookie_magnet = bool(
+        getattr(deal, "is_cookie_magnet", False)
+        or (is_fmcg and eff_p and eff_p <= 499 and (eff_disc_pct or 0) >= 30)
+        or (is_vp and eff_p and eff_p <= 499 and (eff_disc_pct or 0) >= 35)
+    )
+
     extra_offers = list(getattr(deal, "extra_offers", []) or [])
 
     # Build Step-by-Step "How to Claim" Checklist (Requirement 3)
@@ -401,13 +669,13 @@ def deal_to_web_json(
             claim_steps.append(f"📦 Add qualifying combo items to your cart: {off}.")
     claim_steps.append(f"🎉 Complete checkout at the effective deal price of ₹{eff_p:,}!")
 
-    clean_aff_url = f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1"
+    clean_aff_url = f"https://www.amazon.in/dp/{asin}?tag={partner_tag}&linkCode=ll1&ascsubtag=bb-grid"
     image_url = deal.image_url or f"https://m.media-amazon.com/images/P/{asin}.jpg"
 
     return {
         "id": f"amazon:{asin}",
         "asin": asin,
-        "title": deal.title or "Amazon Special Deal",
+        "title": html.unescape(deal.title or "Amazon Special Deal").strip(),
         "brand": brand,
         "brand_tier": brand_tier,
         "category": ui_category,
@@ -432,6 +700,9 @@ def deal_to_web_json(
         "historical_avg": h_avg,
         "historical_max": h_max,
         "is_loot": is_loot,
+        "is_diwali_steal": is_diwali_steal,
+        "is_cookie_magnet": is_cookie_magnet,
+        "is_daily_essential": is_fmcg,
         "is_further_drop": getattr(deal, "is_further_price_drop", False),
         "source_count": getattr(deal, "source_count", 1),
         "extra_offers": extra_offers,
@@ -440,9 +711,12 @@ def deal_to_web_json(
         "price_spiked": price_spiked,
         "posted_to_telegram": posted_to_telegram,
         "posted_at_epoch": post_time,
+        "last_verified_at_epoch": verified_time,
+        "last_verified_at_ist": updated_at_ist,
         "age_hours": age_hours,
         "trending_score": trending_score,
         "is_new": is_new,
+        "is_fresh": is_fresh,
         "updated_at": updated_at_epoch,
         "updated_at_ist": updated_at_ist,
     }
@@ -496,15 +770,106 @@ def sync_price_sightings_cache(conn: sqlite3.Connection) -> None:
         logger.debug(f"sync_price_sightings_cache error: {e}")
 
 
+
+def export_ai_briefing(
+    deals: List[Dict[str, Any]],
+    stats: Dict[str, Any],
+    output_dir: Path
+) -> Dict[str, Any]:
+    """Generate hourly AI market briefing at data/ai_briefing.json for BazarAI."""
+    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+
+    # 1. Top loot summary (top 5 loots)
+    loots = [d for d in deals if d.get("is_loot")]
+    top_loots = loots[:5] if loots else deals[:5]
+    top_loot_summary = [
+        {
+            "asin": d.get("asin"),
+            "title": d.get("title"),
+            "effective_price": d.get("effective_price") or d.get("list_price"),
+            "mrp": d.get("mrp"),
+            "discount_pct": d.get("effective_discount_pct") or d.get("discount_pct"),
+            "savings_inr": d.get("savings_inr"),
+            "brand": d.get("brand"),
+            "category": d.get("category"),
+            "affiliate_url": d.get("affiliate_url"),
+            "deal_url": f"https://bharatbazaro.com/deal/{d.get('asin')}.html",
+            "coupon_text": d.get("coupon_text"),
+        }
+        for d in top_loots
+    ]
+
+    # 2. Best coupon deal
+    coupon_deals = [
+        d for d in deals
+        if (d.get("coupon_discount") and d.get("coupon_discount") > 0)
+        or d.get("coupon_text")
+        or d.get("promo_code")
+    ]
+    best_coupon = coupon_deals[0] if coupon_deals else None
+
+    # 3. Best deal under ₹299
+    under_299_deals = [d for d in deals if (d.get("effective_price") or d.get("list_price") or 999999) <= 299]
+    best_under_299 = under_299_deals[0] if under_299_deals else None
+
+    # 4. Best Tier 1 brand deal
+    tier1_deals = [d for d in deals if d.get("brand_tier") == "tier1"]
+    best_tier1 = tier1_deals[0] if tier1_deals else None
+
+    # 5. Category highlights
+    category_highlights = {}
+    categories = ["mobiles", "electronics", "home", "fashion", "grocery"]
+    for cat in categories:
+        for d in deals:
+            d_cat = (d.get("category") or "").lower()
+            if cat in d_cat or (cat == "electronics" and ("audio" in d_cat or "laptop" in d_cat)):
+                category_highlights[cat] = {
+                    "asin": d.get("asin"),
+                    "title": d.get("title"),
+                    "effective_price": d.get("effective_price") or d.get("list_price"),
+                    "discount_pct": d.get("effective_discount_pct") or d.get("discount_pct"),
+                    "deal_url": f"https://bharatbazaro.com/deal/{d.get('asin')}.html",
+                }
+                break
+
+    briefing = {
+        "generated_at_ist": now_ist.strftime("%Y-%m-%d %H:%M IST"),
+        "generated_at_epoch": int(time.time()),
+        "top_loot_summary": top_loot_summary,
+        "best_coupon_deal": best_coupon,
+        "best_under_299": best_under_299,
+        "best_tier1_deal": best_tier1,
+        "category_highlights": category_highlights,
+        "market_stats": {
+            "total_deals": stats.get("total_live_deals", len(deals)),
+            "loot_count": stats.get("loot_count", 0),
+            "max_discount_pct": stats.get("max_discount_pct", 0),
+            "total_savings_inr": stats.get("total_savings_available", 0),
+        }
+    }
+
+    briefing_path = output_dir / "ai_briefing.json"
+    with open(briefing_path, "w", encoding="utf-8") as f:
+        json.dump(briefing, f, indent=2, ensure_ascii=False)
+    logger.info(f"Exported AI market briefing to {briefing_path}")
+    return briefing
+
+
 def export_web_feed(
     store,
     current_cycle_deals: Optional[List[Deal]] = None,
     output_dir: Optional[Union[str, Path]] = None,
-    max_items: int = 120,
+    max_items: int = 250,
 ) -> Dict[str, Any]:
     """Export current live verified deals to live_deals.json and stats.json."""
+    root_dir = Path(__file__).resolve().parent.parent
+    try:
+        sync_telegram_deals_from_dealdash(root_dir)
+    except Exception as e:
+        logger.warning(f"sync_telegram_deals_from_dealdash error: {e}")
+
     if output_dir is None:
-        output_dir = Path("data")
+        output_dir = root_dir / "data"
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -529,17 +894,27 @@ def export_web_feed(
 
     deals_by_asin: Dict[str, Dict[str, Any]] = {}
 
+    # Load image/title cache for robust title fallbacks
+    cache_path = root_dir / "data" / "image_cache.json"
+    img_cache: Dict[str, Dict[str, Any]] = {}
+    if cache_path.exists():
+        try:
+            with open(cache_path, "r", encoding="utf-8") as cf:
+                img_cache = json.load(cf)
+        except Exception:
+            pass
+
     # 1. Ingest deals from SQLite posted_deals (active, within last 48 hours)
     with store._connect() as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.execute(
             """
-            SELECT deal_id, retailer, chat_id, message_id, caption, status, posted_at,
-                   category, discount, agent_score, agent_reason, canonical_product_id, price
+            SELECT deal_id, retailer, chat_id, message_id, caption, status, posted_at, last_verified_at,
+                   category, discount, agent_score, agent_reason, canonical_product_id, price, rating, review_count
             FROM posted_deals
             WHERE status = 'active'
-              AND posted_at >= datetime('now', '-48 hours')
-            ORDER BY posted_at DESC
+              AND (posted_at >= datetime('now', '-72 hours') OR last_verified_at >= datetime('now', '-72 hours') OR posted_at IS NOT NULL)
+            ORDER BY COALESCE(last_verified_at, posted_at) DESC
             LIMIT ?
             """,
             (max_items * 2,),
@@ -566,7 +941,29 @@ def export_web_feed(
                     break
             if not title:
                 m_sub = re.search(r"<b>([^<]{5,80})</b>", caption)
-                title = m_sub.group(1).strip() if m_sub else f"Amazon Deal ({asin})"
+                if m_sub and not m_sub.group(1).strip().startswith("Amazon Deal"):
+                    title = m_sub.group(1).strip()
+
+            # Robust fallback: check image cache, Keepa, or URL slug before accepting placeholder title
+            if not title or title.startswith("Amazon Deal") or title.startswith("Trending Amazon Deal"):
+                if asin in img_cache and img_cache[asin].get("title"):
+                    c_title = img_cache[asin]["title"]
+                    if not c_title.startswith("Amazon Deal") and not c_title.startswith("Trending Amazon Deal"):
+                        title = c_title
+
+                if not title or title.startswith("Amazon Deal") or title.startswith("Trending Amazon Deal"):
+                    url_m = re.search(r'https?://(?:www\.)?amazon\.in/[^\s<>"]+', caption)
+                    if url_m:
+                        try:
+                            from dealbot.sources import extract_title_from_amazon_url_slug
+                            slug_t = extract_title_from_amazon_url_slug(url_m.group(0))
+                            if slug_t:
+                                title = slug_t
+                        except Exception:
+                            pass
+
+                if not title:
+                    title = f"Amazon Deal ({asin})"
 
             # Extract coupon & promo code from caption and title
             c_disc, c_text, p_code = extract_coupon_info(f"{title}\n{caption}")
@@ -583,9 +980,11 @@ def export_web_feed(
 
             # Time-decay check: drop unverified deals older than 48h
             post_epoch = parse_posted_epoch(d_dict.get("posted_at"))
+            verif_epoch = parse_posted_epoch(d_dict.get("last_verified_at")) if d_dict.get("last_verified_at") else post_epoch
             now_epoch = int(time.time())
-            age_hours = round(max(0.0, (now_epoch - post_epoch) / 3600.0), 1)
-            if age_hours > 48.0:
+            verif_age_hours = round(max(0.0, (now_epoch - verif_epoch) / 3600.0), 1)
+            post_age_hours = round(max(0.0, (now_epoch - post_epoch) / 3600.0), 1)
+            if verif_age_hours > 48.0 and post_age_hours > 48.0:
                 continue
 
             deal_obj = Deal(
@@ -600,6 +999,8 @@ def export_web_feed(
                 category=d_dict.get("category"),
                 coupon_code=p_code,
                 bank_offer=bank_offer,
+                rating=d_dict.get("rating"),
+                review_count=d_dict.get("review_count"),
             )
             # Extract extra offers and coupon tick instructions from caption if present
             extra_offers = []
@@ -627,10 +1028,11 @@ def export_web_feed(
                 score=score,
                 price_sightings=s_ctx,
                 partner_tag=partner_tag,
-                posted_to_telegram=bool(d_dict.get("message_id")),
+                posted_to_telegram=bool(d_dict.get("message_id") or d_dict.get("chat_id") or True),
                 expired=(d_dict.get("status") == "expired"),
                 price_spiked=(d_dict.get("status") == "price_spiked"),
                 posted_epoch=post_epoch,
+                last_verified_epoch=verif_epoch,
             )
             deals_by_asin[asin] = w_json
 
@@ -652,11 +1054,95 @@ def export_web_feed(
             )
             deals_by_asin[asin] = w_json
 
-    # Sort final items by trending_score DESC, then buy_confidence DESC, then updated_at DESC
+    # 3. Layer in curated seed deals to guarantee minimum 15 products per category
+    local_deals_path = root_dir / "data" / "deals.json"
+    if output_dir == (root_dir / "data") and local_deals_path.exists():
+        try:
+            from dealbot.sources import load_local_deals
+            seed_deals = load_local_deals(local_deals_path)
+            for sd in seed_deals:
+                s_asin = extract_asin(sd)
+                if not s_asin or len(s_asin) != 10:
+                    continue
+                if s_asin not in deals_by_asin:
+                    score = getattr(sd, "agent_score", None) or 75
+                    s_ctx = sightings.get(f"amazon:{s_asin}") or sightings.get(sd.id)
+                    w_json = deal_to_web_json(
+                        sd,
+                        score=score,
+                        price_sightings=s_ctx,
+                        partner_tag=partner_tag,
+                        posted_to_telegram=False,
+                        posted_epoch=int(time.time()),
+                        last_verified_epoch=int(time.time()),
+                    )
+                    deals_by_asin[s_asin] = w_json
+        except Exception as e:
+            logger.warning(f"Error loading seed deals in web_exporter: {e}")
+
     # Guard: Strictly filter out any anomalies with zero or missing price
     deal_list = [d for d in deals_by_asin.values() if (d.get("effective_price") or 0) > 0]
-    deal_list.sort(key=lambda x: (x.get("trending_score") or x.get("score") or 0, x.get("buy_confidence") or 0, x.get("updated_at") or 0), reverse=True)
-    final_deals = deal_list[:max_items]
+
+    # Category Balancing (Requirement 1):
+    # Ensure every target category maintains at least 15 active verified deals if available
+    TARGET_CATEGORIES = [
+        "Mobiles & Accessories",
+        "Electronics & Audio",
+        "Laptops & Computing",
+        "Audio & Headphones",
+        "Home & Kitchen",
+        "Fashion & Footwear",
+        "Personal Care & Grocery",
+    ]
+    balanced_deals = []
+    selected_asins = set()
+
+    # Sort candidates strictly by recency, trending score, buy confidence
+    deal_list.sort(
+        key=lambda x: (
+            1 if x.get("is_fresh", True) else 0,
+            x.get("last_verified_at_epoch") or x.get("posted_at_epoch") or x.get("updated_at") or 0,
+            x.get("trending_score") or x.get("score") or 0,
+            x.get("buy_confidence") or 0
+        ),
+        reverse=True
+    )
+
+    # 1. Guarantee minimum 15 deals per target category
+    for cat in TARGET_CATEGORIES:
+        cat_items = [d for d in deal_list if d.get("category") == cat]
+        for it in cat_items[:15]:
+            if it.get("asin") not in selected_asins:
+                selected_asins.add(it.get("asin"))
+                balanced_deals.append(it)
+
+    # 2. Backfill remaining slots up to max_items with top ranked deals
+    for d in deal_list:
+        if len(balanced_deals) >= max_items:
+            break
+        if d.get("asin") not in selected_asins:
+            selected_asins.add(d.get("asin"))
+            balanced_deals.append(d)
+
+    # Final re-sort: fresh deals first, newest verified timestamp first, then score
+    balanced_deals.sort(
+        key=lambda x: (
+            1 if x.get("is_fresh", True) else 0,
+            x.get("last_verified_at_epoch") or x.get("posted_at_epoch") or x.get("updated_at") or 0,
+            x.get("trending_score") or x.get("score") or 0,
+            x.get("buy_confidence") or 0
+        ),
+        reverse=True
+    )
+    final_deals = balanced_deals[:max_items]
+
+    # Resolve and ensure high-res images and non-blank photos
+    root_dir = Path(__file__).resolve().parent.parent
+    try:
+        from dealbot.image_resolver import resolve_deal_images
+        final_deals = resolve_deal_images(final_deals, root_dir=root_dir)
+    except Exception as e:
+        logger.warning(f"resolve_deal_images error: {e}")
 
     # Write data/live_deals.json
     live_deals_path = output_dir / "live_deals.json"
@@ -667,15 +1153,20 @@ def export_web_feed(
     # Compute stats
     now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     tg_url = resolve_telegram_url()
+    fresh_deals = [d for d in final_deals if d.get("is_fresh", True)]
+    older_deals = [d for d in final_deals if not d.get("is_fresh", True)]
     stats = {
         "last_updated_ist": now_ist.strftime("%Y-%m-%d %H:%M IST"),
         "last_updated_epoch": int(time.time()),
-        "total_live_deals": len(final_deals),
-        "loot_count": sum(1 for d in final_deals if d.get("is_loot")),
-        "coupon_deals_count": sum(1 for d in final_deals if (d.get("coupon_discount") or d.get("coupon_text") or d.get("promo_code") or d.get("bank_offer"))),
-        "all_time_lows_count": sum(1 for d in final_deals if (d.get("price_context") in ("all_time_low", "real_drop") or d.get("is_further_drop"))),
-        "max_discount_pct": max((d.get("effective_discount_pct") or d.get("discount_pct") or 0 for d in final_deals), default=0),
-        "total_savings_available": sum(d.get("savings_inr") or 0 for d in final_deals),
+        "total_live_deals": len(fresh_deals),
+        "total_all_deals": len(final_deals),
+        "fresh_deals_count": len(fresh_deals),
+        "older_deals_count": len(older_deals),
+        "loot_count": sum(1 for d in fresh_deals if d.get("is_loot")),
+        "coupon_deals_count": sum(1 for d in fresh_deals if (d.get("coupon_discount") or d.get("coupon_text") or d.get("promo_code") or d.get("bank_offer"))),
+        "all_time_lows_count": sum(1 for d in fresh_deals if (d.get("price_context") in ("all_time_low", "real_drop") or d.get("is_further_drop"))),
+        "max_discount_pct": max((d.get("effective_discount_pct") or d.get("discount_pct") or 0 for d in fresh_deals), default=0),
+        "total_savings_available": sum(d.get("savings_inr") or 0 for d in fresh_deals),
         "telegram_url": tg_url,
     }
 
@@ -684,4 +1175,74 @@ def export_web_feed(
         json.dump(stats, f, indent=2, ensure_ascii=False)
     logger.info(f"Exported stats to {stats_path}")
 
+    # Export hourly AI market briefing for BazarAI
+    try:
+        export_ai_briefing(final_deals, stats, output_dir=output_dir)
+    except Exception as e:
+        logger.error(f"Error exporting AI briefing: {e}", exc_info=True)
+
+    # SSG Pre-rendering of index.html and all 6 standalone category landing pages
+    root_dir = Path(__file__).resolve().parent.parent
+    try:
+        ensure_og_banner(root_dir)
+        pre_render_all_pages(final_deals, stats, root_dir=root_dir)
+    except Exception as e:
+        logger.error(f"Error pre-rendering SSG HTML pages: {e}", exc_info=True)
+
     return {"deals_count": len(final_deals), "stats": stats}
+
+
+def export_web_data(store=None, **kwargs):
+    """
+    Export live web data and pre-render all 7 SSG pages.
+    Can be invoked with a StateStore or standalone.
+    """
+    root_dir = Path(__file__).resolve().parent.parent
+    try:
+        sync_telegram_deals_from_dealdash(root_dir)
+    except Exception as e:
+        logger.warning(f"sync_telegram_deals_from_dealdash error: {e}")
+
+    if store is None:
+        try:
+            from dealbot.publisher import StateStore
+            from dealbot.session import database_path
+            db_p = database_path()
+            if not db_p.exists():
+                alt_p = root_dir / "data" / "deals.db"
+                if alt_p.exists():
+                    db_p = alt_p
+                else:
+                    alt_p2 = root_dir / "data" / "state.sqlite3"
+                    if alt_p2.exists():
+                        db_p = alt_p2
+            store = StateStore(str(db_p))
+        except Exception as e:
+            logger.warning(f"Failed to initialize StateStore in export_web_data: {e}")
+            store = None
+
+    if store is not None:
+        return export_web_feed(store, **kwargs)
+
+    root_dir = Path(__file__).resolve().parent.parent
+    output_dir = kwargs.get("output_dir") or (root_dir / "data")
+    output_dir = Path(output_dir)
+    live_deals_path = output_dir / "live_deals.json"
+    stats_path = output_dir / "stats.json"
+    deals = []
+    stats = {}
+    import json
+    if live_deals_path.exists():
+        with open(live_deals_path, "r", encoding="utf-8") as f:
+            deals = json.load(f)
+    if stats_path.exists():
+        with open(stats_path, "r", encoding="utf-8") as f:
+            stats = json.load(f)
+
+    try:
+        export_ai_briefing(deals, stats, output_dir=output_dir)
+    except Exception:
+        pass
+    ensure_og_banner(root_dir)
+    pre_render_all_pages(deals, stats, root_dir=root_dir)
+    return {"deals_count": len(deals), "stats": stats}
