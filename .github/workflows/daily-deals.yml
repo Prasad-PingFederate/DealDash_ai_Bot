@@ -3,7 +3,8 @@ name: Daily deal posts
 # Posts one non-mobile deal to Telegram, X, and Instagram.
 # Times are UTC. India is UTC+5:30, so these are 12:30, 19:00, and 21:30 IST.
 # Tokens live in GitHub Actions secrets. Never commit them into the repo.
-# This is separate from the hourly dealbot runner.
+# Separate from the hourly dealbot. Add public page links later as Actions variables.
+# An empty variable is fine. The three daily posts still run.
 
 on:
   schedule:
@@ -84,6 +85,12 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          TELEGRAM_CHANNEL_LINK: ${{ vars.TELEGRAM_CHANNEL_LINK }}
+          WHATSAPP_CHANNEL_LINK: ${{ vars.WHATSAPP_CHANNEL_LINK }}
+          X_ACCOUNT_LINK: ${{ vars.X_ACCOUNT_LINK }}
+          INSTAGRAM_ACCOUNT_LINK: ${{ vars.INSTAGRAM_ACCOUNT_LINK }}
+          REDDIT_COMMUNITY_LINK: ${{ vars.REDDIT_COMMUNITY_LINK }}
+          FACEBOOK_PAGE_LINK: ${{ vars.FACEBOOK_PAGE_LINK }}
         run: node --experimental-strip-types scripts/daily-social.ts
 
       - name: Save post history
