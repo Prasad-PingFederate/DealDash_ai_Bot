@@ -5,6 +5,7 @@ import {
   captionFor,
   type ChannelId,
   type Deal,
+  type FollowLinks,
   type SlotId,
 } from "./social-engine.ts";
 
@@ -17,6 +18,7 @@ export type Secrets = {
   xAccessSecret?: string;
   igAccessToken?: string;
   igUserId?: string;
+  links?: FollowLinks;
 };
 
 export type DeliveryResult = {
@@ -76,7 +78,7 @@ export async function postTelegram(
   if (!secrets.telegramToken || !secrets.telegramChatId) {
     return { channel: "telegram", ok: false, skipped: true, detail: "Telegram secrets not set" };
   }
-  const text = captionFor(deal, "telegram");
+  const text = captionFor(deal, "telegram", secrets.links);
   const endpoint = `https://api.telegram.org/bot${secrets.telegramToken}`;
   if (deal.image_url) {
     const photo = await fetchImpl(`${endpoint}/sendPhoto`, {
@@ -126,7 +128,7 @@ export async function postX(
       }),
       "content-type": "application/json",
     },
-    body: JSON.stringify({ text: captionFor(deal, "x") }),
+    body: JSON.stringify({ text: captionFor(deal, "x", secrets.links) }),
   });
   if (!response.ok) return { channel: "x", ok: false, detail: await readError(response) };
   return { channel: "x", ok: true, detail: "Posted" };
@@ -149,7 +151,7 @@ export async function postInstagram(
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       image_url: deal.image_url,
-      caption: captionFor(deal, "instagram"),
+      caption: captionFor(deal, "instagram", secrets.links),
       access_token: secrets.igAccessToken,
     }),
   });
@@ -168,12 +170,12 @@ export async function postInstagram(
   return { channel: "instagram", ok: true, detail: "Published" };
 }
 
-export function whatsAppCopy(deal: Deal): DeliveryResult {
+export function whatsAppCopy(deal: Deal, secrets: Secrets = {}): DeliveryResult {
   return {
     channel: "whatsapp",
     ok: true,
     skipped: true,
-    detail: captionFor(deal, "whatsapp"),
+    detail: captionFor(deal, "whatsapp", secrets.links),
   };
 }
 
@@ -187,7 +189,7 @@ export async function deliverDeal(
     postX(deal, secrets, fetchImpl),
     postInstagram(deal, secrets, fetchImpl),
   ]);
-  return [telegram, x, instagram, whatsAppCopy(deal)];
+  return [telegram, x, instagram, whatsAppCopy(deal, secrets)];
 }
 
 export function secretsFromEnv(env: NodeJS.ProcessEnv = process.env): Secrets {
@@ -204,6 +206,14 @@ export function secretsFromEnv(env: NodeJS.ProcessEnv = process.env): Secrets {
     xAccessSecret: read("X_ACCESS_SECRET"),
     igAccessToken: read("IG_ACCESS_TOKEN"),
     igUserId: read("IG_USER_ID"),
+    links: {
+      telegram: read("TELEGRAM_CHANNEL_LINK"),
+      whatsapp: read("WHATSAPP_CHANNEL_LINK"),
+      x: read("X_ACCOUNT_LINK"),
+      instagram: read("INSTAGRAM_ACCOUNT_LINK"),
+      reddit: read("REDDIT_COMMUNITY_LINK"),
+      facebook: read("FACEBOOK_PAGE_LINK"),
+    },
   };
 }
 
@@ -213,6 +223,10 @@ export function configuredChannels(secrets: Secrets): ChannelId[] {
   if (secrets.xApiKey && secrets.xApiSecret && secrets.xAccessToken && secrets.xAccessSecret) channels.push("x");
   if (secrets.igAccessToken && secrets.igUserId) channels.push("instagram");
   return channels;
+}
+
+export function linkFor(asin: string, channel: ChannelId): string {
+  return affiliateLink(asin, channel);
 }
 
 export type { SlotId };
