@@ -110,6 +110,13 @@ test("pick rotates and stays off phones", () => {
   assert.notEqual(first.asin, later.asin);
 });
 
+test("caption adds follow links only when they are provided", () => {
+  const plain = captionFor(dove, "telegram");
+  assert.equal(plain.includes("t.me"), false);
+  const linked = captionFor(dove, "telegram", { telegram: "https://t.me/example" });
+  assert.match(linked, /Telegram https:\/\/t\.me\/example/);
+});
+
 test("caption always discloses the affiliate link", () => {
   const text = captionFor(dove, "instagram");
   assert.match(text, /^#ad /);
