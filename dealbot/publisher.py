@@ -1005,6 +1005,12 @@ def send_admin_note(text: str, dry_run: bool = True) -> bool:
 
 
 def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> Tuple[bool, Optional[int], str]:
+    # [GROK-RANKING-GATE] Unified website ranking rule: block low-discount items (e.g. 12% phones)
+    _pct = offer_percent(deal) or int(getattr(deal, "discount_percent", 0) or 0)
+    _price = parse_rupees(getattr(deal, "current_price", None)) or 9999
+    if _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
+        logger.info(f"[Ranking Gate] Blocked low-discount deal ({_pct}% OFF, Rs {_price}): {deal.title}")
+        return False, None, ""
     caption = format_caption(deal, copywriter=copywriter)
     if dry_run:
         img_info = f" [Image: {deal.image_url}]" if deal.image_url else ""
@@ -1187,7 +1193,13 @@ def send_top_live_deals_digest(
     lines.append(f'🐦 <a href="{x_link}">X (Twitter) Profile</a> | 🌐 <a href="{rd_link}">Reddit Community</a> | ⚡ <a href="https://bharatbazaro.com">Live 24x7 Radar</a>')
     lines.append("")
     lines.append("<i>⚡ Prices and coupons fluctuate rapidly. Forward to friends before these deals expire!</i>")
+    lines.append("")
+    lines.append(html.escape(format_hinglish_whatsapp_top5(deals), quote=False))
     digest_html = "\n".join(lines)
+    try:
+        send_and_pin_daily_promo_pack(store=store, chat_id=chat_id, token=token, dry_run=dry_run)
+    except Exception:
+        pass
 
     if dry_run:
         logger.info(f"[DRY RUN] Would send and pin Top Live Deals Digest:\n{digest_html}")
@@ -1223,3 +1235,79 @@ def send_top_live_deals_digest(
     else:
         logger.warning(f"Failed to post Top Live Deals Digest: {resp.status_code} {resp.text}")
         return False
+
+
+def format_hinglish_whatsapp_top5(deals: list) -> str:
+    from dealbot.regions import get_currency_symbol
+    curr = get_currency_symbol()
+    lines = [
+        "🇮🇳 *Aaj Ke Top 5 Amazon Loot Deals (Abhi Live Hain!)* 🔥",
+        "MRP pe mat khareedo! Dekho aaj ki sabse badi price drops:",
+        "",
+    ]
+    for idx, d in enumerate(deals[:5], start=1):
+        title = (d.get("title") or d.get("caption", "").split("\n")[0] or d.get("deal_id") or "Amazon Deal")
+        title = re.sub(r"<[^>]+>", "", str(title)).strip()[:55]
+        price = d.get("price") or d.get("effective_price") or ""
+        disc = d.get("discount") or d.get("discount_percent") or ""
+        p_txt = f"{curr}{int(price):,}" if str(price).isdigit() else str(price)
+        d_txt = f" ({disc}% Ki Badi Bachat!)" if disc else ""
+        lines.append(f"{idx}️⃣ *{title}* — Sirf *{p_txt}*{d_txt}")
+    lines.append("")
+    lines.append("👉 *Live Price History & Direct Links:* https://bharatbazaro.com/?utm_source=whatsapp_hinglish")
+    lines.append("📲 *Apne Family & Friends WhatsApp Group mein turant forward karein isse pehle stock khatam ho jaye!*")
+    return "\n".join(lines)
+
+
+def send_and_pin_daily_promo_pack(store=None, chat_id: str = None, token: str = None, dry_run: bool = False) -> bool:
+    import pathlib
+    from datetime import datetime, timezone, timedelta
+    ist_today = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
+    if store is not None and hasattr(store, "get_meta") and hasattr(store, "set_meta"):
+        if store.get_meta("last_promo_pack_pinned_date") == ist_today:
+            return False
+    promo_file = pathlib.Path("reports/daily_promo_pack.md")
+    if not promo_file.exists():
+        return False
+    top_deals = store.get_top_live_deals_today(limit=5) if (store and hasattr(store, "get_top_live_deals_today")) else []
+    hinglish_block = format_hinglish_whatsapp_top5(top_deals) if top_deals else ""
+    msg_text = (
+        f"📋 <b>DAILY DEAL RADAR &amp; HINGLISH WHATSAPP PACK ({ist_today})</b>\n\n"
+        f"{html.escape(hinglish_block, quote=False)}\n\n"
+        f"🌐 <a href=\"https://bharatbazaro.com/deals/{ist_today}.html\"><b>Open Amazon Deals Today ({ist_today})</b></a>"
+    )
+    if dry_run:
+        return True
+    token = (token or os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
+    chat_id = (chat_id or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+    if not token or not chat_id or token == "replace_me":
+        return False
+    wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(hinglish_block or msg_text)}"
+    payload = {
+        "chat_id": chat_id,
+        "text": msg_text[:3900],
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+        "reply_markup": {
+            "inline_keyboard": [
+                [{"text": "📲 Forward Top-5 in Hinglish on WhatsApp", "url": wa_url}],
+                [{"text": "🌐 Today's Amazon Deals Page", "url": f"https://bharatbazaro.com/deals/{ist_today}.html"}],
+            ]
+        },
+    }
+    try:
+        resp = safe_telegram_post(f"https://api.telegram.org/bot{token}/sendMessage", payload=payload, timeout=20)
+        if resp.status_code == 200:
+            msg_id = resp.json().get("result", {}).get("message_id")
+            if msg_id:
+                safe_telegram_post(
+                    f"https://api.telegram.org/bot{token}/pinChatMessage",
+                    payload={"chat_id": chat_id, "message_id": msg_id, "disable_notification": True},
+                    timeout=10,
+                )
+            if store is not None and hasattr(store, "set_meta"):
+                store.set_meta("last_promo_pack_pinned_date", ist_today)
+            return True
+    except Exception as e:
+        logger.warning(f"Daily promo pack pin failed: {e}")
+    return False

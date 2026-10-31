@@ -866,3 +866,13 @@ class DealAgent:
         except Exception as exc:
             logger.warning(f"Agent LLM plan failed, using heuristic: {exc}")
             return []
+
+
+# GROK_UNIFIED_RANK_RULE
+def website_composite_rank_score(deal) -> float:
+    disc = float(getattr(deal, "discount_percent", 0) or 0)
+    score = float(getattr(deal, "agent_score", 0) or 0)
+    rating = float(getattr(deal, "rating", 0) or 0)
+    if disc < 25 and not getattr(deal, "is_loot", False):
+        return -999.0
+    return round((disc * 1.6) + score + (rating * 4.0) + (25.0 if getattr(deal, "is_loot", False) else 0.0), 2)
