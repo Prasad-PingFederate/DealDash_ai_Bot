@@ -1,3 +1,4 @@
+import re
 """Deal editor agent.
 
 Each cycle the agent observes fresh deals and recent channel memory, scores
@@ -876,3 +877,23 @@ def website_composite_rank_score(deal) -> float:
     if disc < 25 and not getattr(deal, "is_loot", False):
         return -999.0
     return round((disc * 1.6) + score + (rating * 4.0) + (25.0 if getattr(deal, "is_loot", False) else 0.0), 2)
+
+
+# === ZERO-COMMISSION SMARTPHONE BLOCKER ===
+_PHONE_ACC_ALLOW = re.compile(
+    r"\b(case|cover|back\s*cover|tempered|glass|screen\s*protector|charger|adapter|cable|cord|power\s*bank|earbuds|tws|neckband|headphone|earphone|smartwatch|watch|holder|stand|tripod|skin|ssd|memory\s*card|sd\s*card|pendrive|tv|television|refrigerator|fridge|washing\s*machine|microwave|monitor|soundbar|speaker|trimmer|shaver|iron|geyser|mixer|kettle|flask|bottle|cooker|pan|shoe|sneaker|bag|backpack)\b",
+    re.I,
+)
+_SMARTPHONE_BLOCK = re.compile(
+    r"\b(smartphone|5g\s*phone|mobile\s*phone|iphone\s*(1[1-9]|[6789]|se|pro|max|plus|air)|galaxy\s*(s2\d|m\d\d|f\d\d|a\d\d|z\s*fold|z\s*flip)|oneplus\s*(1[0-5]|nord)|redmi\s*(note|\d+\s*[ac5g]|a\d)|iqoo\s*(z\d|neo|1\d)|poco\s*[mxcf]\d|realme\s*(narzo|\d+\s*pro|gt|p\d)|vivo\s*[vtpy]\d\d|oppo\s*(reno|f\d\d|a\d\d|k\d\d)|motorola\s*(edge|moto\s*g|razr)|nothing\s*phone|lava\s*(agni|blaze|yuva)|infinix\s*(note|hot|zero)|tecno\s*(spark|pova|camon)|\d+\s*gb\s*ram\b|\b(64|128|256|512)\s*gb\s*(rom|storage))\b",
+    re.I,
+)
+
+def is_zero_commission_phone(title: str, category: str = "") -> bool:
+    t = str(title or "")
+    c = str(category or "").lower().strip()
+    if _PHONE_ACC_ALLOW.search(t):
+        return False
+    if c in ("mobile", "mobiles", "smartphone", "smartphones", "phones"):
+        return True
+    return bool(_SMARTPHONE_BLOCK.search(t))

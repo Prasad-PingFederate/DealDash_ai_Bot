@@ -40,3 +40,9 @@ jobs:
           name: pytest-log
           path: pytest-out.txt
           if-no-files-found: ignore
+      - name: Run Node daily-social tests
+        run: |
+          if [ -f package.json ]; then
+            npm ci || npm install
+            npm test --if-present
+          fi

@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     console.error(
       "No channel secrets configured. Add TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET, IG_ACCESS_TOKEN, IG_USER_ID under GitHub Actions secrets. Do not commit them.",
     );
-    process.exit(1);
+    /* savePostedBeforeExit */ try { if (typeof saveHistory === 'function') saveHistory(); } catch (_) {} process.exit(1);
   }
   const result = await runDaily({
     deals,
@@ -126,13 +126,13 @@ async function main(): Promise<void> {
       ["## BharatBazaro daily posts", "", ...result.lines.map((line) => line.startsWith("---") ? `\n\`\`\`\n${line}\n\`\`\`\n` : line)].join("\n"),
     );
   }
-  if (result.failed && !dryRun && channels.length > 0) process.exit(1);
+  if (result.failed && !dryRun && channels.length > 0) /* savePostedBeforeExit */ try { if (typeof saveHistory === 'function') saveHistory(); } catch (_) {} process.exit(1);
 }
 
 const entry = process.argv[1] ?? "";
 if (entry.endsWith("daily-social.ts")) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
+    /* savePostedBeforeExit */ try { if (typeof saveHistory === 'function') saveHistory(); } catch (_) {} process.exit(1);
   });
 }
