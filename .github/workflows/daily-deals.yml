@@ -1,0 +1,94 @@
+name: Daily deal posts
+
+# Posts one non-mobile deal to Telegram, X, and Instagram.
+# Times are UTC. India is UTC+5:30, so these are 12:30, 19:00, and 21:30 IST.
+# Tokens live in GitHub Actions secrets. Never commit them into the repo.
+# This is separate from the hourly dealbot runner.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+    - cron: "30 13 * * *"
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: Which deal to send
+        type: choice
+        options:
+          - beauty
+          - fashion
+          - kitchen
+          - all
+        default: beauty
+      dry_run:
+        description: Print the posts without sending them
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-deals-${{ github.event.schedule || inputs.slot || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore post history
+        uses: actions/cache/restore@v4
+        with:
+          path: out/posted.json
+          key: deal-posted-${{ github.run_id }}
+          restore-keys: deal-posted-
+
+      - name: Choose slot
+        id: slot
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SLOT: ${{ inputs.slot }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "$INPUT_SLOT" in
+              beauty|fashion|kitchen|all) slot="$INPUT_SLOT" ;;
+              *) echo "Unexpected slot" >&2; exit 1 ;;
+            esac
+          elif [ "$SCHEDULE" = "0 7 * * *" ]; then
+            slot=beauty
+          elif [ "$SCHEDULE" = "30 13 * * *" ]; then
+            slot=fashion
+          else
+            slot=kitchen
+          fi
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"
+
+      - name: Post the deal
+        env:
+          SLOT: ${{ steps.slot.outputs.slot }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+        run: node --experimental-strip-types scripts/daily-social.ts
+
+      - name: Save post history
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: out/posted.json
+          key: deal-posted-${{ github.run_id }}
