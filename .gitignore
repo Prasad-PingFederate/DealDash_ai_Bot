@@ -3,3 +3,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+# === CREDENTIALS & SECRETS (NEVER PUSH TO PUBLIC REPO) ===
+.env.*
+!.env.example
+secrets.json
+credentials.json
+*client_secret*.json
+*.pem
+*.key
