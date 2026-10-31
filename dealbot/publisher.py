@@ -1005,10 +1005,7 @@ def send_admin_note(text: str, dry_run: bool = True) -> bool:
 
 
 def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AICopywriter] = None) -> Tuple[bool, Optional[int], str]:
-    # [GROK-RANKING-GATE]
-    if is_zero_commission_phone(getattr(deal, "title", ""), getattr(deal, "category", "")):
-        logger.info(f"[No-Phone Gate] Skipped 0%-commission smartphone: {deal.title}")
-        return False, None, "" Unified website ranking rule: block low-discount items (e.g. 12% phones)
+    # [GROK-RANKING-GATE] Unified website ranking rule: block low-discount items (e.g. 12% phones)
     _pct = offer_percent(deal) or int(getattr(deal, "discount_percent", 0) or 0)
     _price = parse_rupees(getattr(deal, "current_price", None)) or 9999
     if _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
@@ -1316,21 +1313,37 @@ def send_and_pin_daily_promo_pack(store=None, chat_id: str = None, token: str = 
     return False
 
 
-# === ZERO-COMMISSION SMARTPHONE BLOCKER ===
-_PHONE_ACC_ALLOW = re.compile(
+# === CLEAN NO-PHONE & RANKING WRAPPER ===
+import re as _bb_re
+
+_BB_ACC_ALLOW = _bb_re.compile(
     r"\b(case|cover|back\s*cover|tempered|glass|screen\s*protector|charger|adapter|cable|cord|power\s*bank|earbuds|tws|neckband|headphone|earphone|smartwatch|watch|holder|stand|tripod|skin|ssd|memory\s*card|sd\s*card|pendrive|tv|television|refrigerator|fridge|washing\s*machine|microwave|monitor|soundbar|speaker|trimmer|shaver|iron|geyser|mixer|kettle|flask|bottle|cooker|pan|shoe|sneaker|bag|backpack)\b",
-    re.I,
+    _bb_re.I,
 )
-_SMARTPHONE_BLOCK = re.compile(
-    r"\b(smartphone|5g\s*phone|mobile\s*phone|iphone\s*(1[1-9]|[6789]|se|pro|max|plus|air)|galaxy\s*(s2\d|m\d\d|f\d\d|a\d\d|z\s*fold|z\s*flip)|oneplus\s*(1[0-5]|nord)|redmi\s*(note|\d+\s*[ac5g]|a\d)|iqoo\s*(z\d|neo|1\d)|poco\s*[mxcf]\d|realme\s*(narzo|\d+\s*pro|gt|p\d)|vivo\s*[vtpy]\d\d|oppo\s*(reno|f\d\d|a\d\d|k\d\d)|motorola\s*(edge|moto\s*g|razr)|nothing\s*phone|lava\s*(agni|blaze|yuva)|infinix\s*(note|hot|zero)|tecno\s*(spark|pova|camon)|\d+\s*gb\s*ram\b|\b(64|128|256|512)\s*gb\s*(rom|storage))\b",
-    re.I,
+_BB_PH_BLOCK = _bb_re.compile(
+    r"\b(smartphone|5g\s*phone|mobile\s*phone|iphone\s*(1[1-9]|[6789]|se|pro|max|plus|air)|galaxy\s*(s2\d|m\d\d|f\d\d|a\d\d|z\s*fold|z\s*flip)|oneplus\s*(1[0-5]|nord)|redmi\s*(note|\d+\s*[ac5g]|a\d)|iqoo\s*(z\d|neo|1\d)|poco\s*[mxcf]\d|realme\s*(narzo|\d+\s*pro|gt|p\d)|vivo\s*[vtpy]\d\d|oppo\s*(reno|f\d\d|a\d\d|k\d\d)|motorola\s*(edge|moto\s*g|razr)|nothing\s*phone|\d+\s*gb\s*ram\b|\b(64|128|256|512)\s*gb\s*(rom|storage))\b",
+    _bb_re.I,
 )
 
 def is_zero_commission_phone(title: str, category: str = "") -> bool:
     t = str(title or "")
     c = str(category or "").lower().strip()
-    if _PHONE_ACC_ALLOW.search(t):
+    if _BB_ACC_ALLOW.search(t):
         return False
     if c in ("mobile", "mobiles", "smartphone", "smartphones", "phones"):
         return True
-    return bool(_SMARTPHONE_BLOCK.search(t))
+    return bool(_BB_PH_BLOCK.search(t))
+
+_orig_send_telegram_deal = send_telegram_deal
+
+def send_telegram_deal(deal, dry_run: bool = True, copywriter=None):
+    if is_zero_commission_phone(getattr(deal, "title", ""), getattr(deal, "category", "")):
+        logger.info(f"[No-Phone Gate] Skipped 0%-commission smartphone: {getattr(deal, 'title', '')}")
+        return False, None, ""
+    _pct = offer_percent(deal) or int(getattr(deal, "discount_percent", 0) or 0)
+    _price = parse_rupees(getattr(deal, "current_price", None)) or 9999
+    if _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
+        logger.info(f"[Ranking Gate] Blocked low-discount deal ({_pct}% OFF): {getattr(deal, 'title', '')}")
+        return False, None, ""
+    return _orig_send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
+
