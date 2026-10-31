@@ -28,7 +28,8 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 concurrency:
   group: daily-deals-${{ github.event.schedule || inputs.slot || 'manual' }}

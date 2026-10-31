@@ -1,3 +1,26 @@
+
+export function safeTelegramCaption(text: string, maxLen = 1024): string {
+  if (!text || text.length <= maxLen) return text;
+  const lines = text.split("\n");
+  const tailLines: string[] = [];
+  const headLines: string[] = [];
+  let inTail = true;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (inTail && (l.includes("http://") || l.includes("https://") || l.includes("amazon.") || l.includes("bharatbazaro") || l.includes("t.me/") || l.trim() === "")) {
+      tailLines.unshift(l);
+    } else {
+      inTail = false;
+      headLines.unshift(l);
+    }
+  }
+  const tail = tailLines.join("\n").trim();
+  if (!tail || tail.length >= maxLen - 40) return text.slice(0, maxLen);
+  const budget = maxLen - tail.length - 6;
+  const head = headLines.join("\n").slice(0, Math.max(0, budget)).trimEnd();
+  return `${head}...\n\n${tail}`;
+}
+
 import crypto from "node:crypto";
 
 import {
@@ -87,7 +110,7 @@ export async function postTelegram(
       body: JSON.stringify({
         chat_id: secrets.telegramChatId,
         photo: deal.image_url,
-        caption: text.slice(0, 1024),
+        caption: safeTelegramCaption(text, 1024),
       }),
     });
     if (photo.ok) return { channel: "telegram", ok: true, detail: "Photo posted" };
