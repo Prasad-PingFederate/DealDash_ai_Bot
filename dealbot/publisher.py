@@ -1,3 +1,4 @@
+import urllib.parse
 import html
 import logging
 import os
@@ -1044,13 +1045,18 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
     row3 = []
     if asin and len(asin) == 10:
         row2.append({"text": "📈 Keepa Chart", "url": get_keepa_url(asin)})
-        row2.append({"text": "🌐 BharatBazaro.com", "url": "https://bharatbazaro.com"})
+        row2.append({"text": "🌐 BharatBazaro.com", "url": f"https://bharatbazaro.com/?deal={asin}&utm_source=telegram" if (asin and len(asin) == 10) else "https://bharatbazaro.com/?utm_source=telegram"})
         ph_url = get_price_history_url(asin)
         if ph_url:
             provider_label = "Price History Check" if get_market_region() == "IN" else "CamelCamelCamel"
             row3.append({"text": f"🔍 {provider_label}", "url": ph_url})
 
-    row_worth = [{"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"}]
+    _bharat_u = f"https://bharatbazaro.com/?deal={asin}&utm_source=telegram" if (asin and len(asin) == 10) else "https://bharatbazaro.com/?utm_source=telegram"
+    _wa_txt = f"🔥 LOOT DEAL: {deal.title or 'Deal'}\n💰 Grab @ {disp_price or 'Best Price'}{disc_part}\n📊 Price History & Link: {_bharat_u}"
+    row_worth = [
+        {"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"},
+        {"text": "📲 Share on WhatsApp", "url": f"https://api.whatsapp.com/send?text={urllib.parse.quote(_wa_txt)}"},
+    ]
 
     inline_rows = [primary_row]
     if row2:
