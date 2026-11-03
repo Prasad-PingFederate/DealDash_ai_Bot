@@ -1,7 +1,33 @@
 {
-  "generated_at_ist": "2026-11-03 13:36 IST",
-  "generated_at_epoch": 1793693163,
+  "generated_at_ist": "2026-11-03 14:41 IST",
+  "generated_at_epoch": 1793697089,
   "top_loot_summary": [
+    {
+      "asin": "B083W7V3YB",
+      "title": "Sennheiser HD 450SE Bluetooth 5.0 Wireless Over Ear Headphones with ANC",
+      "effective_price": 6990,
+      "mrp": 14990,
+      "discount_pct": 53,
+      "savings_inr": 8000,
+      "brand": "Sennheiser",
+      "category": "Audio & Headphones",
+      "affiliate_url": "https://www.amazon.in/dp/B083W7V3YB?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B083W7V3YB.html",
+      "coupon_text": null
+    },
+    {
+      "asin": "B091CR2FXY",
+      "title": "AGARO Regency Air Fryer 12L 1800W with 9 Preset Menus & Rotisserie",
+      "effective_price": 7499,
+      "mrp": 15999,
+      "discount_pct": 53,
+      "savings_inr": 8500,
+      "brand": "Agaro",
+      "category": "Home & Kitchen",
+      "affiliate_url": "https://www.amazon.in/dp/B091CR2FXY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B091CR2FXY.html",
+      "coupon_text": null
+    },
     {
       "asin": "B008A2796G",
       "title": "Fossil Grant Chronograph Dark Brown Leather Strap Mens Watch",
@@ -58,15 +84,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793693129,
-    "last_verified_at_epoch": 1793693129,
-    "last_verified_at_ist": "2026-11-03 13:35 IST",
+    "posted_at_epoch": 1793697032,
+    "last_verified_at_epoch": 1793697032,
+    "last_verified_at_ist": "2026-11-03 14:40 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793693129,
-    "updated_at_ist": "2026-11-03 13:35 IST"
+    "updated_at": 1793697032,
+    "updated_at_ist": "2026-11-03 14:40 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -109,15 +135,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793693129,
-    "last_verified_at_epoch": 1793693129,
-    "last_verified_at_ist": "2026-11-03 13:35 IST",
+    "posted_at_epoch": 1793697032,
+    "last_verified_at_epoch": 1793697032,
+    "last_verified_at_ist": "2026-11-03 14:40 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793693129,
-    "updated_at_ist": "2026-11-03 13:35 IST"
+    "updated_at": 1793697032,
+    "updated_at_ist": "2026-11-03 14:40 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -158,7 +184,7 @@
   },
   "market_stats": {
     "total_deals": 172,
-    "loot_count": 1,
+    "loot_count": 3,
     "max_discount_pct": 89,
     "total_savings_inr": 648665
   }
