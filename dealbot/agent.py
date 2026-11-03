@@ -481,6 +481,9 @@ def score_deal(deal: Deal, recent_categories: Sequence[str], slot: Optional[str]
             score += 6
             reasons.append(f"psychological price point ({curr_sym}{eval_price}) (+6)")
 
+    title_lower = (deal.title or "").lower()
+    eff_eval_p = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
+
     # Value Pack / Combo Booster (+12 pts)
     vp_boost_keywords = (
         "1l", "1 l", "1 litre", "1000ml", "800ml", "1kg", "1 kg", "2kg", "2 kg", "5kg", "5 kg",

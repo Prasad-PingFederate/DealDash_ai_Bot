@@ -464,8 +464,8 @@ def run_once() -> int:
     # Stage 2: Two-stage funnel with backfill loop
     # Iterate through Stage 1 ranked candidates until either max(max_posts * 2, 6) verified pass
     # OR at most 12 enrichment fetches attempted.
-    target_verified = max(max_posts * 2, 6)
-    max_fetches = 12
+    target_verified = max(max_posts * 2, 8)
+    max_fetches = max(max_posts * 4, 30)
 
     verified_candidates = []
     enriched_tried = 0
