@@ -1,7 +1,33 @@
 {
-  "generated_at_ist": "2026-11-04 18:08 IST",
-  "generated_at_epoch": 1793795902,
+  "generated_at_ist": "2026-11-04 19:13 IST",
+  "generated_at_epoch": 1793799809,
   "top_loot_summary": [
+    {
+      "asin": "B09WDP4MMK",
+      "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
+      "effective_price": 7999,
+      "mrp": 16100,
+      "discount_pct": 50,
+      "savings_inr": 8101,
+      "brand": "Samsung",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
+      "coupon_text": null
+    },
+    {
+      "asin": "B0CYQ4M4N5",
+      "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
+      "effective_price": 52990,
+      "mrp": 99900,
+      "discount_pct": 47,
+      "savings_inr": 46910,
+      "brand": "Sony",
+      "category": "Electronics & Audio",
+      "affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0CYQ4M4N5.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BN8H1L7L",
       "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
@@ -40,56 +66,30 @@
       "affiliate_url": "https://www.amazon.in/dp/B0BC8P3X65?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BC8P3X65.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0B25L78CD",
-      "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
-      "effective_price": 5299,
-      "mrp": 11000,
-      "discount_pct": 52,
-      "savings_inr": 5701,
-      "brand": "Crucial",
-      "category": "Laptops & Computing",
-      "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B083W7V3YB",
-      "title": "Sennheiser HD 450SE Bluetooth 5.0 Wireless Over Ear Headphones with ANC",
-      "effective_price": 6990,
-      "mrp": 14990,
-      "discount_pct": 53,
-      "savings_inr": 8000,
-      "brand": "Sennheiser",
-      "category": "Audio & Headphones",
-      "affiliate_url": "https://www.amazon.in/dp/B083W7V3YB?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B083W7V3YB.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
   "best_under_299": {
-    "id": "amazon:B01LY8PGB0",
-    "asin": "B01LY8PGB0",
-    "title": "Dettol Liquid Handwash Refill Original 1500ml Germ Protection",
-    "brand": "Dettol",
+    "id": "amazon:B008T1V3KC",
+    "asin": "B008T1V3KC",
+    "title": "Nivea Soft Light Moisturizer Cream with Vitamin E & Jojoba Oil 300ml",
+    "brand": "Nivea",
     "brand_tier": "tier1",
     "category": "Personal Care & Grocery",
-    "image_url": "https://m.media-amazon.com/images/P/B01LY8PGB0.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B01LY8PGB0?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 339,
-    "list_price": 219,
-    "effective_price": 219,
+    "image_url": "https://m.media-amazon.com/images/P/B008T1V3KC.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B008T1V3KC?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 499,
+    "list_price": 299,
+    "effective_price": 299,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 35,
-    "effective_discount_pct": 35,
-    "savings_inr": 120,
+    "discount_pct": 40,
+    "effective_discount_pct": 40,
+    "savings_inr": 200,
     "rating": 4.5,
-    "review_count": 94000,
+    "review_count": 89000,
     "score": 75,
     "buy_confidence": 95,
     "price_context": "normal",
@@ -105,42 +105,42 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "🎉 Complete checkout at the effective deal price of ₹219!"
+      "🎉 Complete checkout at the effective deal price of ₹299!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793795892,
-    "last_verified_at_epoch": 1793795892,
-    "last_verified_at_ist": "2026-11-04 18:08 IST",
+    "posted_at_epoch": 1793799797,
+    "last_verified_at_epoch": 1793799797,
+    "last_verified_at_ist": "2026-11-04 19:13 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793795892,
-    "updated_at_ist": "2026-11-04 18:08 IST"
+    "updated_at": 1793799797,
+    "updated_at_ist": "2026-11-04 19:13 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B09B8W5FW7",
-    "asin": "B09B8W5FW7",
-    "title": "Amazon Echo Dot 5th Gen with Clock and Smart Speaker with Alexa (Blue)",
-    "brand": "Amazon",
+    "id": "amazon:B0BZV8RF79",
+    "asin": "B0BZV8RF79",
+    "title": "OnePlus Nord Buds 2r True Wireless in Ear Earbuds with Mic, 38H Playtime, 12.4mm Drivers",
+    "brand": "Oneplus",
     "brand_tier": "tier1",
-    "category": "Audio & Headphones",
-    "image_url": "https://m.media-amazon.com/images/P/B09B8W5FW7.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B09B8W5FW7?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 5499,
-    "list_price": 4449,
-    "effective_price": 4449,
+    "category": "Mobiles & Accessories",
+    "image_url": "https://m.media-amazon.com/images/P/B0BZV8RF79.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0BZV8RF79?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 2299,
+    "list_price": 1799,
+    "effective_price": 1799,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 19,
-    "effective_discount_pct": 19,
-    "savings_inr": 1050,
-    "rating": 4.4,
-    "review_count": 28000,
+    "discount_pct": 22,
+    "effective_discount_pct": 22,
+    "savings_inr": 500,
+    "rating": 4.2,
+    "review_count": 48000,
     "score": 75,
     "buy_confidence": 95,
     "price_context": "normal",
@@ -148,7 +148,7 @@
     "historical_avg": null,
     "historical_max": null,
     "is_loot": false,
-    "is_diwali_steal": true,
+    "is_diwali_steal": false,
     "is_cookie_magnet": false,
     "is_daily_essential": false,
     "is_further_drop": false,
@@ -156,20 +156,20 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "🎉 Complete checkout at the effective deal price of ₹4,449!"
+      "🎉 Complete checkout at the effective deal price of ₹1,799!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793795892,
-    "last_verified_at_epoch": 1793795892,
-    "last_verified_at_ist": "2026-11-04 18:08 IST",
+    "posted_at_epoch": 1793799798,
+    "last_verified_at_epoch": 1793799798,
+    "last_verified_at_ist": "2026-11-04 19:13 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793795892,
-    "updated_at_ist": "2026-11-04 18:08 IST"
+    "updated_at": 1793799798,
+    "updated_at_ist": "2026-11-04 19:13 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -180,18 +180,18 @@
       "deal_url": "https://bharatbazaro.com/deal/B0BZV8RF79.html"
     },
     "electronics": {
-      "asin": "B09B8W5FW7",
-      "title": "Amazon Echo Dot 5th Gen with Clock and Smart Speaker with Alexa (Blue)",
-      "effective_price": 4449,
-      "discount_pct": 19,
-      "deal_url": "https://bharatbazaro.com/deal/B09B8W5FW7.html"
+      "asin": "B0BRKMNZCS",
+      "title": "boAt Airdopes 141 Bluetooth Truly Wireless in Ear Earbuds with 42H Playtime & Beast Mode",
+      "effective_price": 999,
+      "discount_pct": 78,
+      "deal_url": "https://bharatbazaro.com/deal/B0BRKMNZCS.html"
     },
     "home": {
-      "asin": "B07XLML2YS",
-      "title": "TP-Link Tapo C200 360-degree 2MP 1080p Full HD Pan/Tilt WiFi Security Camera",
-      "effective_price": 1699,
-      "discount_pct": 48,
-      "deal_url": "https://bharatbazaro.com/deal/B07XLML2YS.html"
+      "asin": "B0BDJ6ZPH3",
+      "title": "Havells Instanio 3-Litre Instant Water Heater Geyser with LED Indicator",
+      "effective_price": 3199,
+      "discount_pct": 47,
+      "deal_url": "https://bharatbazaro.com/deal/B0BDJ6ZPH3.html"
     },
     "fashion": {
       "asin": "B0BBWH1R8J",
@@ -201,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8J.html"
     },
     "grocery": {
-      "asin": "B01LY8PGB0",
-      "title": "Dettol Liquid Handwash Refill Original 1500ml Germ Protection",
-      "effective_price": 219,
-      "discount_pct": 35,
-      "deal_url": "https://bharatbazaro.com/deal/B01LY8PGB0.html"
+      "asin": "B08HN6PCDK",
+      "title": "Garnier Skin Naturals Bright Complete Vitamin C Booster Face Serum 30ml",
+      "effective_price": 369,
+      "discount_pct": 38,
+      "deal_url": "https://bharatbazaro.com/deal/B08HN6PCDK.html"
     }
   },
   "market_stats": {
-    "total_deals": 157,
-    "loot_count": 1,
+    "total_deals": 155,
+    "loot_count": 2,
     "max_discount_pct": 83,
-    "total_savings_inr": 604862
+    "total_savings_inr": 600292
   }
 }
