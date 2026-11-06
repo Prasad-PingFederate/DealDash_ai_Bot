@@ -1,13 +1,13 @@
 {
-  "timestamp_ist": "2026-11-05 15:36:11 IST",
-  "timestamp_epoch": 1793873171,
+  "timestamp_ist": "2026-11-06 15:41:25 IST",
+  "timestamp_epoch": 1793959885,
   "overall_status": "DEGRADED",
   "checks": [
     {
       "name": "Gemini API",
       "status": "failed",
       "model": "gemini-2.5-flash",
-      "latency_ms": 167,
+      "latency_ms": 189,
       "detail": "HTTP 404: {\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"This model models/gemini-2.5-flash is no longer available to new users. "
     },
     {
@@ -21,7 +21,7 @@
       "name": "OpenRouter Fallback",
       "status": "failed",
       "model": "google/gemma-4-26b-a4b-it:free",
-      "latency_ms": 339,
+      "latency_ms": 229,
       "detail": "All candidate models in fallback chain failed"
     },
     {
@@ -35,7 +35,7 @@
       "name": "Deal Discovery Feeds",
       "status": "ok",
       "candidate_count": 32,
-      "latency_ms": 2466,
+      "latency_ms": 18673,
       "detail": "Discovered 32 candidates across live feeds"
     },
     {
@@ -43,7 +43,7 @@
       "status": "warning",
       "stock_status": "unknown",
       "live_price": "\u20b94,890",
-      "latency_ms": 1698,
+      "latency_ms": 2015,
       "detail": "Status: unknown, Price: \u20b94890"
     },
     {
@@ -51,22 +51,22 @@
       "status": "ok",
       "active_deals": 177,
       "integrity": "ok",
-      "latency_ms": 45,
+      "latency_ms": 5,
       "detail": "PRAGMA: ok, Active Deals: 177"
     },
     {
       "name": "BharatBazaro Live",
       "status": "ok",
-      "live_deals": 153,
-      "feed_age_min": 95,
-      "latency_ms": 171,
-      "detail": "153 live deals online (synced 95m ago)"
+      "live_deals": 149,
+      "feed_age_min": 406,
+      "latency_ms": 102,
+      "detail": "149 live deals online (synced 406m ago)"
     },
     {
       "name": "Telegram Bot API",
       "status": "ok",
       "bot_username": "DealDash_ai_Bot",
-      "latency_ms": 463,
+      "latency_ms": 4571,
       "detail": "@DealDash_ai_Bot -> Flash Deals 24/7"
     }
   ]
