@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-06 18:03 IST",
-  "generated_at_epoch": 1793968412,
+  "generated_at_ist": "2026-11-06 19:08 IST",
+  "generated_at_epoch": 1793972319,
   "top_loot_summary": [
     {
       "asin": "B008A2796G",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793968386,
-    "last_verified_at_epoch": 1793968386,
-    "last_verified_at_ist": "2026-11-06 18:03 IST",
+    "posted_at_epoch": 1793972290,
+    "last_verified_at_epoch": 1793972290,
+    "last_verified_at_ist": "2026-11-06 19:08 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793968386,
-    "updated_at_ist": "2026-11-06 18:03 IST"
+    "updated_at": 1793972290,
+    "updated_at_ist": "2026-11-06 19:08 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1793968386,
-    "last_verified_at_epoch": 1793968386,
-    "last_verified_at_ist": "2026-11-06 18:03 IST",
+    "posted_at_epoch": 1793972290,
+    "last_verified_at_epoch": 1793972290,
+    "last_verified_at_ist": "2026-11-06 19:08 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1793968386,
-    "updated_at_ist": "2026-11-06 18:03 IST"
+    "updated_at": 1793972290,
+    "updated_at_ist": "2026-11-06 19:08 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -201,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B0BHTNWSZF",
-      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
-      "effective_price": 389,
-      "discount_pct": 51,
-      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
-    "total_deals": 165,
-    "loot_count": 5,
-    "max_discount_pct": 89,
-    "total_savings_inr": 584867
+    "total_deals": 164,
+    "loot_count": 2,
+    "max_discount_pct": 83,
+    "total_savings_inr": 617277
   }
 }
