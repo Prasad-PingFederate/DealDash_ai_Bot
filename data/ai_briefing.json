@@ -1,7 +1,33 @@
 {
-  "generated_at_ist": "2026-11-07 18:21 IST",
-  "generated_at_epoch": 1794055869,
+  "generated_at_ist": "2026-11-07 22:29 IST",
+  "generated_at_epoch": 1794070784,
   "top_loot_summary": [
+    {
+      "asin": "B0BC8P3X65",
+      "title": "Puma Men Smashic Casual Sneaker Shoes White & Navy",
+      "effective_price": 1799,
+      "mrp": 4499,
+      "discount_pct": 60,
+      "savings_inr": 2700,
+      "brand": "Puma",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B0BC8P3X65?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0BC8P3X65.html",
+      "coupon_text": null
+    },
+    {
+      "asin": "B0BF54979B",
+      "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
+      "effective_price": 1099,
+      "mrp": 9999,
+      "discount_pct": 89,
+      "savings_inr": 8900,
+      "brand": "Fire-Boltt",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BBWH1R8H",
       "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
@@ -39,32 +65,6 @@
       "category": "Laptops & Computing",
       "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B0BN8H1L7L",
-      "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
-      "effective_price": 5499,
-      "mrp": 9995,
-      "discount_pct": 45,
-      "savings_inr": 4496,
-      "brand": "Philips",
-      "category": "Home & Kitchen",
-      "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B0CYQ4M4N5",
-      "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
-      "effective_price": 52990,
-      "mrp": 99900,
-      "discount_pct": 47,
-      "savings_inr": 46910,
-      "brand": "Sony",
-      "category": "Electronics & Audio",
-      "affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0CYQ4M4N5.html",
       "coupon_text": null
     }
   ],
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794055839,
-    "last_verified_at_epoch": 1794055839,
-    "last_verified_at_ist": "2026-11-07 18:20 IST",
+    "posted_at_epoch": 1794070773,
+    "last_verified_at_epoch": 1794070773,
+    "last_verified_at_ist": "2026-11-07 22:29 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794055839,
-    "updated_at_ist": "2026-11-07 18:20 IST"
+    "updated_at": 1794070773,
+    "updated_at_ist": "2026-11-07 22:29 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794055839,
-    "last_verified_at_epoch": 1794055839,
-    "last_verified_at_ist": "2026-11-07 18:20 IST",
+    "posted_at_epoch": 1794070773,
+    "last_verified_at_epoch": 1794070773,
+    "last_verified_at_ist": "2026-11-07 22:29 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794055839,
-    "updated_at_ist": "2026-11-07 18:20 IST"
+    "updated_at": 1794070773,
+    "updated_at_ist": "2026-11-07 22:29 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -210,9 +210,9 @@
     }
   },
   "market_stats": {
-    "total_deals": 164,
+    "total_deals": 165,
     "loot_count": 5,
     "max_discount_pct": 89,
-    "total_savings_inr": 631135
+    "total_savings_inr": 588869
   }
 }
