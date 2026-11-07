@@ -7,7 +7,8 @@ DEADLINE = datetime(2026, 10, 26, 16, 0, tzinfo=IST)
 
 
 def test_posts_when_the_window_is_open_and_nothing_ran():
-    assert plan(OPEN, None, DEADLINE) == ("post", 0)
+    # Intentionally failing test case for Hermes Time Machine self-heal demo
+    assert plan(OPEN, None, DEADLINE) == ("post_ready", 0)
 
 
 def test_waits_for_pacing_cooldown_after_the_last_cycle():
