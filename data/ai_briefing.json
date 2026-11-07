@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-07 17:16 IST",
-  "generated_at_epoch": 1794051978,
+  "generated_at_ist": "2026-11-07 18:21 IST",
+  "generated_at_epoch": 1794055869,
   "top_loot_summary": [
     {
       "asin": "B0BBWH1R8H",
@@ -70,28 +70,28 @@
   ],
   "best_coupon_deal": null,
   "best_under_299": {
-    "id": "amazon:B07YYK13LG",
-    "asin": "B07YYK13LG",
-    "title": "Presto! Oxo-Biodegradable Garbage Bags Medium 30 Bags/Roll (Pack of 6, Total 180 Bags)",
-    "brand": null,
+    "id": "amazon:B008T1V3KC",
+    "asin": "B008T1V3KC",
+    "title": "Nivea Soft Light Moisturizer Cream with Vitamin E & Jojoba Oil 300ml",
+    "brand": "Nivea",
     "brand_tier": "tier1",
     "category": "Personal Care & Grocery",
-    "image_url": "https://m.media-amazon.com/images/P/B07YYK13LG.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B07YYK13LG?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 550,
+    "image_url": "https://m.media-amazon.com/images/P/B008T1V3KC.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B008T1V3KC?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 499,
     "list_price": 299,
     "effective_price": 299,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 46,
-    "effective_discount_pct": 46,
-    "savings_inr": 251,
-    "rating": 4.3,
-    "review_count": 64000,
+    "discount_pct": 40,
+    "effective_discount_pct": 40,
+    "savings_inr": 200,
+    "rating": 4.5,
+    "review_count": 89000,
     "score": 75,
-    "buy_confidence": 99,
+    "buy_confidence": 95,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794051934,
-    "last_verified_at_epoch": 1794051934,
-    "last_verified_at_ist": "2026-11-07 17:15 IST",
+    "posted_at_epoch": 1794055839,
+    "last_verified_at_epoch": 1794055839,
+    "last_verified_at_ist": "2026-11-07 18:20 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794051934,
-    "updated_at_ist": "2026-11-07 17:15 IST"
+    "updated_at": 1794055839,
+    "updated_at_ist": "2026-11-07 18:20 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794051934,
-    "last_verified_at_epoch": 1794051934,
-    "last_verified_at_ist": "2026-11-07 17:15 IST",
+    "posted_at_epoch": 1794055839,
+    "last_verified_at_epoch": 1794055839,
+    "last_verified_at_ist": "2026-11-07 18:20 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794051934,
-    "updated_at_ist": "2026-11-07 17:15 IST"
+    "updated_at": 1794055839,
+    "updated_at_ist": "2026-11-07 18:20 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B0863TXGM4",
-      "title": "L'Oreal Paris Extraordinary Clay Purifying & Hydrating Shampoo 1 Litre Mega Pack",
-      "effective_price": 499,
-      "discount_pct": 50,
-      "deal_url": "https://bharatbazaro.com/deal/B0863TXGM4.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
-    "total_deals": 163,
+    "total_deals": 164,
     "loot_count": 5,
-    "max_discount_pct": 83,
-    "total_savings_inr": 609293
+    "max_discount_pct": 89,
+    "total_savings_inr": 631135
   }
 }
