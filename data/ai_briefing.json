@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-07 13:11 IST",
-  "generated_at_epoch": 1794037266,
+  "generated_at_ist": "2026-11-07 16:11 IST",
+  "generated_at_epoch": 1794048061,
   "top_loot_summary": [
     {
       "asin": "B08HN6PCDJ",
@@ -110,39 +110,39 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794037218,
-    "last_verified_at_epoch": 1794037218,
-    "last_verified_at_ist": "2026-11-07 13:10 IST",
+    "posted_at_epoch": 1794048032,
+    "last_verified_at_epoch": 1794048032,
+    "last_verified_at_ist": "2026-11-07 16:10 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794037218,
-    "updated_at_ist": "2026-11-07 13:10 IST"
+    "updated_at": 1794048032,
+    "updated_at_ist": "2026-11-07 16:10 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B0CHX1W1XY",
-    "asin": "B0CHX1W1XY",
-    "title": "Apple iPhone 15 (128 GB) - Black",
-    "brand": "Apple",
+    "id": "amazon:B0BBWH1R8H",
+    "asin": "B0BBWH1R8H",
+    "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
+    "brand": "Kingston",
     "brand_tier": "tier1",
-    "category": "Mobiles & Accessories",
-    "image_url": "https://m.media-amazon.com/images/I/31KxpX7Xk7L.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B0CHX1W1XY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 79900,
-    "list_price": 57999,
-    "effective_price": 57999,
+    "category": "Laptops & Computing",
+    "image_url": "https://m.media-amazon.com/images/P/B0BBWH1R8H.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0BBWH1R8H?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 10500,
+    "list_price": 5499,
+    "effective_price": 5499,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
-    "bank_offer": "Instant ₹4,000 Discount with SBI Credit Card",
-    "discount_pct": 27,
-    "effective_discount_pct": 27,
-    "savings_inr": 21901,
-    "rating": 4.6,
-    "review_count": 9480,
+    "bank_offer": null,
+    "discount_pct": 48,
+    "effective_discount_pct": 48,
+    "savings_inr": 5001,
+    "rating": 4.4,
+    "review_count": 18200,
     "score": 75,
-    "buy_confidence": 95,
+    "buy_confidence": 99,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
@@ -156,21 +156,20 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "💳 Select eligible card/payment for instant bank discount: Instant ₹4,000 Discount with SBI Credit Card.",
-      "🎉 Complete checkout at the effective deal price of ₹57,999!"
+      "🎉 Complete checkout at the effective deal price of ₹5,499!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794037218,
-    "last_verified_at_epoch": 1794037218,
-    "last_verified_at_ist": "2026-11-07 13:10 IST",
+    "posted_at_epoch": 1794048032,
+    "last_verified_at_epoch": 1794048032,
+    "last_verified_at_ist": "2026-11-07 16:10 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794037218,
-    "updated_at_ist": "2026-11-07 13:10 IST"
+    "updated_at": 1794048032,
+    "updated_at_ist": "2026-11-07 16:10 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -181,11 +180,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B0CHX1W1XY.html"
     },
     "electronics": {
-      "asin": "B07YYK13LF",
-      "title": "SanDisk 128GB Ultra Dual Drive Luxe USB Type-C Flash Drive (All-Metal)",
-      "effective_price": 1199,
-      "discount_pct": 54,
-      "deal_url": "https://bharatbazaro.com/deal/B07YYK13LF.html"
+      "asin": "B0BBWH1R8H",
+      "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
+      "effective_price": 5499,
+      "discount_pct": 48,
+      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8H.html"
     },
     "home": {
       "asin": "B07XLML2YS",
@@ -202,11 +201,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B017S8S620",
-      "title": "Pears Pure & Gentle Bathing Bar Soap with 98% Pure Glycerin, 125g (Pack of 8)",
-      "effective_price": 375,
-      "discount_pct": 41,
-      "deal_url": "https://bharatbazaro.com/deal/B017S8S620.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
