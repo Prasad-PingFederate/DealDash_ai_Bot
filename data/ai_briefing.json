@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-07 10:16 IST",
-  "generated_at_epoch": 1794026763,
+  "generated_at_ist": "2026-11-07 11:01 IST",
+  "generated_at_epoch": 1794029460,
   "top_loot_summary": [
     {
       "asin": "B0BN8H1L7L",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794026708,
-    "last_verified_at_epoch": 1794026708,
-    "last_verified_at_ist": "2026-11-07 10:15 IST",
+    "posted_at_epoch": 1794029413,
+    "last_verified_at_epoch": 1794029413,
+    "last_verified_at_ist": "2026-11-07 11:00 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794026708,
-    "updated_at_ist": "2026-11-07 10:15 IST"
+    "updated_at": 1794029413,
+    "updated_at_ist": "2026-11-07 11:00 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794026708,
-    "last_verified_at_epoch": 1794026708,
-    "last_verified_at_ist": "2026-11-07 10:15 IST",
+    "posted_at_epoch": 1794029413,
+    "last_verified_at_epoch": 1794029413,
+    "last_verified_at_ist": "2026-11-07 11:00 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794026708,
-    "updated_at_ist": "2026-11-07 10:15 IST"
+    "updated_at": 1794029413,
+    "updated_at_ist": "2026-11-07 11:00 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -201,11 +201,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B00B9W3G6Y",
-      "title": "Vaseline Intensive Care Deep Moisture Body Lotion 400ml (Pack of 2 Refill Pack)",
-      "effective_price": 410,
-      "discount_pct": 45,
-      "deal_url": "https://bharatbazaro.com/deal/B00B9W3G6Y.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
