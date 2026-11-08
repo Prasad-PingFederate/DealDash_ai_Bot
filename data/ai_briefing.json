@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-08 16:15 IST",
-  "generated_at_epoch": 1794134757,
+  "generated_at_ist": "2026-11-08 17:21 IST",
+  "generated_at_epoch": 1794138671,
   "top_loot_summary": [
     {
       "asin": "B0B25L78CD",
@@ -70,28 +70,28 @@
   ],
   "best_coupon_deal": null,
   "best_under_299": {
-    "id": "amazon:B07RJWB549",
-    "asin": "B07RJWB549",
-    "title": "Lakme Eyeconic Kajal Twin Pack Deep Black 0.35g (Pack of 2) + Free Sharpener",
-    "brand": "Lakme",
+    "id": "amazon:B008T1V3KC",
+    "asin": "B008T1V3KC",
+    "title": "Nivea Soft Light Moisturizer Cream with Vitamin E & Jojoba Oil 300ml",
+    "brand": "Nivea",
     "brand_tier": "tier1",
     "category": "Personal Care & Grocery",
-    "image_url": "https://m.media-amazon.com/images/P/B07RJWB549.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B07RJWB549?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 450,
-    "list_price": 260,
-    "effective_price": 260,
+    "image_url": "https://m.media-amazon.com/images/P/B008T1V3KC.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B008T1V3KC?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 499,
+    "list_price": 299,
+    "effective_price": 299,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 42,
-    "effective_discount_pct": 42,
-    "savings_inr": 190,
-    "rating": 4.3,
-    "review_count": 38900,
+    "discount_pct": 40,
+    "effective_discount_pct": 40,
+    "savings_inr": 200,
+    "rating": 4.5,
+    "review_count": 89000,
     "score": 75,
-    "buy_confidence": 99,
+    "buy_confidence": 95,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
@@ -105,20 +105,20 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "🎉 Complete checkout at the effective deal price of ₹260!"
+      "🎉 Complete checkout at the effective deal price of ₹299!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794134727,
-    "last_verified_at_epoch": 1794134727,
-    "last_verified_at_ist": "2026-11-08 16:15 IST",
+    "posted_at_epoch": 1794138630,
+    "last_verified_at_epoch": 1794138630,
+    "last_verified_at_ist": "2026-11-08 17:20 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794134727,
-    "updated_at_ist": "2026-11-08 16:15 IST"
+    "updated_at": 1794138630,
+    "updated_at_ist": "2026-11-08 17:20 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794134727,
-    "last_verified_at_epoch": 1794134727,
-    "last_verified_at_ist": "2026-11-08 16:15 IST",
+    "posted_at_epoch": 1794138630,
+    "last_verified_at_epoch": 1794138630,
+    "last_verified_at_ist": "2026-11-08 17:20 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794134727,
-    "updated_at_ist": "2026-11-08 16:15 IST"
+    "updated_at": 1794138630,
+    "updated_at_ist": "2026-11-08 17:20 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B0CRDRTPFS",
-      "title": "Wild Stone CODE Premium Perfume For Men, Pack Of 3 (20ml Each) Perfume Gift Set, Long Lasting Luxury Liquid Perfume, Rakhi Gift For Him, Brother, Aquatic Scent",
-      "effective_price": 400,
-      "discount_pct": 60,
-      "deal_url": "https://bharatbazaro.com/deal/B0CRDRTPFS.html"
+      "asin": "B08V5Q4X1F",
+      "title": "Colgate Visible White Teeth Whitening Toothpaste 100g (Pack of 3 + Free Toothbrush)",
+      "effective_price": 380,
+      "discount_pct": 42,
+      "deal_url": "https://bharatbazaro.com/deal/B08V5Q4X1F.html"
     }
   },
   "market_stats": {
     "total_deals": 154,
     "loot_count": 5,
     "max_discount_pct": 89,
-    "total_savings_inr": 567491
+    "total_savings_inr": 573772
   }
 }
