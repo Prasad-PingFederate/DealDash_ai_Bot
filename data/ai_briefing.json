@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-08 17:21 IST",
-  "generated_at_epoch": 1794138671,
+  "generated_at_ist": "2026-11-08 18:25 IST",
+  "generated_at_epoch": 1794142559,
   "top_loot_summary": [
     {
       "asin": "B0B25L78CD",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794138630,
-    "last_verified_at_epoch": 1794138630,
-    "last_verified_at_ist": "2026-11-08 17:20 IST",
+    "posted_at_epoch": 1794142532,
+    "last_verified_at_epoch": 1794142532,
+    "last_verified_at_ist": "2026-11-08 18:25 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794138630,
-    "updated_at_ist": "2026-11-08 17:20 IST"
+    "updated_at": 1794142532,
+    "updated_at_ist": "2026-11-08 18:25 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794138630,
-    "last_verified_at_epoch": 1794138630,
-    "last_verified_at_ist": "2026-11-08 17:20 IST",
+    "posted_at_epoch": 1794142532,
+    "last_verified_at_epoch": 1794142532,
+    "last_verified_at_ist": "2026-11-08 18:25 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794138630,
-    "updated_at_ist": "2026-11-08 17:20 IST"
+    "updated_at": 1794142532,
+    "updated_at_ist": "2026-11-08 18:25 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B08V5Q4X1F",
-      "title": "Colgate Visible White Teeth Whitening Toothpaste 100g (Pack of 3 + Free Toothbrush)",
-      "effective_price": 380,
-      "discount_pct": 42,
-      "deal_url": "https://bharatbazaro.com/deal/B08V5Q4X1F.html"
+      "asin": "B0BHTNWSZF",
+      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
+      "effective_price": 389,
+      "discount_pct": 51,
+      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
     }
   },
   "market_stats": {
     "total_deals": 154,
-    "loot_count": 5,
-    "max_discount_pct": 89,
-    "total_savings_inr": 573772
+    "loot_count": 3,
+    "max_discount_pct": 83,
+    "total_savings_inr": 562931
   }
 }
