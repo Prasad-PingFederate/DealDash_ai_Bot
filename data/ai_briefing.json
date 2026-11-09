@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-09 18:41 IST",
-  "generated_at_epoch": 1794229880,
+  "generated_at_ist": "2026-11-09 19:46 IST",
+  "generated_at_epoch": 1794233773,
   "top_loot_summary": [
     {
       "asin": "B0BN8H1L7L",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794229850,
-    "last_verified_at_epoch": 1794229850,
-    "last_verified_at_ist": "2026-11-09 18:40 IST",
+    "posted_at_epoch": 1794233757,
+    "last_verified_at_epoch": 1794233757,
+    "last_verified_at_ist": "2026-11-09 19:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794229850,
-    "updated_at_ist": "2026-11-09 18:40 IST"
+    "updated_at": 1794233757,
+    "updated_at_ist": "2026-11-09 19:45 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794229850,
-    "last_verified_at_epoch": 1794229850,
-    "last_verified_at_ist": "2026-11-09 18:40 IST",
+    "posted_at_epoch": 1794233757,
+    "last_verified_at_epoch": 1794233757,
+    "last_verified_at_ist": "2026-11-09 19:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794229850,
-    "updated_at_ist": "2026-11-09 18:40 IST"
+    "updated_at": 1794233757,
+    "updated_at_ist": "2026-11-09 19:45 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -201,11 +201,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B078V5T429",
-      "title": "Plum Green Tea Pore Cleansing Face Wash with Glycolic Acid, 100ml (Pack of 2)",
-      "effective_price": 349,
-      "discount_pct": 49,
-      "deal_url": "https://bharatbazaro.com/deal/B078V5T429.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
