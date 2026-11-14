@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-14 16:24 IST",
-  "generated_at_epoch": 1794653664,
+  "generated_at_ist": "2026-11-14 17:29 IST",
+  "generated_at_epoch": 1794657569,
   "top_loot_summary": [
+    {
+      "asin": "B008A2796G",
+      "title": "Fossil Grant Chronograph Dark Brown Leather Strap Mens Watch",
+      "effective_price": 6995,
+      "mrp": 13995,
+      "discount_pct": 50,
+      "savings_inr": 7000,
+      "brand": "Fossil",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B008A2796G?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B008A2796G.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BN8H1L7L",
       "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B091CR2FXY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B091CR2FXY.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0BF54979B",
-      "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
-      "effective_price": 1099,
-      "mrp": 9999,
-      "discount_pct": 89,
-      "savings_inr": 8900,
-      "brand": "Fire-Boltt",
-      "category": "Fashion & Footwear",
-      "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,39 +110,39 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794653637,
-    "last_verified_at_epoch": 1794653637,
-    "last_verified_at_ist": "2026-11-14 16:23 IST",
+    "posted_at_epoch": 1794657541,
+    "last_verified_at_epoch": 1794657541,
+    "last_verified_at_ist": "2026-11-14 17:29 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794653637,
-    "updated_at_ist": "2026-11-14 16:23 IST"
+    "updated_at": 1794657541,
+    "updated_at_ist": "2026-11-14 17:29 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B0CHX1W1XY",
-    "asin": "B0CHX1W1XY",
-    "title": "Apple iPhone 15 (128 GB) - Black",
-    "brand": "Apple",
+    "id": "amazon:B0BBWH1R8H",
+    "asin": "B0BBWH1R8H",
+    "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
+    "brand": "Kingston",
     "brand_tier": "tier1",
-    "category": "Mobiles & Accessories",
-    "image_url": "https://m.media-amazon.com/images/I/31KxpX7Xk7L.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B0CHX1W1XY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 79900,
-    "list_price": 57999,
-    "effective_price": 57999,
+    "category": "Laptops & Computing",
+    "image_url": "https://m.media-amazon.com/images/P/B0BBWH1R8H.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0BBWH1R8H?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 10500,
+    "list_price": 5499,
+    "effective_price": 5499,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
-    "bank_offer": "Instant ₹4,000 Discount with SBI Credit Card",
-    "discount_pct": 27,
-    "effective_discount_pct": 27,
-    "savings_inr": 21901,
-    "rating": 4.6,
-    "review_count": 9480,
+    "bank_offer": null,
+    "discount_pct": 48,
+    "effective_discount_pct": 48,
+    "savings_inr": 5001,
+    "rating": 4.4,
+    "review_count": 18200,
     "score": 75,
-    "buy_confidence": 95,
+    "buy_confidence": 99,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
@@ -156,21 +156,20 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "💳 Select eligible card/payment for instant bank discount: Instant ₹4,000 Discount with SBI Credit Card.",
-      "🎉 Complete checkout at the effective deal price of ₹57,999!"
+      "🎉 Complete checkout at the effective deal price of ₹5,499!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794653637,
-    "last_verified_at_epoch": 1794653637,
-    "last_verified_at_ist": "2026-11-14 16:23 IST",
+    "posted_at_epoch": 1794657541,
+    "last_verified_at_epoch": 1794657541,
+    "last_verified_at_ist": "2026-11-14 17:29 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794653637,
-    "updated_at_ist": "2026-11-14 16:23 IST"
+    "updated_at": 1794657541,
+    "updated_at_ist": "2026-11-14 17:29 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -181,11 +180,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B0CHX1W1XY.html"
     },
     "electronics": {
-      "asin": "B07YYK13LF",
-      "title": "SanDisk 128GB Ultra Dual Drive Luxe USB Type-C Flash Drive (All-Metal)",
-      "effective_price": 1199,
-      "discount_pct": 54,
-      "deal_url": "https://bharatbazaro.com/deal/B07YYK13LF.html"
+      "asin": "B0BBWH1R8H",
+      "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
+      "effective_price": 5499,
+      "discount_pct": 48,
+      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8H.html"
     },
     "home": {
       "asin": "B07XLML2YS",
@@ -202,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B00GXZS620",
-      "title": "Nivea Men Active Clean Shower Gel Body Wash 500ml (Pack of 2 Mega Value)",
-      "effective_price": 349,
-      "discount_pct": 50,
-      "deal_url": "https://bharatbazaro.com/deal/B00GXZS620.html"
+      "asin": "B08V5Q4X1F",
+      "title": "Colgate Visible White Teeth Whitening Toothpaste 100g (Pack of 3 + Free Toothbrush)",
+      "effective_price": 380,
+      "discount_pct": 42,
+      "deal_url": "https://bharatbazaro.com/deal/B08V5Q4X1F.html"
     }
   },
   "market_stats": {
-    "total_deals": 164,
+    "total_deals": 163,
     "loot_count": 3,
     "max_discount_pct": 83,
-    "total_savings_inr": 620454
+    "total_savings_inr": 621493
   }
 }
