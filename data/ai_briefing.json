@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-14 18:34 IST",
-  "generated_at_epoch": 1794661466,
+  "generated_at_ist": "2026-11-14 22:48 IST",
+  "generated_at_epoch": 1794676721,
   "top_loot_summary": [
+    {
+      "asin": "B0BF54979B",
+      "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
+      "effective_price": 1099,
+      "mrp": 9999,
+      "discount_pct": 89,
+      "savings_inr": 8900,
+      "brand": "Fire-Boltt",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0B25L78CD",
       "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0CYQ4M4N5.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B083W7V3YB",
-      "title": "Sennheiser HD 450SE Bluetooth 5.0 Wireless Over Ear Headphones with ANC",
-      "effective_price": 6990,
-      "mrp": 14990,
-      "discount_pct": 53,
-      "savings_inr": 8000,
-      "brand": "Sennheiser",
-      "category": "Audio & Headphones",
-      "affiliate_url": "https://www.amazon.in/dp/B083W7V3YB?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B083W7V3YB.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794661441,
-    "last_verified_at_epoch": 1794661441,
-    "last_verified_at_ist": "2026-11-14 18:34 IST",
+    "posted_at_epoch": 1794676690,
+    "last_verified_at_epoch": 1794676690,
+    "last_verified_at_ist": "2026-11-14 22:48 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794661441,
-    "updated_at_ist": "2026-11-14 18:34 IST"
+    "updated_at": 1794676690,
+    "updated_at_ist": "2026-11-14 22:48 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1794661441,
-    "last_verified_at_epoch": 1794661441,
-    "last_verified_at_ist": "2026-11-14 18:34 IST",
+    "posted_at_epoch": 1794676690,
+    "last_verified_at_epoch": 1794676690,
+    "last_verified_at_ist": "2026-11-14 22:48 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1794661441,
-    "updated_at_ist": "2026-11-14 18:34 IST"
+    "updated_at": 1794676690,
+    "updated_at_ist": "2026-11-14 22:48 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07V2QJ419",
-      "title": "Beardo Godfather Beard Oil 30ml + Beard Wash 100ml Grooming Combo Pack",
+      "asin": "B008A2796H",
+      "title": "Dettol Liquid Disinfectant Cleaner for Laundry & Personal Care, 1 Litre (Pack of 2)",
       "effective_price": 349,
-      "discount_pct": 46,
-      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ419.html"
+      "discount_pct": 44,
+      "deal_url": "https://bharatbazaro.com/deal/B008A2796H.html"
     }
   },
   "market_stats": {
     "total_deals": 163,
     "loot_count": 3,
     "max_discount_pct": 89,
-    "total_savings_inr": 583303
+    "total_savings_inr": 587366
   }
 }
