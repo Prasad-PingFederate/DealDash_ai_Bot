@@ -1,11 +1,11 @@
 # 🧠 Autonomous DealDash AI Growth & Strategy Digest
-*Generated on: 2026-11-08 10:10 UTC | Powered by: Gemini AI*
+*Generated on: 2026-11-15 10:42 UTC | Powered by: Gemini AI*
 
 ---
 
 ### 1. 📊 Executive Performance Audit
-- Total Deals: 182 | Active: 182 | Expired: 0
-- Last 24 Hours: 9 posts
+- Total Deals: 183 | Active: 183 | Expired: 0
+- Last 24 Hours: 12 posts
 - Discount Quality: Good average margin across active inventory.
 
 ### 2. 🎯 Recommendations
