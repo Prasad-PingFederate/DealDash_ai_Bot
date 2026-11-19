@@ -1,13 +1,13 @@
 {
-  "timestamp_ist": "2026-11-18 16:25:26 IST",
-  "timestamp_epoch": 1794999326,
+  "timestamp_ist": "2026-11-19 16:27:42 IST",
+  "timestamp_epoch": 1795085862,
   "overall_status": "DEGRADED",
   "checks": [
     {
       "name": "Gemini API",
       "status": "failed",
       "model": "gemini-2.5-flash",
-      "latency_ms": 219,
+      "latency_ms": 152,
       "detail": "HTTP 404: {\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"This model models/gemini-2.5-flash is no longer available to new users. "
     },
     {
@@ -21,7 +21,7 @@
       "name": "OpenRouter Fallback",
       "status": "failed",
       "model": "google/gemma-4-26b-a4b-it:free",
-      "latency_ms": 451,
+      "latency_ms": 189,
       "detail": "All candidate models in fallback chain failed"
     },
     {
@@ -35,7 +35,7 @@
       "name": "Deal Discovery Feeds",
       "status": "warning",
       "candidate_count": 0,
-      "latency_ms": 710,
+      "latency_ms": 527,
       "detail": "Feeds reachable but 0 candidates qualified discount filter"
     },
     {
@@ -43,7 +43,7 @@
       "status": "warning",
       "stock_status": "unknown",
       "live_price": "N/A",
-      "latency_ms": 312,
+      "latency_ms": 242,
       "detail": "Status: unknown, Price: \u20b9N/A"
     },
     {
@@ -51,22 +51,22 @@
       "status": "ok",
       "active_deals": 184,
       "integrity": "ok",
-      "latency_ms": 5,
+      "latency_ms": 4,
       "detail": "PRAGMA: ok, Active Deals: 184"
     },
     {
       "name": "BharatBazaro Live",
       "status": "ok",
-      "live_deals": 167,
-      "feed_age_min": 14,
-      "latency_ms": 406,
-      "detail": "167 live deals online (synced 14m ago)"
+      "live_deals": 155,
+      "feed_age_min": 88,
+      "latency_ms": 144,
+      "detail": "155 live deals online (synced 88m ago)"
     },
     {
       "name": "Telegram Bot API",
       "status": "ok",
       "bot_username": "DealDash_ai_Bot",
-      "latency_ms": 514,
+      "latency_ms": 333,
       "detail": "@DealDash_ai_Bot -> Flash Deals 24/7"
     }
   ]
