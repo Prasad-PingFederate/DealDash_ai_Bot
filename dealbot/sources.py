@@ -185,8 +185,9 @@ def unroll_shortlink(url: str, timeout: int = 6) -> str:
 def expand_and_convert_url(raw_url: Optional[str]) -> tuple[str, str, str]:
     """Extract ASIN or PID and automatically inject user affiliate tracking parameters."""
     amazon_tag = (
-        os.getenv("AMAZON_AFFILIATE_TAG")
-        or os.getenv("AMAZON_PARTNER_TAG")
+        os.getenv("AMAZON_PARTNER_TAG")
+        or os.getenv("AMAZON_AFFILIATE_TAG")
+        or os.getenv("AMAZON_TAG")
         or "dammaiprasad-21"
     ).strip()
     flipkart_id = (

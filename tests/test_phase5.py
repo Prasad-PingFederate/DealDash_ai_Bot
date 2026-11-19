@@ -247,6 +247,7 @@ def test_empty_cycle_retry_sleep_15_minutes(tmp_path, monkeypatch):
     last_cycle = load_last_cycle()
     assert last_cycle is not None
 
+    monkeypatch.setattr("dealbot.session.posting_open", lambda x: True)
     now = datetime.now(IST)
     deadline = now + timedelta(hours=2)
     action, wait_sec = plan(now, last_cycle, deadline)

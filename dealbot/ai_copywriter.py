@@ -236,7 +236,7 @@ class AICopywriter:
         hermes_endpoint: Optional[str] = None,
     ):
         self.provider = (provider or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
-        self.api_key = (api_key or os.getenv("GEMINI_API_KEY", "")).strip()
+        self.api_key = (api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")).strip()
         self.model = (model or os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)).strip()
 
         self.hermes_api_key = (

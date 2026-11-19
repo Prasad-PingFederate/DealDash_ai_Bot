@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm
 # === CREDENTIALS & SECRETS (NEVER PUSH TO PUBLIC REPO) ===
 .env.*
 !.env.example

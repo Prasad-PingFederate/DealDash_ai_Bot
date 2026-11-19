@@ -30,7 +30,7 @@ def drain_updates(store: StateStore, token: str) -> int:
         return 0
     params = {
         "timeout": 0,
-        "allowed_updates": '["callback_query","message_reaction_count"]',
+        "allowed_updates": '["message","callback_query","message_reaction_count"]',
     }
     offset = store.get_meta("update_offset")
     if offset:
@@ -53,6 +53,50 @@ def drain_updates(store: StateStore, token: str) -> int:
     last_id = None
     for update in updates:
         last_id = update.get("update_id", last_id)
+
+        # 1. Message Command Handling (/alert, /myalerts, /delalert, /admin_stats)
+        msg = update.get("message") or {}
+        text = str(msg.get("text") or "").strip()
+        from_user = msg.get("from") or {}
+        user_id = str(from_user.get("id") or "")
+        chat = msg.get("chat") or {}
+        chat_id = str(chat.get("id") or user_id)
+
+        if text.startswith("/"):
+            admin_chat_id = os.getenv("ADMIN_CHAT_ID", "").strip()
+            if text.lower().startswith("/admin_stats"):
+                if (admin_chat_id and (str(chat_id) == admin_chat_id or str(user_id) == admin_chat_id)) or not admin_chat_id:
+                    from scripts.revenue_digest import get_revenue_digest, format_revenue_digest_markdown
+                    digest = get_revenue_digest(store.db_path)
+                    reply_text = format_revenue_digest_markdown(digest)
+                else:
+                    reply_text = "⛔ <i>Unauthorized: This command is restricted to the channel administrator.</i>"
+                try:
+                    requests.post(
+                        f"https://api.telegram.org/bot{token}/sendMessage",
+                        json={"chat_id": chat_id, "text": reply_text, "parse_mode": "HTML"},
+                        timeout=10,
+                    )
+                    handled += 1
+                except requests.RequestException:
+                    pass
+
+            elif any(text.lower().startswith(c) for c in ("/alert", "/myalerts", "/delalert")):
+                from dealbot.alerts import AlertStore, handle_user_command
+                alert_store = AlertStore(store.db_path)
+                reply = handle_user_command(text, user_id=user_id, chat_id=chat_id, store=alert_store)
+                if reply:
+                    try:
+                        requests.post(
+                            f"https://api.telegram.org/bot{token}/sendMessage",
+                            json={"chat_id": chat_id, "text": reply, "parse_mode": "HTML"},
+                            timeout=10,
+                        )
+                        handled += 1
+                    except requests.RequestException:
+                        pass
+
+        # 2. Callback Queries
         callback = update.get("callback_query") or {}
         data = str(callback.get("data") or "")
         query_id = callback.get("id")

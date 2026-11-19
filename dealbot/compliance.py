@@ -220,12 +220,28 @@ def export_deal_to_bharatbazaro(
             json.dump(list(by_id.values())[:300], f, indent=2, ensure_ascii=False)
         logger.info("Saved deal to BharatBazaro: %s", live_deals_path)
 
-    wh_url = webhook_url or os.getenv("BHARATBAZARO_WEBHOOK_URL", "").strip()
+    wh_url = (
+        webhook_url
+        or os.getenv("BHARATBAZARO_SYNC_URL", "").strip()
+        or os.getenv("BHARATBAZARO_WEBHOOK_URL", "").strip()
+    )
     if wh_url:
         try:
-            resp = requests.post(wh_url, json=item, timeout=5)
-            logger.info("BharatBazaro webhook POST %s -> status %d", wh_url, resp.status_code)
+            secret = os.getenv("INTERNAL_SYNC_SECRET", "").strip()
+            headers = {"Content-Type": "application/json"}
+            if secret:
+                headers["X-Internal-Sync-Secret"] = secret
+
+            resp = requests.post(wh_url, json=item, headers=headers, timeout=5)
+            logger.info("BharatBazaro sync POST %s -> status %d", wh_url, resp.status_code)
+            if resp.status_code == 200:
+                try:
+                    resp_data = resp.json()
+                    if resp_data.get("canonical_web_url"):
+                        item["canonical_web_url"] = resp_data["canonical_web_url"]
+                except Exception:
+                    pass
         except requests.RequestException as e:
-            logger.warning("BharatBazaro webhook failed (%s): %s", wh_url, e)
+            logger.warning("BharatBazaro sync failed (%s): %s", wh_url, e)
 
     return item

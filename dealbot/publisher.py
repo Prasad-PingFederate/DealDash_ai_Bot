@@ -1259,7 +1259,8 @@ def send_top_live_deals_digest(
     lines.append(html.escape(format_hinglish_whatsapp_top5(deals), quote=False))
     digest_html = "\n".join(lines)
     try:
-        send_and_pin_daily_promo_pack(store=store, chat_id=chat_id, token=token, dry_run=dry_run)
+        if token and not token.startswith("fake"):
+            send_and_pin_daily_promo_pack(store=store, chat_id=chat_id, token=token, dry_run=dry_run)
     except Exception:
         pass
 
