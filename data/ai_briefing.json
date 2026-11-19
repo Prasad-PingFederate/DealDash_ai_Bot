@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-19 19:47 IST",
-  "generated_at_epoch": 1795097862,
+  "generated_at_ist": "2026-11-19 21:46 IST",
+  "generated_at_epoch": 1795104996,
   "top_loot_summary": [
+    {
+      "asin": "B0BN8H1L7L",
+      "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
+      "effective_price": 5499,
+      "mrp": 9995,
+      "discount_pct": 45,
+      "savings_inr": 4496,
+      "brand": "Philips",
+      "category": "Home & Kitchen",
+      "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BF54979B",
       "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0CYQ4M4N5",
-      "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
-      "effective_price": 52990,
-      "mrp": 99900,
-      "discount_pct": 47,
-      "savings_inr": 46910,
-      "brand": "Sony",
-      "category": "Electronics & Audio",
-      "affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0CYQ4M4N5.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795097822,
-    "last_verified_at_epoch": 1795097822,
-    "last_verified_at_ist": "2026-11-19 19:47 IST",
+    "posted_at_epoch": 1795104967,
+    "last_verified_at_epoch": 1795104967,
+    "last_verified_at_ist": "2026-11-19 21:46 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795097822,
-    "updated_at_ist": "2026-11-19 19:47 IST"
+    "updated_at": 1795104967,
+    "updated_at_ist": "2026-11-19 21:46 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795097822,
-    "last_verified_at_epoch": 1795097822,
-    "last_verified_at_ist": "2026-11-19 19:47 IST",
+    "posted_at_epoch": 1795104967,
+    "last_verified_at_epoch": 1795104967,
+    "last_verified_at_ist": "2026-11-19 21:46 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795097822,
-    "updated_at_ist": "2026-11-19 19:47 IST"
+    "updated_at": 1795104967,
+    "updated_at_ist": "2026-11-19 21:46 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -201,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B078V5T429",
-      "title": "Plum Green Tea Pore Cleansing Face Wash with Glycolic Acid, 100ml (Pack of 2)",
-      "effective_price": 349,
-      "discount_pct": 49,
-      "deal_url": "https://bharatbazaro.com/deal/B078V5T429.html"
+      "asin": "B08XVVPV6A",
+      "title": "Happilo 100% Natural Premium California Almonds 500g Value Pack Pouch",
+      "effective_price": 369,
+      "discount_pct": 47,
+      "deal_url": "https://bharatbazaro.com/deal/B08XVVPV6A.html"
     }
   },
   "market_stats": {
-    "total_deals": 164,
-    "loot_count": 4,
+    "total_deals": 165,
+    "loot_count": 3,
     "max_discount_pct": 89,
-    "total_savings_inr": 591062
+    "total_savings_inr": 589447
   }
 }
