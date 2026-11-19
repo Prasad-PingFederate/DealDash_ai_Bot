@@ -272,6 +272,7 @@ def test_in_runner_backup_sleep_is_65_minutes(tmp_path, monkeypatch, capsys):
     db_file = tmp_path / "test_session_65m.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db_file))
     monkeypatch.setenv("SESSION_STARTED", "true")
+    monkeypatch.setattr("dealbot.session.posting_open", lambda x: True)
 
     store = StateStore(str(db_file))
     # Mark a cycle with 2 posted deals just 2 minutes ago

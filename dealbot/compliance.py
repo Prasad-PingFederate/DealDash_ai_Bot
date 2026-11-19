@@ -1,52 +1,135 @@
 # dealbot/compliance.py
-"""Amazon Associates Compliance & BharatBazaro Schema Exporter.
+"""Amazon Associates Compliance, Price Breakdown, & BharatBazaro Exporter.
 
 Handles:
-1. IST timestamp disclaimer ("Price & availability accurate as of <DD MMM, HH:MM IST>")
-   required by Amazon Associates India Operating Agreement.
-2. Webhook / JSON exporter converting deals into the BharatBazaro live_deals.json schema.
+1. Strict Amazon Associates policy compliance:
+   - Price & availability accurate as of DD MMM, HH:MM IST timestamp disclaimer.
+   - Clear and conspicuous '#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.'
+   - Anti-cloaking enforcement: strictly prohibits third-party shorteners wrapping Amazon URLs.
+2. Net effective pricing helper highlighting on-page coupon & bank discounts.
+3. Standardized BharatBazaro schema exporter and webhook dispatcher.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import re
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 
 logger = logging.getLogger("dealbot.compliance")
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
+DISALLOWED_AMAZON_CLOAKERS = {
+    "bit.ly",
+    "tinyurl.com",
+    "cutt.ly",
+    "rb.gy",
+    "is.gd",
+    "buff.ly",
+    "t.co",
+    "rebrand.ly",
+    "shorturl.at",
+    "ow.ly",
+}
+
+
+def validate_amazon_url_compliance(url: str) -> Tuple[bool, str]:
+    """Ensure Amazon URLs are not cloaked via third-party shorteners (prevents Amazon account bans)."""
+    if not url:
+        return False, "Empty URL"
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+        netloc = parsed.netloc.lower().split(":")[0]
+    except Exception as e:
+        return False, f"Malformed URL: {e}"
+
+    # Check if a known cloaker is wrapping the destination
+    if netloc in DISALLOWED_AMAZON_CLOAKERS:
+        return (
+            False,
+            f"Associates Violation: Amazon links must never be wrapped or cloaked using '{netloc}'. "
+            "Use direct canonical Amazon URLs or official amzn.to shortlinks.",
+        )
+
+    return True, "Compliant"
+
 
 def format_compliance_disclaimer(now: Optional[datetime] = None) -> str:
     """Generate Amazon Associates compliance disclaimer with IST timestamp.
 
-    Format: 'Price & availability accurate as of DD MMM, HH:MM IST'
-    Example: 'Price & availability accurate as of 19 Nov, 22:00 IST'
+    Format: 'Price & availability accurate as of DD MMM, HH:MM IST. Subject to change.'
+    Example: 'Price & availability accurate as of 19 Nov, 22:15 IST. Subject to change.'
     """
     dt = (now or datetime.now(IST)).astimezone(IST)
     ts_str = dt.strftime("%d %b, %H:%M IST")
     return f"<i>Price & availability accurate as of {ts_str}. Subject to change.</i>"
 
 
-def append_compliance_disclaimer(caption: str, now: Optional[datetime] = None) -> str:
-    """Append Amazon Associates compliance disclaimer to a deal message caption."""
+def format_associates_disclosure(store: str = "amazon") -> str:
+    """Generate official affiliate disclosure required by advertising standards and Amazon policy."""
+    if "amazon" in str(store).lower():
+        return "<i>#ad Affiliate link. As an Amazon Associate I earn from qualifying purchases.</i>"
+    return "<i>#ad Affiliate link - prices & stock may change quickly.</i>"
+
+
+def append_compliance_disclaimer(
+    caption: str,
+    now: Optional[datetime] = None,
+    store: str = "amazon",
+) -> str:
+    """Append Amazon Associates compliance disclaimer and affiliate disclosure to caption."""
     disclaimer = format_compliance_disclaimer(now)
+    disclosure = format_associates_disclosure(store)
     base = (caption or "").rstrip()
-    if not base:
-        return disclaimer
-    return f"{base}\n\n{disclaimer}"
+
+    blocks = [base] if base else []
+    if disclosure not in base:
+        blocks.append(disclosure)
+    if "accurate as of" not in base:
+        blocks.append(disclaimer)
+
+    return "\n\n".join(blocks)
+
+
+def format_deal_price_breakdown(
+    effective_price: float,
+    mrp: Optional[float] = None,
+    coupon_discount: Optional[float] = None,
+    bank_offer: Optional[str] = None,
+) -> str:
+    """Highlight net effective price with coupon savings and bank discounts."""
+    lines = []
+    eff_p = int(round(effective_price))
+
+    if mrp and mrp > effective_price:
+        mrp_val = int(round(mrp))
+        lines.append(f"💰 Deal Price: <b>₹{eff_p:,}</b> (<s>₹{mrp_val:,}</s>)")
+    else:
+        lines.append(f"💰 Deal Price: <b>₹{eff_p:,}</b>")
+
+    if coupon_discount and coupon_discount > 0:
+        c_disc = int(round(coupon_discount))
+        lines.append(f"🎟️ On-Page Coupon: <b>₹{c_disc:,} OFF</b> (applied at checkout)")
+
+    if bank_offer:
+        lines.append(f"💳 Bank Offer: <i>{bank_offer}</i>")
+
+    return "\n".join(lines)
 
 
 def to_bharatbazaro_schema(
     deal_or_dict: Any,
-    source: str = "telegram",
+    source: str = "bot",
     verdict: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Convert Deal object or raw dictionary into standard BharatBazaro schema."""
+    """Convert Deal object or raw dictionary into standard BharatBazaro live_deals schema."""
     raw: Dict[str, Any] = {}
     if hasattr(deal_or_dict, "__dict__"):
         raw = {k: v for k, v in deal_or_dict.__dict__.items() if not k.startswith("_")}
@@ -108,17 +191,12 @@ def export_deal_to_bharatbazaro(
     deal_or_dict: Any,
     output_dir: Optional[Union[str, Path]] = None,
     webhook_url: Optional[str] = None,
-    source: str = "telegram",
+    source: str = "bot",
     verdict: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Export deal to BharatBazaro live_deals schema (JSON file and/or webhook).
-
-    Returns:
-        The standardized BharatBazaro deal dictionary.
-    """
+    """Export deal to BharatBazaro live_deals schema (JSON file and/or webhook)."""
     item = to_bharatbazaro_schema(deal_or_dict, source=source, verdict=verdict)
 
-    # 1. File export if output directory or BHARATBAZARO_DATA_DIR is provided
     out_dir = output_dir or os.getenv("BHARATBAZARO_DATA_DIR")
     if out_dir:
         dir_path = Path(out_dir)
@@ -130,9 +208,8 @@ def export_deal_to_bharatbazaro(
                 with open(live_deals_path, "r", encoding="utf-8") as f:
                     existing_deals = json.load(f)
             except Exception as e:
-                logger.warning("Could not read existing %s: %s", live_deals_path, e)
+                logger.warning("Could not read %s: %s", live_deals_path, e)
 
-        # Prepend new deal and deduplicate by ASIN/id
         by_id = {item.get("asin") or item.get("id"): item}
         for d in existing_deals:
             key = d.get("asin") or d.get("id")
@@ -141,9 +218,8 @@ def export_deal_to_bharatbazaro(
 
         with open(live_deals_path, "w", encoding="utf-8") as f:
             json.dump(list(by_id.values())[:300], f, indent=2, ensure_ascii=False)
-        logger.info("Saved deal to BharatBazaro storefront: %s", live_deals_path)
+        logger.info("Saved deal to BharatBazaro: %s", live_deals_path)
 
-    # 2. Webhook POST if webhook_url or BHARATBAZARO_WEBHOOK_URL is configured
     wh_url = webhook_url or os.getenv("BHARATBAZARO_WEBHOOK_URL", "").strip()
     if wh_url:
         try:

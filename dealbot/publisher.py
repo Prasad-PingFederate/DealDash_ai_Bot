@@ -91,6 +91,32 @@ class StateStore:
                     last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS deal_telemetry (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    subid TEXT,
+                    canonical_id TEXT,
+                    merchant TEXT,
+                    category TEXT,
+                    price REAL,
+                    expected_payout REAL,
+                    profit_score REAL,
+                    deal_url TEXT,
+                    clicks INTEGER DEFAULT 0,
+                    conversions INTEGER DEFAULT 0,
+                    actual_payout REAL DEFAULT 0.0
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_telemetry_subid ON deal_telemetry (subid)")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS unshortened_url_cache (
+                    short_url TEXT PRIMARY KEY,
+                    resolved_url TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ttl_seconds INTEGER DEFAULT 86400
+                )
+            """)
             # Auto-migrate older schemas if missing columns
             for col in [
                 "chat_id TEXT",
@@ -129,6 +155,41 @@ class StateStore:
 
     def checkpoint_and_close(self) -> None:
         self.checkpoint()
+
+    def log_telemetry(
+        self,
+        subid: str,
+        canonical_id: str,
+        merchant: str,
+        category: str,
+        price: float,
+        expected_payout: float,
+        profit_score: float,
+        deal_url: str,
+    ) -> None:
+        """Record outbound deal attribution telemetry for closed-loop EPC analysis."""
+        try:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO deal_telemetry (
+                        subid, canonical_id, merchant, category, price,
+                        expected_payout, profit_score, deal_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        subid,
+                        canonical_id,
+                        merchant,
+                        category,
+                        float(price or 0.0),
+                        float(expected_payout or 0.0),
+                        float(profit_score or 0.0),
+                        deal_url,
+                    ),
+                )
+        except Exception as e:
+            logger.debug("Failed to record deal telemetry: %s", e)
 
     def is_posted(
         self,
