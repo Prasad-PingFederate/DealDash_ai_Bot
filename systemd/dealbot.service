@@ -1,0 +1,20 @@
+[Unit]
+Description=DealDash AI Telegram Bot 24/7 Production Runner
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/DealDash_ai_Bot
+EnvironmentFile=/opt/DealDash_ai_Bot/.env
+ExecStart=/opt/DealDash_ai_Bot/.venv/bin/python scripts/production_runner.py --continuous --poll-interval 30
+Restart=always
+RestartSec=15
+StandardOutput=journal
+StandardError=journal
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
