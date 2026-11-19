@@ -1008,7 +1008,8 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
     # [GROK-RANKING-GATE] Unified website ranking rule: block low-discount items (e.g. 12% phones)
     _pct = offer_percent(deal) or int(getattr(deal, "discount_percent", 0) or 0)
     _price = parse_rupees(getattr(deal, "current_price", None)) or 9999
-    if _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
+    _has_disc = bool(getattr(deal, "original_price", None) or getattr(deal, "discount_percent", None))
+    if _has_disc and _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
         logger.info(f"[Ranking Gate] Blocked low-discount deal ({_pct}% OFF, Rs {_price}): {deal.title}")
         return False, None, ""
     caption = format_caption(deal, copywriter=copywriter)
@@ -1051,7 +1052,7 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
     row3 = []
     if asin and len(asin) == 10:
         row2.append({"text": "📈 Keepa Chart", "url": get_keepa_url(asin)})
-        row2.append({"text": "🌐 BharatBazaro.com", "url": f"https://bharatbazaro.com/?deal={asin}&utm_source=telegram" if (asin and len(asin) == 10) else "https://bharatbazaro.com/?utm_source=telegram"})
+        row2.append({"text": "🌐 BharatBazaro.com", "url": "https://bharatbazaro.com"})
         ph_url = get_price_history_url(asin)
         if ph_url:
             provider_label = "Price History Check" if get_market_region() == "IN" else "CamelCamelCamel"
@@ -1342,7 +1343,8 @@ def send_telegram_deal(deal, dry_run: bool = True, copywriter=None):
         return False, None, ""
     _pct = offer_percent(deal) or int(getattr(deal, "discount_percent", 0) or 0)
     _price = parse_rupees(getattr(deal, "current_price", None)) or 9999
-    if _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
+    _has_disc = bool(getattr(deal, "original_price", None) or getattr(deal, "discount_percent", None))
+    if _has_disc and _pct < 25 and _price > 199 and not getattr(deal, "is_loot", False):
         logger.info(f"[Ranking Gate] Blocked low-discount deal ({_pct}% OFF): {getattr(deal, 'title', '')}")
         return False, None, ""
     return _orig_send_telegram_deal(deal, dry_run=dry_run, copywriter=copywriter)
