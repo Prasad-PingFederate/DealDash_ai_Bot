@@ -51,10 +51,11 @@ def is_within_active_hours(
     start_hour: int = 8,
     end_hour: int = 23,
 ) -> bool:
-    """Check if current IST time is within channel active hours (08:00 to 23:30 IST)."""
+    """Check if current IST time is within channel active hours."""
     current = get_current_ist_time(now)
     mins = current.hour * 60 + current.minute
-    return (start_hour * 60) <= mins <= (end_hour * 60 + 30)
+    end_mins = 24 * 60 if end_hour >= 23 else (end_hour * 60 + 30)
+    return (start_hour * 60) <= mins <= end_mins
 
 
 def is_peak_shopping_window(now: Optional[datetime] = None) -> bool:

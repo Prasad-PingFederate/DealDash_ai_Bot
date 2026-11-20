@@ -247,3 +247,95 @@ def test_revenue_digest(tmp_path):
     digest = get_revenue_digest(db_path=db_file)
     assert digest["last_24h_posted"] == 2
     assert digest["last_24h_alerts"] == 1
+
+
+def test_start_command_deeplink_onboarding(tmp_path):
+    from dealbot.alerts import AlertStore, handle_start_command
+
+    db_file = tmp_path / "test_start_alerts.sqlite3"
+    store = AlertStore(db_file)
+
+    msg, markup = handle_start_command(
+        text="/start track_electronics_45000_apple-ipad-10th-gen",
+        user_id="user_test_99",
+        chat_id="chat_test_99",
+        store=store,
+    )
+
+    # 1. Confirmation message
+    assert "PRICE-DROP TRACKER ACTIVATED!" in msg
+    assert "Apple Ipad 10Th Gen" in msg
+    assert "₹45,000" in msg
+
+    # 2. Alert registered in SQLite
+    alerts = store.list_alerts("user_test_99")
+    assert len(alerts) == 1
+    assert alerts[0]["keyword"] == "apple ipad 10th gen"
+    assert alerts[0]["max_price"] == 45000.0
+
+    # 3. Inline keyboard buttons with bot_onboard_ attribution
+    assert markup is not None
+    assert "inline_keyboard" in markup
+    # If buttons returned, verify SubID attribution
+    buttons = markup["inline_keyboard"]
+    for row in buttons:
+        for btn in row:
+            if "url" in btn and "amazon.in" in btn["url"]:
+                assert "ascsubtag=bot_onboard_" in btn["url"]
+
+
+def test_start_command_default_greeting(tmp_path):
+    from dealbot.alerts import AlertStore, handle_start_command
+
+    db_file = tmp_path / "test_start_default.sqlite3"
+    store = AlertStore(db_file)
+
+    msg, markup = handle_start_command("/start", "user_1", "chat_1", store=store)
+    assert "Welcome to DealDash AI!" in msg
+    assert "/alert" in msg
+    assert "/myalerts" in msg
+    assert markup is None
+
+
+def test_loot_deal_caption_and_viral_share_button(monkeypatch):
+    from dealbot.models import Deal
+    from dealbot.publisher import format_caption, send_telegram_deal
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:fake_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100123456789")
+
+    loot_deal = Deal(
+        id="amz-B0BS1QCFHX",
+        retailer="Amazon",
+        title="Sony WH-1000XM5 Wireless Headphones",
+        url="https://www.amazon.in/dp/B0BS1QCFHX",
+        current_price="₹19,499",
+        original_price="₹29,999",
+        discount_percent=35,
+        is_loot=True,
+    )
+
+    # 1. Header formatting
+    caption = format_caption(loot_deal)
+    assert "🚨 <b>LOOT ALERT / PRICE DROP</b> · Amazon" in caption
+
+    # 2. Viral share button
+    seen = {}
+
+    def mock_post(url, json=None, timeout=None):
+        seen["markup"] = (json or {}).get("reply_markup")
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = {"ok": True, "result": {"message_id": 101}}
+        return resp
+
+    with patch("requests.post", mock_post):
+        ok, msg_id, _ = send_telegram_deal(loot_deal, dry_run=False)
+        assert ok is True
+        assert msg_id == 101
+
+    rows = seen["markup"]["inline_keyboard"]
+    flattened = [btn for row in rows for btn in row]
+    share_btn = next((b for b in flattened if b.get("text") == "📤 Share Loot with Friends"), None)
+    assert share_btn is not None
+    assert "https://t.me/share/url?url=" in share_btn["url"]
+

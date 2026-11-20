@@ -17,6 +17,7 @@ Provides:
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import re
@@ -224,6 +225,10 @@ def handle_user_command(
     cmd = parts[0].lower().split("@")[0]
     alert_store = store or AlertStore()
 
+    # 0. /start [track_<category>_<price>_<kw>]
+    if cmd == "/start":
+        return handle_start_command(text, user_id=user_id, chat_id=chat_id, store=alert_store)
+
     # 1. /alert <keyword> <max_price>
     if cmd == "/alert":
         if len(parts) < 3:
@@ -275,17 +280,124 @@ def handle_user_command(
 
 def handle_alert_command(user_id: str, chat_id: str, args: str, store: Optional[AlertStore] = None) -> str:
     """Convenience helper for /alert command execution."""
-    return handle_user_command(f"/alert {args}".strip(), user_id, chat_id, store=store) or ""
+    res = handle_user_command(f"/alert {args}".strip(), user_id, chat_id, store=store)
+    return (res[0] if isinstance(res, tuple) else res) or ""
 
 
 def handle_myalerts_command(user_id: str, store: Optional[AlertStore] = None) -> str:
     """Convenience helper for /myalerts command execution."""
-    return handle_user_command("/myalerts", user_id, user_id, store=store) or ""
+    res = handle_user_command("/myalerts", user_id, user_id, store=store)
+    return (res[0] if isinstance(res, tuple) else res) or ""
 
 
 def handle_delalert_command(user_id: str, alert_id: str, store: Optional[AlertStore] = None) -> str:
     """Convenience helper for /delalert command execution."""
-    return handle_user_command(f"/delalert {alert_id}".strip(), user_id, user_id, store=store) or ""
+    res = handle_user_command(f"/delalert {alert_id}".strip(), user_id, user_id, store=store)
+    return (res[0] if isinstance(res, tuple) else res) or ""
+
+
+def get_top_category_deals(category: str, limit: int = 2) -> List[Dict[str, Any]]:
+    """Retrieve top active high-expected-profit deals in category for onboarding."""
+    json_path = ROOT_DIR / "data" / "live_deals.json"
+    matched: List[Dict[str, Any]] = []
+    if json_path.exists():
+        try:
+            with open(json_path, "r", encoding="utf-8") as jf:
+                all_deals = json.load(jf)
+                cat_clean = (category or "").lower().strip()
+                for d in all_deals:
+                    if d.get("is_expired") or d.get("status") == "expired":
+                        continue
+                    deal_cat = str(d.get("category") or "").lower()
+                    if cat_clean and cat_clean in deal_cat:
+                        matched.append(d)
+                # If fewer than limit, fallback to any active deals
+                if len(matched) < limit:
+                    for d in all_deals:
+                        if not (d.get("is_expired") or d.get("status") == "expired") and d not in matched:
+                            matched.append(d)
+                            if len(matched) >= limit:
+                                break
+        except Exception as e:
+            logger.debug("Failed loading live_deals.json for category deals: %s", e)
+    return matched[:limit]
+
+
+def handle_start_command(
+    text: str,
+    user_id: str,
+    chat_id: str,
+    store: Optional[AlertStore] = None,
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """Handle /start command, including 1-click web deep-link onboarding payload:
+    Format: /start track_<category>_<targetPrice>_<encodedKeyword>
+    """
+    parts = (text or "").strip().split()
+    alert_store = store or AlertStore()
+
+    if len(parts) > 1 and parts[1].startswith("track_"):
+        payload = parts[1]
+        subparts = payload.split("_", 3)
+        if len(subparts) >= 4:
+            category = subparts[1].lower().strip()
+            try:
+                target_price = float(subparts[2].replace(",", "").replace("₹", ""))
+            except ValueError:
+                target_price = 0.0
+            keyword = subparts[3].replace("-", " ").replace("+", " ").strip()
+
+            if keyword and target_price > 0:
+                alert_store.add_alert(user_id=user_id, chat_id=chat_id, keyword=keyword, max_price=target_price)
+                top_deals = get_top_category_deals(category=category, limit=2)
+
+                lines = [
+                    "🔔 <b>PRICE-DROP TRACKER ACTIVATED!</b>\n",
+                    f"We are monitoring <b>{html.escape(keyword.title())}</b> for you.",
+                    f"🎯 <b>Your Target Price:</b> <b>₹{int(target_price):,}</b>",
+                    "<i>You will receive an instant Telegram DM the second the price hits your target!</i>\n",
+                ]
+
+                buttons = []
+                if top_deals:
+                    lines.append(f"🔥 <b>Top Active Deals in {category.title()} Right Now:</b>")
+                    for idx, d in enumerate(top_deals, start=1):
+                        d_id = str(d.get("id") or d.get("asin") or f"deal{idx}")
+                        d_title = str(d.get("title") or "Deal")[:50]
+                        d_price = int(d.get("effective_price") or d.get("current_price") or d.get("price") or 0)
+                        d_disc = int(d.get("discount_pct") or d.get("discount_percent") or 0)
+                        raw_url = str(d.get("affiliate_url") or d.get("url") or f"https://www.amazon.in/dp/{d_id}")
+
+                        # SubID: bot_onboard_<category>_<dealId>
+                        cat_slug = slugify(category)[:8]
+                        did_slug = slugify(d_id.replace("amz-", ""))[:16]
+                        onboard_subid = f"bot_onboard_{cat_slug}_{did_slug}"
+
+                        monetized_res = monetize_url(raw_url, channel="onboard", category=category, deal_id=d_id, allow_unshorten=False)
+                        m_url = monetized_res.monetized_url
+                        if "ascsubtag=" in m_url:
+                            m_url = re.sub(r"ascsubtag=[^&]+", f"ascsubtag={onboard_subid}", m_url)
+                        elif "?" in m_url:
+                            m_url += f"&ascsubtag={onboard_subid}"
+
+                        lines.append(f"{idx}. <a href=\"{m_url}\"><b>{html.escape(d_title)}</b></a> — <b>₹{d_price:,}</b> ({d_disc}% OFF)")
+                        buttons.append([{"text": f"🛒 Buy {d_title[:24]} @ ₹{d_price:,}", "url": m_url}])
+
+                lines.append(f"\n🌐 <a href=\"https://bharatbazaro.com/{category}.html\"><b>Browse All {category.title()} Deals on BharatBazaro →</b></a>")
+                buttons.append([{"text": "🔔 View My Active Alerts (/myalerts)", "callback_data": "myalerts"}])
+
+                return "\n".join(lines), {"inline_keyboard": buttons}
+
+    # Default /start message
+    greeting = (
+        "⚡ <b>Welcome to DealDash AI!</b>\n\n"
+        "24/7 AI-Powered Deal Radar tracking loot deals, price drops & hidden Amazon/Flipkart coupons.\n\n"
+        "<b>Available Commands:</b>\n"
+        "• <code>/alert &lt;keyword&gt; &lt;max_price&gt;</code> — Set price-drop alert (e.g. <code>/alert iphone 16 55000</code>)\n"
+        "• <code>/myalerts</code> — View your active tracking alerts\n"
+        "• <code>/delalert &lt;id&gt;</code> — Delete an active alert\n\n"
+        "🌐 <a href=\"https://bharatbazaro.com\"><b>Explore All Live Deals on BharatBazaro.com</b></a>"
+    )
+    return greeting, None
 
 
 

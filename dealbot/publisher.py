@@ -881,12 +881,15 @@ def _ai_tagline(ai_body: Optional[str], deal: Deal) -> Optional[str]:
 def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str:
     retailer = html.escape(deal.retailer or "Store")
     badge = deal_badge(deal)
-    if badge == "LOOT ALERT":
+    if badge == "LOOT ALERT" or getattr(deal, "is_loot", False):
         mark = "🚨"
+        header_badge = "LOOT ALERT / PRICE DROP"
     elif badge in ("LOOT", "FURTHER PRICE DROP"):
         mark = "🔥"
+        header_badge = badge
     else:
         mark = "⚡"
+        header_badge = badge
 
     ai_body = getattr(deal, "_cached_ai_copy", None)
     if ai_body is None and copywriter and copywriter.is_configured():
@@ -895,7 +898,7 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
             logger.info("Agent critic rejected AI copy that dropped the deal price.")
             ai_body = None
 
-    lines = [f"{mark} <b>{badge}</b> · {retailer}"]
+    lines = [f"{mark} <b>{header_badge}</b> · {retailer}"]
 
     # 1. Multi-Source Viral Consensus
     if getattr(deal, "source_count", 1) >= 2:
@@ -1121,10 +1124,20 @@ def send_telegram_deal(deal: Deal, dry_run: bool = True, copywriter: Optional[AI
 
     _bharat_u = f"https://bharatbazaro.com/?deal={asin}&utm_source=telegram" if (asin and len(asin) == 10) else "https://bharatbazaro.com/?utm_source=telegram"
     _wa_txt = f"🔥 LOOT DEAL: {deal.title or 'Deal'}\n💰 Grab @ {disp_price or 'Best Price'}{disc_part}\n📊 Price History & Link: {_bharat_u}"
+    
+    # Telegram Native Viral Share URL
+    _chat_user = os.getenv("TELEGRAM_CHAT_ID", "@Flash_Deals_Flipkart_Amazon").lstrip("@")
+    _deal_tg_url = f"https://t.me/{_chat_user}"
+    _share_msg = f"🚨 LOOT DEAL ALERT! {deal.title[:80]} at {disp_price}{disc_part}! Check live deal:"
+    _tg_share = f"https://t.me/share/url?url={urllib.parse.quote(_deal_tg_url)}&text={urllib.parse.quote(_share_msg)}"
+
     row_worth = [
         {"text": "👍 Worth it", "callback_data": f"worth:{(deal.id or '')[:40]}"},
         {"text": "📲 Share on WhatsApp", "url": f"https://api.whatsapp.com/send?text={urllib.parse.quote(_wa_txt)}"},
     ]
+    badge = deal_badge(deal)
+    if getattr(deal, "is_loot", False) or badge in ("LOOT ALERT", "LOOT", "FURTHER PRICE DROP") or (offer_percent(deal) or 0) >= 35:
+        row_worth.append({"text": "📤 Share Loot with Friends", "url": _tg_share})
 
     inline_rows = [primary_row]
     if row2:

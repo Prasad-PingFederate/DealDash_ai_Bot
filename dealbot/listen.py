@@ -81,15 +81,20 @@ def drain_updates(store: StateStore, token: str) -> int:
                 except requests.RequestException:
                     pass
 
-            elif any(text.lower().startswith(c) for c in ("/alert", "/myalerts", "/delalert")):
+            elif any(text.lower().startswith(c) for c in ("/start", "/alert", "/myalerts", "/delalert")):
                 from dealbot.alerts import AlertStore, handle_user_command
                 alert_store = AlertStore(store.db_path)
                 reply = handle_user_command(text, user_id=user_id, chat_id=chat_id, store=alert_store)
                 if reply:
+                    msg_text = reply[0] if isinstance(reply, tuple) else reply
+                    reply_markup = reply[1] if isinstance(reply, tuple) else None
+                    payload = {"chat_id": chat_id, "text": msg_text, "parse_mode": "HTML"}
+                    if reply_markup:
+                        payload["reply_markup"] = reply_markup
                     try:
                         requests.post(
                             f"https://api.telegram.org/bot{token}/sendMessage",
-                            json={"chat_id": chat_id, "text": reply, "parse_mode": "HTML"},
+                            json=payload,
                             timeout=10,
                         )
                         handled += 1
