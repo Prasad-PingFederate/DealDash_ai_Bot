@@ -875,6 +875,12 @@ def collect_all_deals() -> List[Deal]:
             lambda: fetch_reddit_deals(min_discount=min_disc),
             lambda: fetch_amazon_movers_and_shakers(min_discount=min_disc),
         ]
+        if os.getenv("SCRAPERS_ENABLED", "true").lower() == "true":
+            try:
+                from dealbot.scrapers import get_default_registry
+                tasks.append(lambda: get_default_registry().collect_all(min_discount=min_disc))
+            except Exception as e:
+                logger.debug(f"Could not load deal scrapers: {e}")
         if os.getenv("AI_WEB_SEARCH_ENABLED", "true").lower() == "true":
             try:
                 from dealbot.ai_web_search import fetch_ai_web_search_deals

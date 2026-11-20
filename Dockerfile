@@ -5,5 +5,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY dealbot ./dealbot
 COPY data ./data
+COPY scripts ./scripts
 COPY run_once.py ./run_once.py
-CMD ["python", "-m", "dealbot.main"]
+EXPOSE 8080
+CMD ["python", "-m", "dealbot.daemon", "--healthcheck-server"]

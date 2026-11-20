@@ -7,6 +7,8 @@ __pycache__/
 *.sqlite3-shm
 *.db-wal
 *.db-shm
+*.lock
+data/dealbot.sqlite3
 # === CREDENTIALS & SECRETS (NEVER PUSH TO PUBLIC REPO) ===
 .env.*
 !.env.example
