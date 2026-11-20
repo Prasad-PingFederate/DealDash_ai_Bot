@@ -8,6 +8,7 @@ __pycache__/
 *.db-wal
 *.db-shm
 *.lock
+mailmap.txt
 data/dealbot.sqlite3
 # === CREDENTIALS & SECRETS (NEVER PUSH TO PUBLIC REPO) ===
 .env.*
