@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-20 11:20 IST",
-  "generated_at_epoch": 1795153802,
+  "generated_at_ist": "2026-11-20 12:24 IST",
+  "generated_at_epoch": 1795157695,
   "top_loot_summary": [
+    {
+      "asin": "B09WDP4MMK",
+      "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
+      "effective_price": 7999,
+      "mrp": 16100,
+      "discount_pct": 50,
+      "savings_inr": 8101,
+      "brand": "Samsung",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BBWH1R8H",
       "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0BF54979B",
-      "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
-      "effective_price": 1099,
-      "mrp": 9999,
-      "discount_pct": 89,
-      "savings_inr": 8900,
-      "brand": "Fire-Boltt",
-      "category": "Fashion & Footwear",
-      "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795153786,
-    "last_verified_at_epoch": 1795153786,
-    "last_verified_at_ist": "2026-11-20 11:19 IST",
+    "posted_at_epoch": 1795157683,
+    "last_verified_at_epoch": 1795157683,
+    "last_verified_at_ist": "2026-11-20 12:24 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795153786,
-    "updated_at_ist": "2026-11-20 11:19 IST"
+    "updated_at": 1795157683,
+    "updated_at_ist": "2026-11-20 12:24 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795153786,
-    "last_verified_at_epoch": 1795153786,
-    "last_verified_at_ist": "2026-11-20 11:19 IST",
+    "posted_at_epoch": 1795157683,
+    "last_verified_at_epoch": 1795157683,
+    "last_verified_at_ist": "2026-11-20 12:24 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795153786,
-    "updated_at_ist": "2026-11-20 11:19 IST"
+    "updated_at": 1795157683,
+    "updated_at_ist": "2026-11-20 12:24 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,16 +202,16 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07K647PGC",
-      "title": "Comfort Morning Fresh Fabric Conditioner Fabric Softener 2 Litre Mega Refill",
-      "effective_price": 399,
-      "discount_pct": 41,
-      "deal_url": "https://bharatbazaro.com/deal/B07K647PGC.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
     "total_deals": 165,
-    "loot_count": 6,
+    "loot_count": 7,
     "max_discount_pct": 89,
     "total_savings_inr": 589447
   }
