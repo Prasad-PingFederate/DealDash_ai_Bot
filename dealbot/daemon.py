@@ -471,7 +471,48 @@ class DealDaemon:
                 cycle_result["synced_bharatbazaro"] = synced
                 if synced:
                     _GLOBAL_METRICS.deals_synced += 1
+
+                # Multi-Channel Broadcast for Viral Loot Deals (WhatsApp & Twitter/X)
+                try:
+                    from dealbot.sales_engine.whatsapp_broadcaster import broadcast_loot_to_whatsapp
+                    wa_ok, wa_reason = broadcast_loot_to_whatsapp(candidate_deal, dry_run=self.dry_run)
+                    if wa_ok:
+                        logger.info(f"[SalesEngine] Broadcasted deal {candidate_deal.id} to WhatsApp")
+                except Exception as e:
+                    logger.debug(f"[SalesEngine] WhatsApp broadcast skipped: {e}")
+
+                try:
+                    from dealbot.sales_engine.twitter_bot import post_to_twitter
+                    tw_ok, tw_reason = post_to_twitter(candidate_deal, dry_run=self.dry_run)
+                    if tw_ok:
+                        logger.info(f"[SalesEngine] Broadcasted deal {candidate_deal.id} to Twitter/X")
+                except Exception as e:
+                    logger.debug(f"[SalesEngine] Twitter broadcast skipped: {e}")
                 break
+
+        # Check Daily Budget Loot Bundle window (09:15 IST breakfast shopping window)
+        now_ist = datetime.now(IST)
+        today_date = now_ist.strftime("%Y-%m-%d")
+        try:
+            last_bundle_date = self.store.get_meta("last_daily_bundle_date")
+            if now_ist.hour == 9 and 10 <= now_ist.minute <= 45 and last_bundle_date != today_date:
+                from dealbot.sales_engine.bundles import generate_budget_bundle, format_bundle_telegram_message
+                bundle = generate_budget_bundle(deals, max_price=199, count=5)
+                if bundle:
+                    b_msg = format_bundle_telegram_message(bundle)
+                    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+                    if chat_id and not self.dry_run:
+                        from dealbot.publisher import safe_telegram_post
+                        safe_telegram_post("sendMessage", {
+                            "chat_id": chat_id,
+                            "text": b_msg,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": False,
+                        })
+                    logger.info(f"[SalesEngine] Published Daily Budget Bundle ({len(bundle.deals)} deals under ₹199)")
+                    self.store.set_meta("last_daily_bundle_date", today_date)
+        except Exception as e:
+            logger.debug(f"[SalesEngine] Daily bundle error: {e}")
 
         # 6. Periodic sweep for expired deals / price spikes
         try:

@@ -980,7 +980,15 @@ def format_caption(deal: Deal, copywriter: Optional[AICopywriter] = None) -> str
         lines.append(f"🎟️ Promo Code: <code>{html.escape(promo, quote=False)}</code> <i>(Tap to copy)</i>")
 
     bank = (deal.bank_offer or "").strip()
+    base_p = getattr(deal, "effective_price", None) or parse_rupees(deal.current_price)
     if bank and bank.lower() not in {"0", "none", "no", "na", "n/a"}:
+        try:
+            from dealbot.sales_engine.bank_offers import calculate_bank_offer
+            bank_res = calculate_bank_offer(base_p, bank) if base_p else None
+            if bank_res:
+                lines.append(f"<b>{html.escape(bank_res.callout_text, quote=False)}</b>")
+        except Exception:
+            pass
         lines.append(f"Bank offer: {html.escape(bank[:90], quote=False)}")
 
     # Coupon Trick Checklist (Tick "Apply ₹... coupon" on Amazon page)
