@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-20 09:46 IST",
-  "generated_at_epoch": 1795148180,
+  "generated_at_ist": "2026-11-20 09:50 IST",
+  "generated_at_epoch": 1795148406,
   "top_loot_summary": [
     {
       "asin": "B0BBWH1R8H",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795148150,
-    "last_verified_at_epoch": 1795148150,
-    "last_verified_at_ist": "2026-11-20 09:45 IST",
+    "posted_at_epoch": 1795148383,
+    "last_verified_at_epoch": 1795148383,
+    "last_verified_at_ist": "2026-11-20 09:49 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795148150,
-    "updated_at_ist": "2026-11-20 09:45 IST"
+    "updated_at": 1795148383,
+    "updated_at_ist": "2026-11-20 09:49 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795148150,
-    "last_verified_at_epoch": 1795148150,
-    "last_verified_at_ist": "2026-11-20 09:45 IST",
+    "posted_at_epoch": 1795148383,
+    "last_verified_at_epoch": 1795148383,
+    "last_verified_at_ist": "2026-11-20 09:49 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795148150,
-    "updated_at_ist": "2026-11-20 09:45 IST"
+    "updated_at": 1795148383,
+    "updated_at_ist": "2026-11-20 09:49 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,11 +202,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07V2QJ412",
-      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
-      "effective_price": 549,
-      "discount_pct": 23,
-      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
+      "asin": "B07XLML2YT",
+      "title": "Ariel Matic Liquid Detergent Top Load 2 Litre Mega Value Refill Pouch",
+      "effective_price": 399,
+      "discount_pct": 41,
+      "deal_url": "https://bharatbazaro.com/deal/B07XLML2YT.html"
     }
   },
   "market_stats": {
