@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-20 19:50 IST",
-  "generated_at_epoch": 1795184408,
+  "generated_at_ist": "2026-11-21 17:15 IST",
+  "generated_at_epoch": 1795261552,
   "top_loot_summary": [
+    {
+      "asin": "B0CYQ4M4N5",
+      "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
+      "effective_price": 52990,
+      "mrp": 99900,
+      "discount_pct": 47,
+      "savings_inr": 46910,
+      "brand": "Sony",
+      "category": "Electronics & Audio",
+      "affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0CYQ4M4N5.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BNVFXCQ9",
       "title": "Sony WF-C500 Truly Wireless Bluetooth Earbuds with 20H Battery & Fast Charge",
@@ -53,52 +66,39 @@
       "affiliate_url": "https://www.amazon.in/dp/B0BC8P3X65?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BC8P3X65.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B09WDP4MMK",
-      "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
-      "effective_price": 7999,
-      "mrp": 16100,
-      "discount_pct": 50,
-      "savings_inr": 8101,
-      "brand": "Samsung",
-      "category": "Laptops & Computing",
-      "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
   "best_under_299": {
-    "id": "amazon:B07YYK13LG",
-    "asin": "B07YYK13LG",
-    "title": "Presto! Oxo-Biodegradable Garbage Bags Medium 30 Bags/Roll (Pack of 6, Total 180 Bags)",
-    "brand": null,
+    "id": "amazon:B00B9W3G6X",
+    "asin": "B00B9W3G6X",
+    "title": "Plum Green Tea Alcohol-Free Toner 200ml with Glycolic Acid for Oily Skin",
+    "brand": "Plum",
     "brand_tier": "tier1",
     "category": "Personal Care & Grocery",
-    "image_url": "https://m.media-amazon.com/images/P/B07YYK13LG.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B07YYK13LG?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 550,
+    "image_url": "https://m.media-amazon.com/images/P/B00B9W3G6X.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B00B9W3G6X?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 390,
     "list_price": 299,
     "effective_price": 299,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 46,
-    "effective_discount_pct": 46,
-    "savings_inr": 251,
+    "discount_pct": 23,
+    "effective_discount_pct": 23,
+    "savings_inr": 91,
     "rating": 4.3,
-    "review_count": 64000,
+    "review_count": 32000,
     "score": 75,
-    "buy_confidence": 99,
+    "buy_confidence": 95,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
     "historical_max": null,
     "is_loot": false,
-    "is_diwali_steal": true,
-    "is_cookie_magnet": true,
+    "is_diwali_steal": false,
+    "is_cookie_magnet": false,
     "is_daily_essential": true,
     "is_further_drop": false,
     "source_count": 1,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795184374,
-    "last_verified_at_epoch": 1795184374,
-    "last_verified_at_ist": "2026-11-20 19:49 IST",
+    "posted_at_epoch": 1795261491,
+    "last_verified_at_epoch": 1795261491,
+    "last_verified_at_ist": "2026-11-21 17:14 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795184374,
-    "updated_at_ist": "2026-11-20 19:49 IST"
+    "updated_at": 1795261491,
+    "updated_at_ist": "2026-11-21 17:14 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795184374,
-    "last_verified_at_epoch": 1795184374,
-    "last_verified_at_ist": "2026-11-20 19:49 IST",
+    "posted_at_epoch": 1795261491,
+    "last_verified_at_epoch": 1795261491,
+    "last_verified_at_ist": "2026-11-21 17:14 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795184374,
-    "updated_at_ist": "2026-11-20 19:49 IST"
+    "updated_at": 1795261491,
+    "updated_at_ist": "2026-11-21 17:14 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07YYK13LG",
-      "title": "Presto! Oxo-Biodegradable Garbage Bags Medium 30 Bags/Roll (Pack of 6, Total 180 Bags)",
-      "effective_price": 299,
-      "discount_pct": 46,
-      "deal_url": "https://bharatbazaro.com/deal/B07YYK13LG.html"
+      "asin": "B0863TXGM4",
+      "title": "L'Oreal Paris Extraordinary Clay Purifying & Hydrating Shampoo 1 Litre Mega Pack",
+      "effective_price": 499,
+      "discount_pct": 50,
+      "deal_url": "https://bharatbazaro.com/deal/B0863TXGM4.html"
     }
   },
   "market_stats": {
-    "total_deals": 164,
-    "loot_count": 9,
+    "total_deals": 145,
+    "loot_count": 3,
     "max_discount_pct": 83,
-    "total_savings_inr": 619797
+    "total_savings_inr": 583698
   }
 }
