@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-21 17:15 IST",
-  "generated_at_epoch": 1795261552,
+  "generated_at_ist": "2026-11-21 18:20 IST",
+  "generated_at_epoch": 1795265422,
   "top_loot_summary": [
+    {
+      "asin": "B0B25L78CD",
+      "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
+      "effective_price": 5299,
+      "mrp": 11000,
+      "discount_pct": 52,
+      "savings_inr": 5701,
+      "brand": "Crucial",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0CYQ4M4N5",
       "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B09C63T5V3?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B09C63T5V3.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0BC8P3X65",
-      "title": "Puma Men Smashic Casual Sneaker Shoes White & Navy",
-      "effective_price": 1799,
-      "mrp": 4499,
-      "discount_pct": 60,
-      "savings_inr": 2700,
-      "brand": "Puma",
-      "category": "Fashion & Footwear",
-      "affiliate_url": "https://www.amazon.in/dp/B0BC8P3X65?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BC8P3X65.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795261491,
-    "last_verified_at_epoch": 1795261491,
-    "last_verified_at_ist": "2026-11-21 17:14 IST",
+    "posted_at_epoch": 1795265396,
+    "last_verified_at_epoch": 1795265396,
+    "last_verified_at_ist": "2026-11-21 18:19 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795261491,
-    "updated_at_ist": "2026-11-21 17:14 IST"
+    "updated_at": 1795265396,
+    "updated_at_ist": "2026-11-21 18:19 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795261491,
-    "last_verified_at_epoch": 1795261491,
-    "last_verified_at_ist": "2026-11-21 17:14 IST",
+    "posted_at_epoch": 1795265396,
+    "last_verified_at_epoch": 1795265396,
+    "last_verified_at_ist": "2026-11-21 18:19 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795261491,
-    "updated_at_ist": "2026-11-21 17:14 IST"
+    "updated_at": 1795265396,
+    "updated_at_ist": "2026-11-21 18:19 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B0863TXGM4",
-      "title": "L'Oreal Paris Extraordinary Clay Purifying & Hydrating Shampoo 1 Litre Mega Pack",
-      "effective_price": 499,
-      "discount_pct": 50,
-      "deal_url": "https://bharatbazaro.com/deal/B0863TXGM4.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
-    "total_deals": 145,
+    "total_deals": 146,
     "loot_count": 3,
     "max_discount_pct": 83,
-    "total_savings_inr": 583698
+    "total_savings_inr": 587442
   }
 }
