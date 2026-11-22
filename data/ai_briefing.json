@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-22 18:34 IST",
-  "generated_at_epoch": 1795352640,
+  "generated_at_ist": "2026-11-22 19:38 IST",
+  "generated_at_epoch": 1795356530,
   "top_loot_summary": [
     {
       "asin": "B091CR2FXY",
@@ -110,45 +110,45 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795352600,
-    "last_verified_at_epoch": 1795352600,
-    "last_verified_at_ist": "2026-11-22 18:33 IST",
+    "posted_at_epoch": 1795356503,
+    "last_verified_at_epoch": 1795356503,
+    "last_verified_at_ist": "2026-11-22 19:38 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795352600,
-    "updated_at_ist": "2026-11-22 18:33 IST"
+    "updated_at": 1795356503,
+    "updated_at_ist": "2026-11-22 19:38 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B0BBWH1R8H",
-    "asin": "B0BBWH1R8H",
-    "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
-    "brand": "Kingston",
+    "id": "amazon:B0BZV8RF79",
+    "asin": "B0BZV8RF79",
+    "title": "OnePlus Nord Buds 2r True Wireless in Ear Earbuds with Mic, 38H Playtime, 12.4mm Drivers",
+    "brand": "Oneplus",
     "brand_tier": "tier1",
-    "category": "Laptops & Computing",
-    "image_url": "https://m.media-amazon.com/images/P/B0BBWH1R8H.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B0BBWH1R8H?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 10500,
-    "list_price": 5499,
-    "effective_price": 5499,
+    "category": "Mobiles & Accessories",
+    "image_url": "https://m.media-amazon.com/images/P/B0BZV8RF79.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0BZV8RF79?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 2299,
+    "list_price": 1799,
+    "effective_price": 1799,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 48,
-    "effective_discount_pct": 48,
-    "savings_inr": 5001,
-    "rating": 4.4,
-    "review_count": 18200,
+    "discount_pct": 22,
+    "effective_discount_pct": 22,
+    "savings_inr": 500,
+    "rating": 4.2,
+    "review_count": 48000,
     "score": 75,
-    "buy_confidence": 99,
+    "buy_confidence": 95,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
     "historical_max": null,
     "is_loot": false,
-    "is_diwali_steal": true,
+    "is_diwali_steal": false,
     "is_cookie_magnet": false,
     "is_daily_essential": false,
     "is_further_drop": false,
@@ -156,62 +156,62 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "🎉 Complete checkout at the effective deal price of ₹5,499!"
+      "🎉 Complete checkout at the effective deal price of ₹1,799!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795352600,
-    "last_verified_at_epoch": 1795352600,
-    "last_verified_at_ist": "2026-11-22 18:33 IST",
+    "posted_at_epoch": 1795356504,
+    "last_verified_at_epoch": 1795356504,
+    "last_verified_at_ist": "2026-11-22 19:38 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795352600,
-    "updated_at_ist": "2026-11-22 18:33 IST"
+    "updated_at": 1795356504,
+    "updated_at_ist": "2026-11-22 19:38 IST"
   },
   "category_highlights": {
     "mobiles": {
-      "asin": "B0CHX1W1XY",
-      "title": "Apple iPhone 15 (128 GB) - Black",
-      "effective_price": 57999,
-      "discount_pct": 27,
-      "deal_url": "https://bharatbazaro.com/deal/B0CHX1W1XY.html"
+      "asin": "B0BZV8RF79",
+      "title": "OnePlus Nord Buds 2r True Wireless in Ear Earbuds with Mic, 38H Playtime, 12.4mm Drivers",
+      "effective_price": 1799,
+      "discount_pct": 22,
+      "deal_url": "https://bharatbazaro.com/deal/B0BZV8RF79.html"
     },
     "electronics": {
-      "asin": "B0BBWH1R8H",
-      "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
-      "effective_price": 5499,
-      "discount_pct": 48,
-      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8H.html"
+      "asin": "B0BRKMNZCS",
+      "title": "boAt Airdopes 141 Bluetooth Truly Wireless in Ear Earbuds with 42H Playtime & Beast Mode",
+      "effective_price": 999,
+      "discount_pct": 78,
+      "deal_url": "https://bharatbazaro.com/deal/B0BRKMNZCS.html"
     },
     "home": {
-      "asin": "B07XLML2YS",
-      "title": "TP-Link Tapo C200 360-degree 2MP 1080p Full HD Pan/Tilt WiFi Security Camera",
-      "effective_price": 1699,
-      "discount_pct": 48,
-      "deal_url": "https://bharatbazaro.com/deal/B07XLML2YS.html"
+      "asin": "B0BN8H1L7L",
+      "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
+      "effective_price": 5499,
+      "discount_pct": 45,
+      "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html"
     },
     "fashion": {
-      "asin": "B000LAKYW8",
-      "title": "Casio Vintage Digital Unisex Watch A168WA-1DF with Illuminator",
-      "effective_price": 1995,
-      "discount_pct": 26,
-      "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
+      "asin": "B0BBWH1R8J",
+      "title": "Casio Vintage Digital Dial Unisex Watch A158WA-1DF with Stainless Steel Band",
+      "effective_price": 1695,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8J.html"
     },
     "grocery": {
-      "asin": "B08XVVPV6A",
-      "title": "Happilo 100% Natural Premium California Almonds 500g Value Pack Pouch",
-      "effective_price": 369,
-      "discount_pct": 47,
-      "deal_url": "https://bharatbazaro.com/deal/B08XVVPV6A.html"
+      "asin": "B0BHTNWSZF",
+      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
+      "effective_price": 389,
+      "discount_pct": 51,
+      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
     }
   },
   "market_stats": {
     "total_deals": 163,
-    "loot_count": 2,
-    "max_discount_pct": 89,
-    "total_savings_inr": 577447
+    "loot_count": 1,
+    "max_discount_pct": 83,
+    "total_savings_inr": 573826
   }
 }
