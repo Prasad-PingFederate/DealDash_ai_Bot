@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-22 19:38 IST",
-  "generated_at_epoch": 1795356530,
+  "generated_at_ist": "2026-11-23 19:08 IST",
+  "generated_at_epoch": 1795441090,
   "top_loot_summary": [
+    {
+      "asin": "B09WDP4MMK",
+      "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
+      "effective_price": 7999,
+      "mrp": 16100,
+      "discount_pct": 50,
+      "savings_inr": 8101,
+      "brand": "Samsung",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
+      "coupon_text": null
+    },
     {
       "asin": "B091CR2FXY",
       "title": "AGARO Regency Air Fryer 12L 1800W with 9 Preset Menus & Rotisserie",
@@ -26,45 +39,6 @@
       "category": "Fashion & Footwear",
       "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B008A2796G",
-      "title": "Fossil Grant Chronograph Dark Brown Leather Strap Mens Watch",
-      "effective_price": 6995,
-      "mrp": 13995,
-      "discount_pct": 50,
-      "savings_inr": 7000,
-      "brand": "Fossil",
-      "category": "Fashion & Footwear",
-      "affiliate_url": "https://www.amazon.in/dp/B008A2796G?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B008A2796G.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B08HN6PCDJ",
-      "title": "Philips Digital Air Fryer HD9252/90 (4.1 Litre, 1400W Rapid Air Technology)",
-      "effective_price": 6999,
-      "mrp": 11995,
-      "discount_pct": 42,
-      "savings_inr": 4996,
-      "brand": "Philips",
-      "category": "Home & Kitchen",
-      "affiliate_url": "https://www.amazon.in/dp/B08HN6PCDJ?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B08HN6PCDJ.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B0B25L78CD",
-      "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
-      "effective_price": 5299,
-      "mrp": 11000,
-      "discount_pct": 52,
-      "savings_inr": 5701,
-      "brand": "Crucial",
-      "category": "Laptops & Computing",
-      "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
       "coupon_text": null
     }
   ],
@@ -110,37 +84,37 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795356503,
-    "last_verified_at_epoch": 1795356503,
-    "last_verified_at_ist": "2026-11-22 19:38 IST",
+    "posted_at_epoch": 1795441080,
+    "last_verified_at_epoch": 1795441080,
+    "last_verified_at_ist": "2026-11-23 19:08 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795356503,
-    "updated_at_ist": "2026-11-22 19:38 IST"
+    "updated_at": 1795441080,
+    "updated_at_ist": "2026-11-23 19:08 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B0BZV8RF79",
-    "asin": "B0BZV8RF79",
-    "title": "OnePlus Nord Buds 2r True Wireless in Ear Earbuds with Mic, 38H Playtime, 12.4mm Drivers",
-    "brand": "Oneplus",
+    "id": "amazon:B0CHX1W1XY",
+    "asin": "B0CHX1W1XY",
+    "title": "Apple iPhone 15 (128 GB) - Black",
+    "brand": "Apple",
     "brand_tier": "tier1",
     "category": "Mobiles & Accessories",
-    "image_url": "https://m.media-amazon.com/images/P/B0BZV8RF79.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B0BZV8RF79?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 2299,
-    "list_price": 1799,
-    "effective_price": 1799,
+    "image_url": "https://m.media-amazon.com/images/I/31KxpX7Xk7L.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0CHX1W1XY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 79900,
+    "list_price": 57999,
+    "effective_price": 57999,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
-    "bank_offer": null,
-    "discount_pct": 22,
-    "effective_discount_pct": 22,
-    "savings_inr": 500,
-    "rating": 4.2,
-    "review_count": 48000,
+    "bank_offer": "Instant ₹4,000 Discount with SBI Credit Card",
+    "discount_pct": 27,
+    "effective_discount_pct": 27,
+    "savings_inr": 21901,
+    "rating": 4.6,
+    "review_count": 9480,
     "score": 75,
     "buy_confidence": 95,
     "price_context": "normal",
@@ -148,7 +122,7 @@
     "historical_avg": null,
     "historical_max": null,
     "is_loot": false,
-    "is_diwali_steal": false,
+    "is_diwali_steal": true,
     "is_cookie_magnet": false,
     "is_daily_essential": false,
     "is_further_drop": false,
@@ -156,62 +130,63 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "🎉 Complete checkout at the effective deal price of ₹1,799!"
+      "💳 Select eligible card/payment for instant bank discount: Instant ₹4,000 Discount with SBI Credit Card.",
+      "🎉 Complete checkout at the effective deal price of ₹57,999!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795356504,
-    "last_verified_at_epoch": 1795356504,
-    "last_verified_at_ist": "2026-11-22 19:38 IST",
+    "posted_at_epoch": 1795441080,
+    "last_verified_at_epoch": 1795441080,
+    "last_verified_at_ist": "2026-11-23 19:08 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795356504,
-    "updated_at_ist": "2026-11-22 19:38 IST"
+    "updated_at": 1795441080,
+    "updated_at_ist": "2026-11-23 19:08 IST"
   },
   "category_highlights": {
     "mobiles": {
-      "asin": "B0BZV8RF79",
-      "title": "OnePlus Nord Buds 2r True Wireless in Ear Earbuds with Mic, 38H Playtime, 12.4mm Drivers",
-      "effective_price": 1799,
-      "discount_pct": 22,
-      "deal_url": "https://bharatbazaro.com/deal/B0BZV8RF79.html"
+      "asin": "B0CHX1W1XY",
+      "title": "Apple iPhone 15 (128 GB) - Black",
+      "effective_price": 57999,
+      "discount_pct": 27,
+      "deal_url": "https://bharatbazaro.com/deal/B0CHX1W1XY.html"
     },
     "electronics": {
-      "asin": "B0BRKMNZCS",
-      "title": "boAt Airdopes 141 Bluetooth Truly Wireless in Ear Earbuds with 42H Playtime & Beast Mode",
-      "effective_price": 999,
-      "discount_pct": 78,
-      "deal_url": "https://bharatbazaro.com/deal/B0BRKMNZCS.html"
+      "asin": "B07YYK13LF",
+      "title": "SanDisk 128GB Ultra Dual Drive Luxe USB Type-C Flash Drive (All-Metal)",
+      "effective_price": 1199,
+      "discount_pct": 54,
+      "deal_url": "https://bharatbazaro.com/deal/B07YYK13LF.html"
     },
     "home": {
-      "asin": "B0BN8H1L7L",
-      "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
-      "effective_price": 5499,
-      "discount_pct": 45,
-      "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html"
+      "asin": "B07XLML2YS",
+      "title": "TP-Link Tapo C200 360-degree 2MP 1080p Full HD Pan/Tilt WiFi Security Camera",
+      "effective_price": 1699,
+      "discount_pct": 48,
+      "deal_url": "https://bharatbazaro.com/deal/B07XLML2YS.html"
     },
     "fashion": {
-      "asin": "B0BBWH1R8J",
-      "title": "Casio Vintage Digital Dial Unisex Watch A158WA-1DF with Stainless Steel Band",
-      "effective_price": 1695,
-      "discount_pct": 23,
-      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8J.html"
+      "asin": "B000LAKYW8",
+      "title": "Casio Vintage Digital Unisex Watch A168WA-1DF with Illuminator",
+      "effective_price": 1995,
+      "discount_pct": 26,
+      "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B0BHTNWSZF",
-      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
-      "effective_price": 389,
-      "discount_pct": 51,
-      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
-    "total_deals": 163,
+    "total_deals": 164,
     "loot_count": 1,
     "max_discount_pct": 83,
-    "total_savings_inr": 573826
+    "total_savings_inr": 629514
   }
 }
