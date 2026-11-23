@@ -1,13 +1,13 @@
 {
-  "timestamp_ist": "2026-11-22 16:03:25 IST",
-  "timestamp_epoch": 1795343605,
+  "timestamp_ist": "2026-11-23 17:03:50 IST",
+  "timestamp_epoch": 1795433630,
   "overall_status": "DEGRADED",
   "checks": [
     {
       "name": "Gemini API",
       "status": "failed",
       "model": "gemini-2.5-flash",
-      "latency_ms": 223,
+      "latency_ms": 241,
       "detail": "HTTP 404: {\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"This model models/gemini-2.5-flash is no longer available to new users. "
     },
     {
@@ -21,7 +21,7 @@
       "name": "OpenRouter Fallback",
       "status": "failed",
       "model": "google/gemma-4-26b-a4b-it:free",
-      "latency_ms": 272,
+      "latency_ms": 436,
       "detail": "All candidate models in fallback chain failed"
     },
     {
@@ -33,17 +33,17 @@
     },
     {
       "name": "Deal Discovery Feeds",
-      "status": "warning",
-      "candidate_count": 0,
-      "latency_ms": 706,
-      "detail": "Feeds reachable but 0 candidates qualified discount filter"
+      "status": "ok",
+      "candidate_count": 34,
+      "latency_ms": 7215,
+      "detail": "Discovered 34 candidates across live feeds"
     },
     {
       "name": "Amazon.in Scraper",
       "status": "warning",
       "stock_status": "unknown",
       "live_price": "N/A",
-      "latency_ms": 291,
+      "latency_ms": 233,
       "detail": "Status: unknown, Price: \u20b9N/A"
     },
     {
@@ -57,16 +57,16 @@
     {
       "name": "BharatBazaro Live",
       "status": "ok",
-      "live_deals": 138,
-      "feed_age_min": 105,
-      "latency_ms": 248,
-      "detail": "138 live deals online (synced 105m ago)"
+      "live_deals": 141,
+      "feed_age_min": 508,
+      "latency_ms": 175,
+      "detail": "141 live deals online (synced 508m ago)"
     },
     {
       "name": "Telegram Bot API",
       "status": "ok",
       "bot_username": "DealDash_ai_Bot",
-      "latency_ms": 343,
+      "latency_ms": 442,
       "detail": "@DealDash_ai_Bot -> Flash Deals 24/7"
     }
   ]
