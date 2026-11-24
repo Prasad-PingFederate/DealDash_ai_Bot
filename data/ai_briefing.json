@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-24 08:40 IST",
-  "generated_at_epoch": 1795489842,
+  "generated_at_ist": "2026-11-24 09:45 IST",
+  "generated_at_epoch": 1795493740,
   "top_loot_summary": [
+    {
+      "asin": "B083W7V3YB",
+      "title": "Sennheiser HD 450SE Bluetooth 5.0 Wireless Over Ear Headphones with ANC",
+      "effective_price": 6990,
+      "mrp": 14990,
+      "discount_pct": 53,
+      "savings_inr": 8000,
+      "brand": "Sennheiser",
+      "category": "Audio & Headphones",
+      "affiliate_url": "https://www.amazon.in/dp/B083W7V3YB?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B083W7V3YB.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0BBWH1R8H",
       "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
@@ -57,28 +70,28 @@
   ],
   "best_coupon_deal": null,
   "best_under_299": {
-    "id": "amazon:B008T1V3KC",
-    "asin": "B008T1V3KC",
-    "title": "Nivea Soft Light Moisturizer Cream with Vitamin E & Jojoba Oil 300ml",
-    "brand": "Nivea",
+    "id": "amazon:B07YYK13LG",
+    "asin": "B07YYK13LG",
+    "title": "Presto! Oxo-Biodegradable Garbage Bags Medium 30 Bags/Roll (Pack of 6, Total 180 Bags)",
+    "brand": null,
     "brand_tier": "tier1",
     "category": "Personal Care & Grocery",
-    "image_url": "https://m.media-amazon.com/images/P/B008T1V3KC.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B008T1V3KC?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 499,
+    "image_url": "https://m.media-amazon.com/images/P/B07YYK13LG.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B07YYK13LG?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 550,
     "list_price": 299,
     "effective_price": 299,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
     "bank_offer": null,
-    "discount_pct": 40,
-    "effective_discount_pct": 40,
-    "savings_inr": 200,
-    "rating": 4.5,
-    "review_count": 89000,
+    "discount_pct": 46,
+    "effective_discount_pct": 46,
+    "savings_inr": 251,
+    "rating": 4.3,
+    "review_count": 64000,
     "score": 75,
-    "buy_confidence": 95,
+    "buy_confidence": 99,
     "price_context": "normal",
     "historical_min": null,
     "historical_avg": null,
@@ -97,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795489831,
-    "last_verified_at_epoch": 1795489831,
-    "last_verified_at_ist": "2026-11-24 08:40 IST",
+    "posted_at_epoch": 1795493731,
+    "last_verified_at_epoch": 1795493731,
+    "last_verified_at_ist": "2026-11-24 09:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795489831,
-    "updated_at_ist": "2026-11-24 08:40 IST"
+    "updated_at": 1795493731,
+    "updated_at_ist": "2026-11-24 09:45 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -149,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795489831,
-    "last_verified_at_epoch": 1795489831,
-    "last_verified_at_ist": "2026-11-24 08:40 IST",
+    "posted_at_epoch": 1795493731,
+    "last_verified_at_epoch": 1795493731,
+    "last_verified_at_ist": "2026-11-24 09:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795489831,
-    "updated_at_ist": "2026-11-24 08:40 IST"
+    "updated_at": 1795493731,
+    "updated_at_ist": "2026-11-24 09:45 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -189,16 +202,16 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07V2QJ412",
-      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
-      "effective_price": 549,
-      "discount_pct": 23,
-      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
+      "asin": "B07YYK13LG",
+      "title": "Presto! Oxo-Biodegradable Garbage Bags Medium 30 Bags/Roll (Pack of 6, Total 180 Bags)",
+      "effective_price": 299,
+      "discount_pct": 46,
+      "deal_url": "https://bharatbazaro.com/deal/B07YYK13LG.html"
     }
   },
   "market_stats": {
     "total_deals": 166,
-    "loot_count": 2,
+    "loot_count": 3,
     "max_discount_pct": 89,
     "total_savings_inr": 629922
   }
