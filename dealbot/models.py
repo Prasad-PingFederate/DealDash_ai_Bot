@@ -55,6 +55,9 @@ class Deal:
     coupon_text: Optional[str] = None
     extra_offers: list = field(default_factory=list)
     claim_steps: list = field(default_factory=list)
+    commission_rate: Optional[float] = None
+    expected_commission: Optional[float] = None
+    epc_score: Optional[float] = None
 
     def __post_init__(self):
         if not self.matched_sources:

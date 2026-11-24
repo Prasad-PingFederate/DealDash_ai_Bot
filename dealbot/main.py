@@ -672,6 +672,13 @@ def run_once() -> int:
         except Exception as e:
             logger.warning(f"Error exporting web feed: {e}")
 
+        # Canonical EPC-ranked deals_feed.json & video_queue.json export
+        try:
+            from dealbot.feed_exporter import export_feeds
+            export_feeds(store)
+        except Exception as e:
+            logger.warning(f"Error exporting canonical feeds: {e}")
+
     logger.info(f"Cycle complete. Posted {posted_count} new deal(s) (dry_run={dry_run}, agent={agent_mode}).")
     return posted_count
 

@@ -1,0 +1,53 @@
+[
+  {
+    "asin": "B0BC8P3X64",
+    "title": "Amazfit GTR 4 Smart Watch with Bluetooth Calling, 150+ Sports Modes",
+    "category": "Fashion & Footwear",
+    "mrp": 23999,
+    "live_price": 14999,
+    "coupon_discount": 0,
+    "effective_price": 14999,
+    "commission_rate": 0.08,
+    "expected_commission": 1199.92,
+    "epc_score": 445.71,
+    "rating": 4.3,
+    "image_url": "https://m.media-amazon.com/images/P/B0BC8P3X64.jpg",
+    "base_affiliate_url": "https://www.amazon.in/dp/B0BC8P3X64?tag=dammaiprasad-21",
+    "video_eligible": true,
+    "updated_at": "2026-11-24T05:13:54Z"
+  },
+  {
+    "asin": "B0CHX24XGQ",
+    "title": "Acer Nitro V Gaming Laptop 13th Gen Intel Core i5 (RTX 4050 6GB Graphics, 144Hz)",
+    "category": "Laptops & Computing",
+    "mrp": 92999,
+    "live_price": 69990,
+    "coupon_discount": 0,
+    "effective_price": 69990,
+    "commission_rate": 0.015,
+    "expected_commission": 1049.85,
+    "epc_score": 256.56,
+    "rating": 4.3,
+    "image_url": "https://m.media-amazon.com/images/P/B0CHX24XGQ.jpg",
+    "base_affiliate_url": "https://www.amazon.in/dp/B0CHX24XGQ?tag=dammaiprasad-21",
+    "video_eligible": true,
+    "updated_at": "2026-11-24T05:13:54Z"
+  },
+  {
+    "asin": "B0B3C9L764",
+    "title": "Apple MacBook Air Laptop with M2 chip (13.6-inch Liquid Retina, 8GB RAM, 256GB SSD)",
+    "category": "Laptops & Computing",
+    "mrp": 99900,
+    "live_price": 79990,
+    "coupon_discount": 0,
+    "effective_price": 79990,
+    "commission_rate": 0.015,
+    "expected_commission": 1199.85,
+    "epc_score": 234.57,
+    "rating": 4.7,
+    "image_url": "https://m.media-amazon.com/images/P/B0B3C9L764.jpg",
+    "base_affiliate_url": "https://www.amazon.in/dp/B0B3C9L764?tag=dammaiprasad-21",
+    "video_eligible": true,
+    "updated_at": "2026-11-24T05:13:54Z"
+  }
+]

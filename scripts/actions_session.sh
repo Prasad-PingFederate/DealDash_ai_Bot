@@ -59,6 +59,7 @@ run_cycle() {
   fi
   export SESSION_STARTED=true
   sync_sqlite_state || echo "State push failed. The next cycle will try again."
+  python -c "from dealbot.feed_exporter import dispatch_downstream_webhooks; dispatch_downstream_webhooks()" 2>/dev/null || true
 }
 
 # Graceful signal handling: ensure state is persisted if runner is cancelled or stopped

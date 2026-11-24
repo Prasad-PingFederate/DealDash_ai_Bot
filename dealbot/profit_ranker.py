@@ -461,3 +461,129 @@ def should_publish(
         f"Profit Score: {base_profit_score:.2f})"
     )
     return True, reason, metrics
+
+
+# ==============================================================================
+# EPC (Earnings Per Click) Weighted Scoring
+# ==============================================================================
+
+def calculate_epc_score(
+    effective_price: float,
+    commission_rate: Optional[float] = None,
+    discount_pct: float = 0.0,
+    rating: Optional[float] = None,
+    category: Optional[str] = None,
+) -> float:
+    """Calculate EPC (Earnings Per Click) weighted score using rates from commission_config.json.
+
+    Formula:
+        expected_commission = effective_price * commission_rate
+        base_epc = expected_commission * (discount_pct / 100)
+        * 1.25 if (500 <= effective_price <= 5000) else 0.85
+        * 1.15 if (rating >= 4.2) else 0.80
+    """
+    price = max(0.0, float(effective_price or 0.0))
+    if commission_rate is not None and float(commission_rate) > 0:
+        rate = float(commission_rate)
+    else:
+        rate = get_category_commission_rate(category)
+
+    disc = max(0.0, float(discount_pct or 0.0))
+
+    # 1. Base expected commission
+    expected_commission = price * rate
+
+    # 2. Multiply by discount percentage fraction
+    score = expected_commission * (disc / 100.0)
+
+    # 3. Price bracket multiplier: 1.25 if 500 <= effective_price <= 5000, else 0.85
+    if 500.0 <= price <= 5000.0:
+        score *= 1.25
+    else:
+        score *= 0.85
+
+    # 4. Rating multiplier: 1.15 if rating >= 4.2, else 0.80
+    if rating is not None and float(rating) >= 4.2:
+        score *= 1.15
+    else:
+        score *= 0.80
+
+    return round(score, 2)
+
+
+def attach_epc_to_deal(deal: Any, category: Optional[str] = None) -> Any:
+    """Store commission_rate, expected_commission, and epc_score on a Deal object or dict.
+
+    Guarantees backward-compatible operation without breaking Telegram posting.
+    """
+    if deal is None:
+        return deal
+
+    if isinstance(deal, dict):
+        p_raw = deal.get("effective_price")
+        if p_raw is None:
+            from dealbot.models import parse_rupees
+            price = float(parse_rupees(str(deal.get("current_price", ""))) or 0.0)
+        else:
+            price = float(p_raw)
+
+        cat = category or deal.get("category")
+        rate_val = deal.get("commission_rate")
+        if rate_val is None or float(rate_val) <= 0:
+            rate = get_category_commission_rate(cat)
+        else:
+            rate = float(rate_val)
+
+        disc = deal.get("effective_discount_pct") or deal.get("discount_pct") or deal.get("discount_percent") or 0.0
+        rat = deal.get("rating")
+
+        expected_comm = round(price * rate, 2)
+        score = calculate_epc_score(
+            effective_price=price,
+            commission_rate=rate,
+            discount_pct=float(disc),
+            rating=float(rat) if rat is not None else None,
+            category=cat,
+        )
+
+        deal["commission_rate"] = rate
+        deal["expected_commission"] = expected_comm
+        deal["epc_score"] = score
+        return deal
+
+    from dealbot.models import parse_rupees
+    p_attr = getattr(deal, "effective_price", None)
+    if p_attr is None:
+        price = float(parse_rupees(getattr(deal, "current_price", None)) or 0.0)
+    else:
+        price = float(p_attr)
+
+    cat = category or getattr(deal, "category", None)
+    rate_attr = getattr(deal, "commission_rate", None)
+    if rate_attr is None or float(rate_attr) <= 0:
+        rate = get_category_commission_rate(cat)
+    else:
+        rate = float(rate_attr)
+
+    disc = (
+        getattr(deal, "effective_discount_pct", None)
+        or getattr(deal, "discount_pct", None)
+        or getattr(deal, "discount_percent", None)
+        or 0.0
+    )
+    rat = getattr(deal, "rating", None)
+
+    expected_comm = round(price * rate, 2)
+    score = calculate_epc_score(
+        effective_price=price,
+        commission_rate=rate,
+        discount_pct=float(disc),
+        rating=float(rat) if rat is not None else None,
+        category=cat,
+    )
+
+    setattr(deal, "commission_rate", rate)
+    setattr(deal, "expected_commission", expected_comm)
+    setattr(deal, "epc_score", score)
+    return deal
+

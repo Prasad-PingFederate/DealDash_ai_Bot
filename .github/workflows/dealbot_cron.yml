@@ -78,7 +78,7 @@ jobs:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
         run: bash scripts/actions_session.sh
 
-      - name: Persist SQLite state on exit or cancellation
+      - name: Persist SQLite state and canonical feeds on exit or cancellation
         if: always()
         run: |
           python -c "from dealbot.session import database_path; from dealbot.publisher import StateStore; StateStore(str(database_path())).checkpoint()" || true
@@ -92,10 +92,44 @@ jobs:
             git reset --hard origin/main || true
             cp -f /tmp/dealbot_state_bak/*.* data/ 2>/dev/null || true
             if [ -d data ]; then
-              git add data/
+              git add -f data/deals_feed.json data/video_queue.json data/
               if ! git diff --staged --quiet; then
-                git commit -m "chore(state): sync dealbot sqlite state [skip ci]" || true
+                git commit -m "chore(feed): export canonical deals_feed.json and video_queue.json [skip ci]" || true
                 git push origin HEAD:main || true
               fi
             fi
           '
+
+      - name: Trigger Downstream Repository Dispatches (BharatBazaro & LeadForge-Video)
+        if: always()
+        env:
+          DISPATCH_PAT: ${{ secrets.DISPATCH_PAT }}
+        run: |
+          if [ -z "${DISPATCH_PAT:-}" ]; then
+            echo "::warning::DISPATCH_PAT secret is missing. Downstream repository_dispatch triggers skipped."
+            exit 0
+          fi
+
+          echo "Dispatching 'deals_updated' to Prasad-PingFederate/bharatbazaro..."
+          curl -s -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${DISPATCH_PAT}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Prasad-PingFederate/bharatbazaro/dispatches \
+            -d '{"event_type":"deals_updated"}' || echo "::warning::Failed to dispatch to bharatbazaro"
+
+          IST_HOUR=$(python -c 'from datetime import datetime, timezone, timedelta; print(datetime.now(timezone(timedelta(hours=5, minutes=30))).hour)')
+          echo "Current IST Hour: ${IST_HOUR}"
+          if [ "$IST_HOUR" -eq 10 ] || [ "$IST_HOUR" -eq 15 ] || [ "$IST_HOUR" -eq 20 ]; then
+            echo "Dispatching 'render_top_deals' to Prasad-PingFederate/LeadForge-Video (slot ${IST_HOUR}:00 IST)..."
+            curl -s -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${DISPATCH_PAT}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/Prasad-PingFederate/LeadForge-Video/dispatches \
+              -d '{"event_type":"render_top_deals"}' || echo "::warning::Failed to dispatch to LeadForge-Video"
+          else
+            echo "LeadForge-Video scheduled render runs at 10, 15, and 20 IST (current hour: ${IST_HOUR}). Skipping video render dispatch."
+          fi
