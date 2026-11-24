@@ -1,13 +1,13 @@
 {
-  "timestamp_ist": "2026-11-23 17:03:50 IST",
-  "timestamp_epoch": 1795433630,
+  "timestamp_ist": "2026-11-24 18:37:39 IST",
+  "timestamp_epoch": 1795525659,
   "overall_status": "DEGRADED",
   "checks": [
     {
       "name": "Gemini API",
       "status": "failed",
       "model": "gemini-2.5-flash",
-      "latency_ms": 241,
+      "latency_ms": 101,
       "detail": "HTTP 404: {\n  \"error\": {\n    \"code\": 404,\n    \"message\": \"This model models/gemini-2.5-flash is no longer available to new users. "
     },
     {
@@ -21,7 +21,7 @@
       "name": "OpenRouter Fallback",
       "status": "failed",
       "model": "google/gemma-4-26b-a4b-it:free",
-      "latency_ms": 436,
+      "latency_ms": 229,
       "detail": "All candidate models in fallback chain failed"
     },
     {
@@ -35,7 +35,7 @@
       "name": "Deal Discovery Feeds",
       "status": "ok",
       "candidate_count": 34,
-      "latency_ms": 7215,
+      "latency_ms": 847,
       "detail": "Discovered 34 candidates across live feeds"
     },
     {
@@ -43,30 +43,30 @@
       "status": "warning",
       "stock_status": "unknown",
       "live_price": "N/A",
-      "latency_ms": 233,
+      "latency_ms": 136,
       "detail": "Status: unknown, Price: \u20b9N/A"
     },
     {
       "name": "SQLite Integrity",
       "status": "ok",
-      "active_deals": 190,
+      "active_deals": 191,
       "integrity": "ok",
-      "latency_ms": 5,
-      "detail": "PRAGMA: ok, Active Deals: 190"
+      "latency_ms": 10,
+      "detail": "PRAGMA: ok, Active Deals: 191"
     },
     {
       "name": "BharatBazaro Live",
       "status": "ok",
-      "live_deals": 141,
-      "feed_age_min": 508,
-      "latency_ms": 175,
-      "detail": "141 live deals online (synced 508m ago)"
+      "live_deals": 250,
+      "feed_age_min": 164,
+      "latency_ms": 68,
+      "detail": "250 live deals online (synced 164m ago)"
     },
     {
       "name": "Telegram Bot API",
       "status": "ok",
       "bot_username": "DealDash_ai_Bot",
-      "latency_ms": 442,
+      "latency_ms": 250,
       "detail": "@DealDash_ai_Bot -> Flash Deals 24/7"
     }
   ]
