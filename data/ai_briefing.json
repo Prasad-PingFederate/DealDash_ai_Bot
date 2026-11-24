@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-23 21:18 IST",
-  "generated_at_epoch": 1795448890,
+  "generated_at_ist": "2026-11-24 08:40 IST",
+  "generated_at_epoch": 1795489842,
   "top_loot_summary": [
     {
       "asin": "B0BBWH1R8H",
@@ -97,15 +97,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795448880,
-    "last_verified_at_epoch": 1795448880,
-    "last_verified_at_ist": "2026-11-23 21:18 IST",
+    "posted_at_epoch": 1795489831,
+    "last_verified_at_epoch": 1795489831,
+    "last_verified_at_ist": "2026-11-24 08:40 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795448880,
-    "updated_at_ist": "2026-11-23 21:18 IST"
+    "updated_at": 1795489831,
+    "updated_at_ist": "2026-11-24 08:40 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -149,15 +149,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795448880,
-    "last_verified_at_epoch": 1795448880,
-    "last_verified_at_ist": "2026-11-23 21:18 IST",
+    "posted_at_epoch": 1795489831,
+    "last_verified_at_epoch": 1795489831,
+    "last_verified_at_ist": "2026-11-24 08:40 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795448880,
-    "updated_at_ist": "2026-11-23 21:18 IST"
+    "updated_at": 1795489831,
+    "updated_at_ist": "2026-11-24 08:40 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -189,11 +189,11 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B008A2796H",
-      "title": "Dettol Liquid Disinfectant Cleaner for Laundry & Personal Care, 1 Litre (Pack of 2)",
-      "effective_price": 349,
-      "discount_pct": 44,
-      "deal_url": "https://bharatbazaro.com/deal/B008A2796H.html"
+      "asin": "B07V2QJ412",
+      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
+      "effective_price": 549,
+      "discount_pct": 23,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
     }
   },
   "market_stats": {
