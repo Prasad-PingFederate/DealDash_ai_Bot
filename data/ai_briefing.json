@@ -1,7 +1,33 @@
 {
-  "generated_at_ist": "2026-11-25 17:18 IST",
-  "generated_at_epoch": 1795607288,
+  "generated_at_ist": "2026-11-25 18:22 IST",
+  "generated_at_epoch": 1795611168,
   "top_loot_summary": [
+    {
+      "asin": "B0B8NTZ24L",
+      "title": "Puma Unisex Smashic Casual Sneakers (White & Black)",
+      "effective_price": 1899,
+      "mrp": 4499,
+      "discount_pct": 58,
+      "savings_inr": 2600,
+      "brand": "Puma",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B0B8NTZ24L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0B8NTZ24L.html",
+      "coupon_text": null
+    },
+    {
+      "asin": "B0B8NTZ24P",
+      "title": "boAt Wave Call 2 Smart Watch with 1.83 inch HD Display & Bluetooth Calling",
+      "effective_price": 1199,
+      "mrp": 6990,
+      "discount_pct": 83,
+      "savings_inr": 5791,
+      "brand": "boAt",
+      "category": "Fashion & Footwear",
+      "affiliate_url": "https://www.amazon.in/dp/B0B8NTZ24P?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0B8NTZ24P.html",
+      "coupon_text": null
+    },
     {
       "asin": "B09WDP4MMK",
       "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
@@ -40,35 +66,60 @@
       "affiliate_url": "https://www.amazon.in/dp/B091CR2FXY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B091CR2FXY.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0BF54979B",
-      "title": "Fire-Boltt Ninja Call Pro Plus 1.83 inch Smart Watch with AI Voice Assistant",
-      "effective_price": 1099,
-      "mrp": 9999,
-      "discount_pct": 89,
-      "savings_inr": 8900,
-      "brand": "Fire-Boltt",
-      "category": "Fashion & Footwear",
-      "affiliate_url": "https://www.amazon.in/dp/B0BF54979B?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BF54979B.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B0BN8H1L7L",
-      "title": "Philips Air Fryer HD9200/90 4.1 Litre Rapid Air Technology with 90% Less Fat Cooking",
-      "effective_price": 5499,
-      "mrp": 9995,
-      "discount_pct": 45,
-      "savings_inr": 4496,
-      "brand": "Philips",
-      "category": "Home & Kitchen",
-      "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
-      "coupon_text": null
     }
   ],
-  "best_coupon_deal": null,
+  "best_coupon_deal": {
+    "id": "amazon:B0GYX5TFJ5",
+    "asin": "B0GYX5TFJ5",
+    "title": "Havells Gatik Pro 400mm BLDC Pedestal Fan| 120 Ribs Guard for Safety| Smooth Oscillation| Heavy Base| ISI Marked | 2 Year Warranty | Black",
+    "brand": "Havells",
+    "brand_tier": "tier1",
+    "category": "Electronics & Audio",
+    "image_url": "https://m.media-amazon.com/images/P/B0GYX5TFJ5.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B0GYX5TFJ5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 6790,
+    "list_price": 3000,
+    "effective_price": 2110,
+    "coupon_discount": 890,
+    "coupon_text": "Apply ₹890 coupon",
+    "promo_code": null,
+    "bank_offer": null,
+    "discount_pct": 56,
+    "effective_discount_pct": 56,
+    "savings_inr": 4680,
+    "rating": null,
+    "review_count": null,
+    "score": 75,
+    "buy_confidence": 91,
+    "price_context": "real_drop",
+    "historical_min": null,
+    "historical_avg": null,
+    "historical_max": null,
+    "is_loot": false,
+    "is_diwali_steal": true,
+    "is_cookie_magnet": false,
+    "is_daily_essential": false,
+    "is_further_drop": false,
+    "source_count": 1,
+    "extra_offers": [],
+    "claim_steps": [
+      "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
+      "☑️ Look below the price on Amazon and check the 'Apply ₹890 coupon' box.",
+      "🎉 Complete checkout at the effective deal price of ₹2,110!"
+    ],
+    "expired": false,
+    "price_spiked": false,
+    "posted_to_telegram": false,
+    "posted_at_epoch": 1795611141,
+    "last_verified_at_epoch": 1795611141,
+    "last_verified_at_ist": "2026-11-25 18:22 IST",
+    "age_hours": 0.0,
+    "trending_score": 75.0,
+    "is_new": true,
+    "is_fresh": true,
+    "updated_at": 1795611141,
+    "updated_at_ist": "2026-11-25 18:22 IST"
+  },
   "best_under_299": {
     "id": "amazon:B008T1V3KC",
     "asin": "B008T1V3KC",
@@ -110,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795607240,
-    "last_verified_at_epoch": 1795607240,
-    "last_verified_at_ist": "2026-11-25 17:17 IST",
+    "posted_at_epoch": 1795611141,
+    "last_verified_at_epoch": 1795611141,
+    "last_verified_at_ist": "2026-11-25 18:22 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795607240,
-    "updated_at_ist": "2026-11-25 17:17 IST"
+    "updated_at": 1795611141,
+    "updated_at_ist": "2026-11-25 18:22 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +213,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795607240,
-    "last_verified_at_epoch": 1795607240,
-    "last_verified_at_ist": "2026-11-25 17:17 IST",
+    "posted_at_epoch": 1795611141,
+    "last_verified_at_epoch": 1795611141,
+    "last_verified_at_ist": "2026-11-25 18:22 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795607240,
-    "updated_at_ist": "2026-11-25 17:17 IST"
+    "updated_at": 1795611141,
+    "updated_at_ist": "2026-11-25 18:22 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -210,9 +261,9 @@
     }
   },
   "market_stats": {
-    "total_deals": 161,
-    "loot_count": 4,
+    "total_deals": 162,
+    "loot_count": 6,
     "max_discount_pct": 89,
-    "total_savings_inr": 576475
+    "total_savings_inr": 581155
   }
 }
