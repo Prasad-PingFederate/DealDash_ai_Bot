@@ -1,7 +1,33 @@
 {
-  "generated_at_ist": "2026-11-25 18:22 IST",
-  "generated_at_epoch": 1795611168,
+  "generated_at_ist": "2026-11-25 19:07 IST",
+  "generated_at_epoch": 1795613850,
   "top_loot_summary": [
+    {
+      "asin": "B0GYX5TFJ5",
+      "title": "Havells Gatik Pro 400mm BLDC Pedestal Fan| 120 Ribs Guard for Safety| Smooth Oscillation| Heavy Base| ISI Marked | 2 Year Warranty | Black",
+      "effective_price": 1702,
+      "mrp": 6790,
+      "discount_pct": 56,
+      "savings_inr": 5088,
+      "brand": "Havells",
+      "category": "Home & Kitchen",
+      "affiliate_url": "https://www.amazon.in/dp/B0GYX5TFJ5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0GYX5TFJ5.html",
+      "coupon_text": "Apply ₹890 on-page coupon"
+    },
+    {
+      "asin": "B00W7D765E",
+      "title": "Wonderchef Nutri-blend 400W Mixer Grinder Blender with 2 Unbreakable Jars",
+      "effective_price": 2399,
+      "mrp": 5000,
+      "discount_pct": 52,
+      "savings_inr": 2601,
+      "brand": "Wonderchef",
+      "category": "Home & Kitchen",
+      "affiliate_url": "https://www.amazon.in/dp/B00W7D765E?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B00W7D765E.html",
+      "coupon_text": null
+    },
     {
       "asin": "B0B8NTZ24L",
       "title": "Puma Unisex Smashic Casual Sneakers (White & Black)",
@@ -40,32 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B08HN6PCDJ",
-      "title": "Philips Digital Air Fryer HD9252/90 (4.1 Litre, 1400W Rapid Air Technology)",
-      "effective_price": 6999,
-      "mrp": 11995,
-      "discount_pct": 42,
-      "savings_inr": 4996,
-      "brand": "Philips",
-      "category": "Home & Kitchen",
-      "affiliate_url": "https://www.amazon.in/dp/B08HN6PCDJ?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B08HN6PCDJ.html",
-      "coupon_text": null
-    },
-    {
-      "asin": "B091CR2FXY",
-      "title": "AGARO Regency Air Fryer 12L 1800W with 9 Preset Menus & Rotisserie",
-      "effective_price": 7499,
-      "mrp": 15999,
-      "discount_pct": 53,
-      "savings_inr": 8500,
-      "brand": "Agaro",
-      "category": "Home & Kitchen",
-      "affiliate_url": "https://www.amazon.in/dp/B091CR2FXY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B091CR2FXY.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": {
@@ -74,28 +74,28 @@
     "title": "Havells Gatik Pro 400mm BLDC Pedestal Fan| 120 Ribs Guard for Safety| Smooth Oscillation| Heavy Base| ISI Marked | 2 Year Warranty | Black",
     "brand": "Havells",
     "brand_tier": "tier1",
-    "category": "Electronics & Audio",
+    "category": "Home & Kitchen",
     "image_url": "https://m.media-amazon.com/images/P/B0GYX5TFJ5.jpg",
     "affiliate_url": "https://www.amazon.in/dp/B0GYX5TFJ5?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
     "mrp": 6790,
-    "list_price": 3000,
-    "effective_price": 2110,
+    "list_price": 2592,
+    "effective_price": 1702,
     "coupon_discount": 890,
-    "coupon_text": "Apply ₹890 coupon",
+    "coupon_text": "Apply ₹890 on-page coupon",
     "promo_code": null,
     "bank_offer": null,
     "discount_pct": 56,
     "effective_discount_pct": 56,
-    "savings_inr": 4680,
+    "savings_inr": 5088,
     "rating": null,
     "review_count": null,
-    "score": 75,
+    "score": 115,
     "buy_confidence": 91,
     "price_context": "real_drop",
     "historical_min": null,
     "historical_avg": null,
     "historical_max": null,
-    "is_loot": false,
+    "is_loot": true,
     "is_diwali_steal": true,
     "is_cookie_magnet": false,
     "is_daily_essential": false,
@@ -104,20 +104,20 @@
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "☑️ Look below the price on Amazon and check the 'Apply ₹890 coupon' box.",
-      "🎉 Complete checkout at the effective deal price of ₹2,110!"
+      "☑️ Look below the price on Amazon and check the 'Apply ₹890 on-page coupon' box.",
+      "🎉 Complete checkout at the effective deal price of ₹1,702!"
     ],
     "expired": false,
     "price_spiked": false,
-    "posted_to_telegram": false,
-    "posted_at_epoch": 1795611141,
-    "last_verified_at_epoch": 1795611141,
+    "posted_to_telegram": true,
+    "posted_at_epoch": 1795611122,
+    "last_verified_at_epoch": 1795611122,
     "last_verified_at_ist": "2026-11-25 18:22 IST",
-    "age_hours": 0.0,
-    "trending_score": 75.0,
+    "age_hours": 0.8,
+    "trending_score": 115.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795611141,
+    "updated_at": 1795611122,
     "updated_at_ist": "2026-11-25 18:22 IST"
   },
   "best_under_299": {
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795611141,
-    "last_verified_at_epoch": 1795611141,
-    "last_verified_at_ist": "2026-11-25 18:22 IST",
+    "posted_at_epoch": 1795613828,
+    "last_verified_at_epoch": 1795613828,
+    "last_verified_at_ist": "2026-11-25 19:07 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795611141,
-    "updated_at_ist": "2026-11-25 18:22 IST"
+    "updated_at": 1795613828,
+    "updated_at_ist": "2026-11-25 19:07 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -213,15 +213,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795611141,
-    "last_verified_at_epoch": 1795611141,
-    "last_verified_at_ist": "2026-11-25 18:22 IST",
+    "posted_at_epoch": 1795613828,
+    "last_verified_at_epoch": 1795613828,
+    "last_verified_at_ist": "2026-11-25 19:07 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795611141,
-    "updated_at_ist": "2026-11-25 18:22 IST"
+    "updated_at": 1795613828,
+    "updated_at_ist": "2026-11-25 19:07 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -253,17 +253,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07V2QJ412",
-      "title": "Cetaphil Gentle Skin Cleanser 500ml for Sensitive Skin with Niacinamide",
-      "effective_price": 549,
-      "discount_pct": 23,
-      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ412.html"
+      "asin": "B07V2QJ419",
+      "title": "Beardo Godfather Beard Oil 30ml + Beard Wash 100ml Grooming Combo Pack",
+      "effective_price": 349,
+      "discount_pct": 46,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ419.html"
     }
   },
   "market_stats": {
     "total_deals": 162,
-    "loot_count": 6,
+    "loot_count": 8,
     "max_discount_pct": 89,
-    "total_savings_inr": 581155
+    "total_savings_inr": 581563
   }
 }
