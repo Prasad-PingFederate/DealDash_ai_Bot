@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-24 21:55 IST",
-  "generated_at_epoch": 1795537518,
+  "generated_at_ist": "2026-11-25 16:12 IST",
+  "generated_at_epoch": 1795603370,
   "top_loot_summary": [
+    {
+      "asin": "B09WDP4MMK",
+      "title": "Samsung 24-inch FHD Flat IPS Monitor (75Hz, AMD FreeSync, Borderless Design)",
+      "effective_price": 7999,
+      "mrp": 16100,
+      "discount_pct": 50,
+      "savings_inr": 8101,
+      "brand": "Samsung",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B09WDP4MMK?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B09WDP4MMK.html",
+      "coupon_text": null
+    },
     {
       "asin": "B08HN6PCDJ",
       "title": "Philips Digital Air Fryer HD9252/90 (4.1 Litre, 1400W Rapid Air Technology)",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0B25L78CD",
-      "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
-      "effective_price": 5299,
-      "mrp": 11000,
-      "discount_pct": 52,
-      "savings_inr": 5701,
-      "brand": "Crucial",
-      "category": "Laptops & Computing",
-      "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,67 +110,66 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795537500,
-    "last_verified_at_epoch": 1795537500,
-    "last_verified_at_ist": "2026-11-24 21:55 IST",
+    "posted_at_epoch": 1795603341,
+    "last_verified_at_epoch": 1795603341,
+    "last_verified_at_ist": "2026-11-25 16:12 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795537500,
-    "updated_at_ist": "2026-11-24 21:55 IST"
+    "updated_at": 1795603341,
+    "updated_at_ist": "2026-11-25 16:12 IST"
   },
   "best_tier1_deal": {
-    "id": "amazon:B0CHX1W1XY",
-    "asin": "B0CHX1W1XY",
-    "title": "Apple iPhone 15 (128 GB) - Black",
-    "brand": "Apple",
+    "id": "amazon:B094RYJQ1K",
+    "asin": "B094RYJQ1K",
+    "title": "Garnier Bright Complete Skin Naturals Vitamin C Face Wash, 150g(Pack of 2)",
+    "brand": "Garnier",
     "brand_tier": "tier1",
-    "category": "Mobiles & Accessories",
-    "image_url": "https://m.media-amazon.com/images/I/31KxpX7Xk7L.jpg",
-    "affiliate_url": "https://www.amazon.in/dp/B0CHX1W1XY?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-    "mrp": 79900,
-    "list_price": 57999,
-    "effective_price": 57999,
+    "category": "Personal Care & Grocery",
+    "image_url": "https://m.media-amazon.com/images/P/B094RYJQ1K.jpg",
+    "affiliate_url": "https://www.amazon.in/dp/B094RYJQ1K?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+    "mrp": 758,
+    "list_price": 318,
+    "effective_price": 318,
     "coupon_discount": null,
     "coupon_text": null,
     "promo_code": null,
-    "bank_offer": "Instant ₹4,000 Discount with SBI Credit Card",
-    "discount_pct": 27,
-    "effective_discount_pct": 27,
-    "savings_inr": 21901,
-    "rating": 4.6,
-    "review_count": 9480,
+    "bank_offer": null,
+    "discount_pct": 58,
+    "effective_discount_pct": 58,
+    "savings_inr": 440,
+    "rating": null,
+    "review_count": null,
     "score": 75,
-    "buy_confidence": 95,
-    "price_context": "normal",
+    "buy_confidence": 99,
+    "price_context": "real_drop",
     "historical_min": null,
     "historical_avg": null,
     "historical_max": null,
     "is_loot": false,
-    "is_diwali_steal": true,
-    "is_cookie_magnet": false,
-    "is_daily_essential": false,
+    "is_diwali_steal": false,
+    "is_cookie_magnet": true,
+    "is_daily_essential": true,
     "is_further_drop": false,
     "source_count": 1,
     "extra_offers": [],
     "claim_steps": [
       "🛒 Click 'Grab Deal' to open the official Amazon India product page.",
-      "💳 Select eligible card/payment for instant bank discount: Instant ₹4,000 Discount with SBI Credit Card.",
-      "🎉 Complete checkout at the effective deal price of ₹57,999!"
+      "🎉 Complete checkout at the effective deal price of ₹318!"
     ],
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795537500,
-    "last_verified_at_epoch": 1795537500,
-    "last_verified_at_ist": "2026-11-24 21:55 IST",
+    "posted_at_epoch": 1795603341,
+    "last_verified_at_epoch": 1795603341,
+    "last_verified_at_ist": "2026-11-25 16:12 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795537500,
-    "updated_at_ist": "2026-11-24 21:55 IST"
+    "updated_at": 1795603341,
+    "updated_at_ist": "2026-11-25 16:12 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B08XVVPV6A",
-      "title": "Happilo 100% Natural Premium California Almonds 500g Value Pack Pouch",
-      "effective_price": 369,
-      "discount_pct": 47,
-      "deal_url": "https://bharatbazaro.com/deal/B08XVVPV6A.html"
+      "asin": "B094RYJQ1K",
+      "title": "Garnier Bright Complete Skin Naturals Vitamin C Face Wash, 150g(Pack of 2)",
+      "effective_price": 318,
+      "discount_pct": 58,
+      "deal_url": "https://bharatbazaro.com/deal/B094RYJQ1K.html"
     }
   },
   "market_stats": {
-    "total_deals": 167,
-    "loot_count": 6,
+    "total_deals": 161,
+    "loot_count": 4,
     "max_discount_pct": 89,
-    "total_savings_inr": 596284
+    "total_savings_inr": 576475
   }
 }
