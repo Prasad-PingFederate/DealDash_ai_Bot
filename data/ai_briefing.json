@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-25 19:07 IST",
-  "generated_at_epoch": 1795613850,
+  "generated_at_ist": "2026-11-25 20:12 IST",
+  "generated_at_epoch": 1795617752,
   "top_loot_summary": [
     {
       "asin": "B0GYX5TFJ5",
@@ -113,7 +113,7 @@
     "posted_at_epoch": 1795611122,
     "last_verified_at_epoch": 1795611122,
     "last_verified_at_ist": "2026-11-25 18:22 IST",
-    "age_hours": 0.8,
+    "age_hours": 1.8,
     "trending_score": 115.0,
     "is_new": true,
     "is_fresh": true,
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795613828,
-    "last_verified_at_epoch": 1795613828,
-    "last_verified_at_ist": "2026-11-25 19:07 IST",
+    "posted_at_epoch": 1795617730,
+    "last_verified_at_epoch": 1795617730,
+    "last_verified_at_ist": "2026-11-25 20:12 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795613828,
-    "updated_at_ist": "2026-11-25 19:07 IST"
+    "updated_at": 1795617730,
+    "updated_at_ist": "2026-11-25 20:12 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -213,15 +213,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795613828,
-    "last_verified_at_epoch": 1795613828,
-    "last_verified_at_ist": "2026-11-25 19:07 IST",
+    "posted_at_epoch": 1795617730,
+    "last_verified_at_epoch": 1795617730,
+    "last_verified_at_ist": "2026-11-25 20:12 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795613828,
-    "updated_at_ist": "2026-11-25 19:07 IST"
+    "updated_at": 1795617730,
+    "updated_at_ist": "2026-11-25 20:12 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -253,17 +253,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B07V2QJ419",
-      "title": "Beardo Godfather Beard Oil 30ml + Beard Wash 100ml Grooming Combo Pack",
-      "effective_price": 349,
-      "discount_pct": 46,
-      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ419.html"
+      "asin": "B0BHTNWSZF",
+      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
+      "effective_price": 389,
+      "discount_pct": 51,
+      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
     }
   },
   "market_stats": {
     "total_deals": 162,
-    "loot_count": 8,
-    "max_discount_pct": 89,
-    "total_savings_inr": 581563
+    "loot_count": 7,
+    "max_discount_pct": 83,
+    "total_savings_inr": 619944
   }
 }
