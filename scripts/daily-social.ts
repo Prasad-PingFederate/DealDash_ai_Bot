@@ -126,7 +126,10 @@ async function main(): Promise<void> {
       ["## BharatBazaro daily posts", "", ...result.lines.map((line) => line.startsWith("---") ? `\n\`\`\`\n${line}\n\`\`\`\n` : line)].join("\n"),
     );
   }
-  if (result.failed && !dryRun && channels.length > 0) /* savePostedBeforeExit */ try { if (typeof saveHistory === 'function') saveHistory(); } catch (_) {} process.exit(1);
+  if (result.failed && !dryRun && channels.length > 0) {
+    /* savePostedBeforeExit */ try { if (typeof saveHistory === 'function') saveHistory(); } catch (_) {}
+    process.exit(1);
+  }
 }
 
 const entry = process.argv[1] ?? "";
