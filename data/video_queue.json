@@ -14,24 +14,7 @@
     "image_url": "https://m.media-amazon.com/images/P/B0BC8P3X64.jpg",
     "base_affiliate_url": "https://www.amazon.in/dp/B0BC8P3X64?tag=dammaiprasad-21",
     "video_eligible": true,
-    "updated_at": "2026-11-26T14:12:42Z"
-  },
-  {
-    "asin": "B0CYQ4M4N5",
-    "title": "Sony Bravia 55 inches 4K Ultra HD Smart LED Google TV KD-55X74L",
-    "category": "Electronics & Audio",
-    "mrp": 99900,
-    "live_price": 52990,
-    "coupon_discount": 0,
-    "effective_price": 52990,
-    "commission_rate": 0.015,
-    "expected_commission": 794.85,
-    "epc_score": 365.17,
-    "rating": 4.7,
-    "image_url": "https://m.media-amazon.com/images/P/B0CYQ4M4N5.jpg",
-    "base_affiliate_url": "https://www.amazon.in/dp/B0CYQ4M4N5?tag=dammaiprasad-21",
-    "video_eligible": true,
-    "updated_at": "2026-11-26T14:12:42Z"
+    "updated_at": "2026-11-26T15:17:45Z"
   },
   {
     "asin": "B008A2796G",
@@ -48,6 +31,23 @@
     "image_url": "https://m.media-amazon.com/images/P/B008A2796G.jpg",
     "base_affiliate_url": "https://www.amazon.in/dp/B008A2796G?tag=dammaiprasad-21",
     "video_eligible": true,
-    "updated_at": "2026-11-26T14:12:42Z"
+    "updated_at": "2026-11-26T15:17:45Z"
+  },
+  {
+    "asin": "B0CHX24XGQ",
+    "title": "Acer Nitro V Gaming Laptop 13th Gen Intel Core i5 (RTX 4050 6GB Graphics, 144Hz)",
+    "category": "Laptops & Computing",
+    "mrp": 92999,
+    "live_price": 69990,
+    "coupon_discount": 0,
+    "effective_price": 69990,
+    "commission_rate": 0.015,
+    "expected_commission": 1049.85,
+    "epc_score": 256.56,
+    "rating": 4.3,
+    "image_url": "https://m.media-amazon.com/images/P/B0CHX24XGQ.jpg",
+    "base_affiliate_url": "https://www.amazon.in/dp/B0CHX24XGQ?tag=dammaiprasad-21",
+    "video_eligible": true,
+    "updated_at": "2026-11-26T15:17:45Z"
   }
 ]
