@@ -14,24 +14,7 @@
     "image_url": "https://m.media-amazon.com/images/P/B0BC8P3X64.jpg",
     "base_affiliate_url": "https://www.amazon.in/dp/B0BC8P3X64?tag=dammaiprasad-21",
     "video_eligible": true,
-    "updated_at": "2026-11-26T15:17:45Z"
-  },
-  {
-    "asin": "B008A2796G",
-    "title": "Fossil Grant Chronograph Dark Brown Leather Strap Mens Watch",
-    "category": "Fashion & Footwear",
-    "mrp": 13995,
-    "live_price": 6995,
-    "coupon_discount": 0,
-    "effective_price": 6995,
-    "commission_rate": 0.08,
-    "expected_commission": 559.6,
-    "epc_score": 273.5,
-    "rating": 4.5,
-    "image_url": "https://m.media-amazon.com/images/P/B008A2796G.jpg",
-    "base_affiliate_url": "https://www.amazon.in/dp/B008A2796G?tag=dammaiprasad-21",
-    "video_eligible": true,
-    "updated_at": "2026-11-26T15:17:45Z"
+    "updated_at": "2026-11-27T13:05:49Z"
   },
   {
     "asin": "B0CHX24XGQ",
@@ -48,6 +31,23 @@
     "image_url": "https://m.media-amazon.com/images/P/B0CHX24XGQ.jpg",
     "base_affiliate_url": "https://www.amazon.in/dp/B0CHX24XGQ?tag=dammaiprasad-21",
     "video_eligible": true,
-    "updated_at": "2026-11-26T15:17:45Z"
+    "updated_at": "2026-11-27T13:05:49Z"
+  },
+  {
+    "asin": "B0B3C9L764",
+    "title": "Apple MacBook Air Laptop with M2 chip (13.6-inch Liquid Retina, 8GB RAM, 256GB SSD)",
+    "category": "Laptops & Computing",
+    "mrp": 99900,
+    "live_price": 79990,
+    "coupon_discount": 0,
+    "effective_price": 79990,
+    "commission_rate": 0.015,
+    "expected_commission": 1199.85,
+    "epc_score": 234.57,
+    "rating": 4.7,
+    "image_url": "https://m.media-amazon.com/images/P/B0B3C9L764.jpg",
+    "base_affiliate_url": "https://www.amazon.in/dp/B0B3C9L764?tag=dammaiprasad-21",
+    "video_eligible": true,
+    "updated_at": "2026-11-27T13:05:49Z"
   }
 ]
