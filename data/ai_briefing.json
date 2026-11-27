@@ -1,7 +1,20 @@
 {
-  "generated_at_ist": "2026-11-27 19:40 IST",
-  "generated_at_epoch": 1795788654,
+  "generated_at_ist": "2026-11-27 20:45 IST",
+  "generated_at_epoch": 1795792557,
   "top_loot_summary": [
+    {
+      "asin": "B0B25L78CD",
+      "title": "Crucial P3 1TB PCIe 3.0 3D NAND NVMe M.2 SSD up to 3500MB/s",
+      "effective_price": 5299,
+      "mrp": 11000,
+      "discount_pct": 52,
+      "savings_inr": 5701,
+      "brand": "Crucial",
+      "category": "Laptops & Computing",
+      "affiliate_url": "https://www.amazon.in/dp/B0B25L78CD?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
+      "deal_url": "https://bharatbazaro.com/deal/B0B25L78CD.html",
+      "coupon_text": null
+    },
     {
       "asin": "B091CR2FXY",
       "title": "AGARO Regency Air Fryer 12L 1800W with 9 Preset Menus & Rotisserie",
@@ -53,19 +66,6 @@
       "affiliate_url": "https://www.amazon.in/dp/B0BN8H1L7L?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
       "deal_url": "https://bharatbazaro.com/deal/B0BN8H1L7L.html",
       "coupon_text": null
-    },
-    {
-      "asin": "B0BBWH1R8H",
-      "title": "Kingston NV2 1TB M.2 2280 NVMe Internal SSD (PCIe 4.0 Gen 4x4)",
-      "effective_price": 5499,
-      "mrp": 10500,
-      "discount_pct": 48,
-      "savings_inr": 5001,
-      "brand": "Kingston",
-      "category": "Laptops & Computing",
-      "affiliate_url": "https://www.amazon.in/dp/B0BBWH1R8H?tag=dammaiprasad-21&linkCode=ll1&ascsubtag=bb-grid",
-      "deal_url": "https://bharatbazaro.com/deal/B0BBWH1R8H.html",
-      "coupon_text": null
     }
   ],
   "best_coupon_deal": null,
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795788639,
-    "last_verified_at_epoch": 1795788639,
-    "last_verified_at_ist": "2026-11-27 19:40 IST",
+    "posted_at_epoch": 1795792541,
+    "last_verified_at_epoch": 1795792541,
+    "last_verified_at_ist": "2026-11-27 20:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795788639,
-    "updated_at_ist": "2026-11-27 19:40 IST"
+    "updated_at": 1795792541,
+    "updated_at_ist": "2026-11-27 20:45 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0CHX1W1XY",
@@ -162,15 +162,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795788639,
-    "last_verified_at_epoch": 1795788639,
-    "last_verified_at_ist": "2026-11-27 19:40 IST",
+    "posted_at_epoch": 1795792541,
+    "last_verified_at_epoch": 1795792541,
+    "last_verified_at_ist": "2026-11-27 20:45 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795788639,
-    "updated_at_ist": "2026-11-27 19:40 IST"
+    "updated_at": 1795792541,
+    "updated_at_ist": "2026-11-27 20:45 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -202,17 +202,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B08XVVPV6A",
-      "title": "Happilo 100% Natural Premium California Almonds 500g Value Pack Pouch",
-      "effective_price": 369,
-      "discount_pct": 47,
-      "deal_url": "https://bharatbazaro.com/deal/B08XVVPV6A.html"
+      "asin": "B07V2QJ419",
+      "title": "Beardo Godfather Beard Oil 30ml + Beard Wash 100ml Grooming Combo Pack",
+      "effective_price": 349,
+      "discount_pct": 46,
+      "deal_url": "https://bharatbazaro.com/deal/B07V2QJ419.html"
     }
   },
   "market_stats": {
     "total_deals": 163,
     "loot_count": 3,
     "max_discount_pct": 89,
-    "total_savings_inr": 583676
+    "total_savings_inr": 622288
   }
 }
