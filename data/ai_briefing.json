@@ -1,6 +1,6 @@
 {
-  "generated_at_ist": "2026-11-28 18:54 IST",
-  "generated_at_epoch": 1795872252,
+  "generated_at_ist": "2026-11-28 19:59 IST",
+  "generated_at_epoch": 1795876180,
   "top_loot_summary": [
     {
       "asin": "B08HN6PCDJ",
@@ -110,15 +110,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795872228,
-    "last_verified_at_epoch": 1795872228,
-    "last_verified_at_ist": "2026-11-28 18:53 IST",
+    "posted_at_epoch": 1795876129,
+    "last_verified_at_epoch": 1795876129,
+    "last_verified_at_ist": "2026-11-28 19:58 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795872228,
-    "updated_at_ist": "2026-11-28 18:53 IST"
+    "updated_at": 1795876129,
+    "updated_at_ist": "2026-11-28 19:58 IST"
   },
   "best_tier1_deal": {
     "id": "amazon:B0BBWH1R8H",
@@ -161,15 +161,15 @@
     "expired": false,
     "price_spiked": false,
     "posted_to_telegram": false,
-    "posted_at_epoch": 1795872228,
-    "last_verified_at_epoch": 1795872228,
-    "last_verified_at_ist": "2026-11-28 18:53 IST",
+    "posted_at_epoch": 1795876129,
+    "last_verified_at_epoch": 1795876129,
+    "last_verified_at_ist": "2026-11-28 19:58 IST",
     "age_hours": 0.0,
     "trending_score": 75.0,
     "is_new": true,
     "is_fresh": true,
-    "updated_at": 1795872228,
-    "updated_at_ist": "2026-11-28 18:53 IST"
+    "updated_at": 1795876129,
+    "updated_at_ist": "2026-11-28 19:58 IST"
   },
   "category_highlights": {
     "mobiles": {
@@ -201,17 +201,17 @@
       "deal_url": "https://bharatbazaro.com/deal/B000LAKYW8.html"
     },
     "grocery": {
-      "asin": "B017S8S620",
-      "title": "Pears Pure & Gentle Bathing Bar Soap with 98% Pure Glycerin, 125g (Pack of 8)",
-      "effective_price": 375,
-      "discount_pct": 41,
-      "deal_url": "https://bharatbazaro.com/deal/B017S8S620.html"
+      "asin": "B0BHTNWSZF",
+      "title": "Dove Refreshing Body Wash with Cucumber and Green Tea Extract, 1 Litre Mega Pack",
+      "effective_price": 389,
+      "discount_pct": 51,
+      "deal_url": "https://bharatbazaro.com/deal/B0BHTNWSZF.html"
     }
   },
   "market_stats": {
     "total_deals": 163,
-    "loot_count": 3,
+    "loot_count": 2,
     "max_discount_pct": 83,
-    "total_savings_inr": 621285
+    "total_savings_inr": 623813
   }
 }
